@@ -1,0 +1,20 @@
+## Interface: 16001
+## Title: Freewood |cffc89b3cCore|r
+## Notes: Base addon of the Freewood family: data storage, UI kit, export/import and the main window.
+## Notes-deDE: Basis-Addon der Freewood-Familie: Datenspeicher, UI-Bausteine, Export/Import und Hauptfenster.
+## Author: Dominik
+## Version: 0.2.2
+## SavedVariables: FreewoodDB
+## SavedVariablesPerCharacter: FreewoodCharDB
+## IconTexture: Interface\AddOns\Freewood-Core\Media\FreeWood_Logo
+
+Locales.lua
+Core\Init.lua
+Core\Util.lua
+Core\Export.lua
+UI\Kit.lua
+UI\MainWindow.xml
+UI\MainWindow.lua
+UI\Tabs.lua
+UI\Minimap.lua
+Core\Slash.lua

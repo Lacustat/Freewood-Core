@@ -1,0 +1,159 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+
+    <!--
+        Hauptfenster von Freewood: nur Aufbau und Farben.
+        Verhalten (Ziehen, Tabs, Speichern der Position) steht in MainWindow.lua.
+        Farben: Hintergrund #0f131f, Kopfzeile #0c0e14, Leiste #141824, Gold #c89b3c, Bronze #9d7826.
+        Reihenfolge der Unterframes ist wichtig: spaetere verweisen auf fruehere.
+    -->
+
+    <Frame name="FreewoodMainFrame" parent="UIParent" frameStrata="HIGH" toplevel="true" movable="true" clampedToScreen="true" enableMouse="true" hidden="true">
+        <Size x="960" y="760"/>
+        <Anchors>
+            <Anchor point="CENTER"/>
+        </Anchors>
+
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture parentKey="Bg" setAllPoints="true">
+                    <Color r="0.059" g="0.075" b="0.122" a="0.97"/>
+                </Texture>
+            </Layer>
+            <Layer level="BORDER">
+                <Texture parentKey="BorderTop">
+                    <Size y="1"/>
+                    <Anchors>
+                        <Anchor point="TOPLEFT"/>
+                        <Anchor point="TOPRIGHT"/>
+                    </Anchors>
+                    <Color r="0.616" g="0.471" b="0.149" a="1"/>
+                </Texture>
+                <Texture parentKey="BorderBottom">
+                    <Size y="1"/>
+                    <Anchors>
+                        <Anchor point="BOTTOMLEFT"/>
+                        <Anchor point="BOTTOMRIGHT"/>
+                    </Anchors>
+                    <Color r="0.616" g="0.471" b="0.149" a="1"/>
+                </Texture>
+                <Texture parentKey="BorderLeft">
+                    <Size x="1"/>
+                    <Anchors>
+                        <Anchor point="TOPLEFT"/>
+                        <Anchor point="BOTTOMLEFT"/>
+                    </Anchors>
+                    <Color r="0.616" g="0.471" b="0.149" a="1"/>
+                </Texture>
+                <Texture parentKey="BorderRight">
+                    <Size x="1"/>
+                    <Anchors>
+                        <Anchor point="TOPRIGHT"/>
+                        <Anchor point="BOTTOMRIGHT"/>
+                    </Anchors>
+                    <Color r="0.616" g="0.471" b="0.149" a="1"/>
+                </Texture>
+            </Layer>
+        </Layers>
+
+        <Frames>
+            <!-- Kopfzeile mit Titel -->
+            <Frame parentKey="Header">
+                <Size y="48"/>
+                <Anchors>
+                    <Anchor point="TOPLEFT" x="1" y="-1"/>
+                    <Anchor point="TOPRIGHT" x="-1" y="-1"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="Bg" setAllPoints="true">
+                            <Color r="0.047" g="0.055" b="0.078" a="1"/>
+                        </Texture>
+                    </Layer>
+                    <Layer level="ARTWORK">
+                        <Texture parentKey="Accent">
+                            <Size y="1"/>
+                            <Anchors>
+                                <Anchor point="BOTTOMLEFT"/>
+                                <Anchor point="BOTTOMRIGHT"/>
+                            </Anchors>
+                            <Color r="0.784" g="0.608" b="0.235" a="0.55"/>
+                        </Texture>
+                        <Texture parentKey="Logo" file="Interface\AddOns\Freewood-Core\Media\FreeWood_Logo.tga">
+                            <Size x="40" y="40"/>
+                            <Anchors>
+                                <Anchor point="LEFT" x="14" y="0"/>
+                            </Anchors>
+                        </Texture>
+                        <FontString parentKey="Title" inherits="GameFontNormalLarge" justifyH="LEFT">
+                            <Anchors>
+                                <Anchor point="LEFT" relativeKey="$parent.Logo" relativePoint="RIGHT" x="10" y="0"/>
+                            </Anchors>
+                        </FontString>
+                        <FontString parentKey="Subtitle" inherits="GameFontNormalSmall" justifyH="LEFT">
+                            <Anchors>
+                                <Anchor point="LEFT" relativeKey="$parent.Title" relativePoint="RIGHT" x="12" y="-2"/>
+                            </Anchors>
+                        </FontString>
+                    </Layer>
+                </Layers>
+            </Frame>
+
+            <!-- Leiste fuer die Tabs -->
+            <Frame parentKey="TabBar">
+                <Size y="36"/>
+                <Anchors>
+                    <Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="0" y="0"/>
+                    <Anchor point="TOPRIGHT" relativeKey="$parent.Header" relativePoint="BOTTOMRIGHT" x="0" y="0"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="Bg" setAllPoints="true">
+                            <Color r="0.078" g="0.094" b="0.141" a="1"/>
+                        </Texture>
+                    </Layer>
+                    <Layer level="ARTWORK">
+                        <Texture parentKey="Line">
+                            <Size y="1"/>
+                            <Anchors>
+                                <Anchor point="BOTTOMLEFT"/>
+                                <Anchor point="BOTTOMRIGHT"/>
+                            </Anchors>
+                            <Color r="0.616" g="0.471" b="0.149" a="0.5"/>
+                        </Texture>
+                    </Layer>
+                </Layers>
+            </Frame>
+
+            <!-- Fusszeile -->
+            <Frame parentKey="Footer">
+                <Size y="26"/>
+                <Anchors>
+                    <Anchor point="BOTTOMLEFT" x="1" y="1"/>
+                    <Anchor point="BOTTOMRIGHT" x="-1" y="1"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="Bg" setAllPoints="true">
+                            <Color r="0.047" g="0.055" b="0.078" a="1"/>
+                        </Texture>
+                    </Layer>
+                    <Layer level="ARTWORK">
+                        <FontString parentKey="Left" inherits="GameFontNormalSmall" justifyH="LEFT">
+                            <Anchors>
+                                <Anchor point="LEFT" x="16" y="0"/>
+                            </Anchors>
+                        </FontString>
+                    </Layer>
+                </Layers>
+            </Frame>
+
+            <!-- Inhaltsbereich (hier setzen die Tabs ihre Frames ein) -->
+            <Frame parentKey="Content">
+                <Anchors>
+                    <Anchor point="TOPLEFT" relativeKey="$parent.TabBar" relativePoint="BOTTOMLEFT" x="20" y="-18"/>
+                    <Anchor point="BOTTOMRIGHT" relativeKey="$parent.Footer" relativePoint="TOPRIGHT" x="-20" y="12"/>
+                </Anchors>
+            </Frame>
+        </Frames>
+    </Frame>
+</Ui>
