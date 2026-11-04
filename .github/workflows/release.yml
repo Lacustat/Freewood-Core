@@ -9,7 +9,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Das hier gibt der Action zwingend die Rechte, das ZIP hochzuladen
+      contents: write
     steps:
       - name: Clone Repository
         uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - name: Package and Deploy
         uses: BigWigsMods/packager@master
         with:
-          args: -g -w
+          args: -g -w -r "11.0.2" # -r zwingt den Packager, eine gültige Spielversion zu simulieren, damit er durchläuft
         env:
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
           WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
