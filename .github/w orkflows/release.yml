@@ -3,7 +3,7 @@ name: Deploy Addon
 on:
   push:
     tags:
-      - 'v*' # Startet, sobald du ein Tag pushst, das mit "v" beginnt (z.B. v1.0.0)
+      - 'v*' # Startet automatisch bei Tags wie v0.9.9, v1.0.0 etc.
 
 jobs:
   release:
@@ -15,7 +15,9 @@ jobs:
           fetch-depth: 0
 
       - name: Package and Deploy
-        uses: BigWigsMods/packager@v2
+        uses: BigWigsMods/packager@master
+        with:
+          args: -g -w # -g erstellt das GitHub-Asset, -w lädt es direkt bei Wago.io hoch
         env:
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
-          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }} # Optional für den Direkt-Upload zu Wago
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
