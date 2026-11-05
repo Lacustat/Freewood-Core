@@ -1,4 +1,4 @@
-# Freewood-Forever-Core
+# Freewood-Core
 
 **Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.2.2 · Interface 16001 (World of Warcraft: Forever).
 
