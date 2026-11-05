@@ -195,7 +195,7 @@ local function Create(name)
         if win.flash > 0 then
             win.flash = win.flash - el
             if win.flash > 0 then
-                local on = math.mod(math.floor(win.flash * 4), 2) == 1
+                local on = (math.floor(win.flash * 4) % 2) == 1
                 if on then win.title:SetTextColor(UI.Color("goldLight")) else win.title:SetTextColor(UI.Color("text")) end
             else
                 win.title:SetTextColor(UI.Color("gold"))
