@@ -229,7 +229,15 @@ local WHO_GAP, WHO_TIMEOUT, WHO_RETRY = 6, 5, 600
 
 local forced = {}
 local memberTag = {}
+-- /who ist fuer Addons gesperrt (geschuetzte Funktion, ADDON_ACTION_BLOCKED): keine Hintergrundabfrage.
+-- Klasse/Level kommen aus Ziel, Mouseover, Gruppe, Gilde und der Gilden-/Gruppenliste.
+CL.WHO_ALLOWED = false
 function CL.Ask(name, force, member)
+    if not CL.WHO_ALLOWED then
+        -- nur der ausdrueckliche Klick im Menue (Tastendruck/Klick erlaubt die geschuetzte Funktion)
+        if force and CL.WhoNow then CL.WhoNow(name) end
+        return
+    end
     if type(name) ~= "string" or name == "" then return end
     if force then forced[name] = true end
     local c, l = CL.Info(name)
@@ -280,6 +288,11 @@ local function WhoSend(name)
     elseif G.SendWho then pcall(G.SendWho, "n-" .. name) end
 end
 
+function CL.WhoNow(name)
+    forced[name] = true
+    WhoSend(name)
+end
+
 local pump = CreateFrame("Frame")
 pump:SetScript("OnUpdate", function()
     local now = (G.GetTime and G.GetTime()) or 0
@@ -287,7 +300,7 @@ pump:SetScript("OnUpdate", function()
         if forced[whoCur] then forced[whoCur] = nil; FW:Print(whoCur .. ": ?") end
         WhoDone()
     end
-    if not whoCur and table.getn(whoQueue) > 0 and now - whoLast >= WHO_GAP then
+    if CL.WHO_ALLOWED and not whoCur and table.getn(whoQueue) > 0 and now - whoLast >= WHO_GAP then
         local name = whoQueue[1]
         local n = table.getn(whoQueue)
         local k = 1
