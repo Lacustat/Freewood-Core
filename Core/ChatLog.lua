@@ -67,8 +67,8 @@ local TOKENS = {
     paladin = "PALADIN",
     deathknight = "DEATHKNIGHT", todesritter = "DEATHKNIGHT", todesritterin = "DEATHKNIGHT",
     monk = "MONK", moench = "MONK", ["mönch"] = "MONK", ["mönchin"] = "MONK",
-    demonhunter = "DEMONHUNTER", dämonenjäger = "DEMONHUNTER", ["dämonenjägerin"] = "DEMONHUNTER",
-    evoker = "EVOKER", rufer = "EVOKER",ruferin = "EVOKER",
+    demonhunter = "DEMONHUNTER", ["dämonenjäger"] = "DEMONHUNTER", ["dämonenjägerin"] = "DEMONHUNTER",
+    evoker = "EVOKER", rufer = "EVOKER", ruferin = "EVOKER",
 }
 
 function CL.ClassToken(c)
