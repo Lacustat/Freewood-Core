@@ -15,6 +15,7 @@ Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert
 - Hauptfenster mit Reitern: jedes Modul bringt seinen eigenen Reiter mit; fehlt ein Modul, fehlt nur sein Reiter.
 - Einstellungen: Fenstergröße (50 bis 150 %) und die Optionen der einzelnen Module an einer Stelle.
 - Austausch: Datenarten (zum Beispiel Wildtiere) als Text-Code exportieren und bei einem anderen Spieler importieren. Der Code ist komprimiert, nicht verschlüsselt.
+- Beobachten-Fenster (`/fwwatch`): eigene Merkliste für Rezepte mit Materialien und Taschenbestand; andere Module (zum Beispiel Guild, später Auction) legen Rezepte hinein.
 - Minimap-Knopf, der das Fenster öffnet.
 - Gemeinsame Bausteine (Fenster, Knöpfe, Auswahlfelder, Listen) für alle Module.
 
@@ -24,6 +25,7 @@ Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert
 
 ### Befehle
 - `/fw` oder `/freewood`: Hauptfenster öffnen
+- `/fwwatch`: Beobachten-Fenster, `/fwwatch clear` leert es
 
 ### Installation
 Den Ordner `Freewood-Core` nach `World of Warcraft\_forever_\Interface\AddOns\` kopieren. Neue Dateien lädt das Spiel erst nach einem kompletten Neustart; ein `/reload` genügt nur, wenn sich bestehende Dateien geändert haben. Fehler sichtbar machen: `/console scriptErrors 1`, danach `/reload`.
@@ -46,6 +48,7 @@ The base addon of the Freewood family for World of Warcraft: Forever. It provide
 - Main window with tabs: every module adds its own tab; a missing module only removes its tab.
 - Settings: window size (50 to 150 %) and the options of all modules in one place.
 - Exchange: export data kinds (for example wild beasts) as a text code and import them on another player's game. The code is compressed, not encrypted.
+- Watch window (`/fwwatch`): its own list for recipes with materials and live bag counts; other modules (for example Guild, later Auction) put recipes into it.
 - Minimap button that opens the window.
 - Shared building blocks (windows, buttons, dropdowns, lists) for all modules.
 
@@ -55,6 +58,7 @@ The base addon of the Freewood family for World of Warcraft: Forever. It provide
 
 ### Commands
 - `/fw` oder `/freewood`: Hauptfenster öffnen
+- `/fwwatch`: watch window, `/fwwatch clear` empties it
 
 ### Installation
 Copy the folder `Freewood-Core` to `World of Warcraft\_forever_\Interface\AddOns\`. New files only load after a full game restart; a `/reload` is enough only when existing files changed. To see errors: `/console scriptErrors 1`, then `/reload`.
