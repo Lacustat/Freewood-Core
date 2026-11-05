@@ -223,7 +223,7 @@ FW:AddLocale("deDE", {
 
 FW:AddLocale("enUS", {
     TAB_CHANNELS = "Channels",
-    CHAT_CAT_STD = "OctoWoW Std.",
+    CHAT_CAT_STD = "Forever Std.",
     CHAT_CAT_OTHER = "Other channels",
     CHAT_CAT_GUILD = "Guild",
     CHAT_CAT_GROUP = "Group",
@@ -299,7 +299,7 @@ FW:AddLocale("enUS", {
 
 FW:AddLocale("deDE", {
     TAB_CHANNELS = "Kanäle",
-    CHAT_CAT_STD = "OctoWoW Std.",
+    CHAT_CAT_STD = "Forever Std.",
     CHAT_CAT_OTHER = "Weitere Kanäle",
     CHAT_CAT_GUILD = "Gilde",
     CHAT_CAT_GROUP = "Gruppe",
