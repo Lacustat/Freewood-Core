@@ -3,7 +3,7 @@
 ## Notes: Base addon of the Freewood family: data storage, UI kit, export/import and the main window.
 ## Notes-deDE: Basis-Addon der Freewood-Familie: Datenspeicher, UI-Bausteine, Export/Import und Hauptfenster.
 ## Author: Lacustat
-## Version: 0.5.4
+## Version: 0.6.0
 ## SavedVariables: FreewoodDB
 ## SavedVariablesPerCharacter: FreewoodCharDB
 ## IconTexture: Interface\AddOns\Freewood-Core\Media\FreeWood_Logo
@@ -21,6 +21,7 @@ Core\Channels.lua
 Core\ChatLog.lua
 UI\ChannelsTab.lua
 UI\WhisperPopups.lua
+UI\ChatBubbles.lua
 Core\Tooltips.lua
 Core\TooltipInfo.lua
 Core\TooltipCompare.lua

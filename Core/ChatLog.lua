@@ -380,6 +380,8 @@ function CL.Add(key, sender, text, out)
     end
     if sender and not out and not vol then CL.Ask(sender) end
     CL.version = CL.version + 1
+    local bub = FW.ChatBubbles
+    if bub and bub.Push then pcall(bub.Push, key, sender, text, out) end
 end
 
 function CL.Prune()

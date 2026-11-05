@@ -372,3 +372,43 @@ FW:AddLocale("deDE", {
     CHAN_MORE = "Mehr Treffer als angezeigt. Suche eingrenzen.",
     CHAN_EMPTY_LIST = "Noch keine Mitglieder empfangen. Aktualisieren drücken.",
 })
+
+FW:AddLocale("enUS", {
+    BUBBLE_TITLE = "Chat bubbles",
+    BUBBLE_ENABLED = "Show chat bubbles",
+    BUBBLE_GUILD = "Guild chat",
+    BUBBLE_GROUP = "Party and raid chat",
+    BUBBLE_WHISPER = "Whispers",
+    BUBBLE_CHANNELS = "Channels (General, Trade ...)",
+    BUBBLE_OWN = "Show my own messages",
+    BUBBLE_UNLOCK = "Move anchor (drag with the mouse)",
+    BUBBLE_DURATION = "Time until fade-out: %d seconds",
+    BUBBLE_DIRECTION = "Travel direction",
+    BUBBLE_DIR_UP = "Up",
+    BUBBLE_DIR_DOWN = "Down",
+    BUBBLE_DIR_LEFT = "Left",
+    BUBBLE_DIR_RIGHT = "Right",
+    BUBBLE_TEST = "Test bubble",
+    BUBBLE_TEST_TEXT = "This is a test message.",
+    BUBBLE_ANCHOR_TEXT = "Chat bubbles (drag)",
+})
+
+FW:AddLocale("deDE", {
+    BUBBLE_TITLE = "Chat-Blasen",
+    BUBBLE_ENABLED = "Chat-Blasen anzeigen",
+    BUBBLE_GUILD = "Gildenchat",
+    BUBBLE_GROUP = "Gruppen- und Schlachtzugschat",
+    BUBBLE_WHISPER = "Flüstern",
+    BUBBLE_CHANNELS = "Kanäle (Allgemein, Handel ...)",
+    BUBBLE_OWN = "Eigene Nachrichten anzeigen",
+    BUBBLE_UNLOCK = "Ankerpunkt verschieben (Ziehen mit der Maus)",
+    BUBBLE_DURATION = "Dauer bis zum Verblassen: %d Sekunden",
+    BUBBLE_DIRECTION = "Wanderrichtung",
+    BUBBLE_DIR_UP = "Nach oben",
+    BUBBLE_DIR_DOWN = "Nach unten",
+    BUBBLE_DIR_LEFT = "Nach links",
+    BUBBLE_DIR_RIGHT = "Nach rechts",
+    BUBBLE_TEST = "Testblase",
+    BUBBLE_TEST_TEXT = "Das ist eine Testnachricht.",
+    BUBBLE_ANCHOR_TEXT = "Chat-Blasen (ziehen)",
+})
