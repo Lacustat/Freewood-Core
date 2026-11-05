@@ -245,12 +245,58 @@ end
 
 -- Module koennen eigene Abschnitte in den Einstellungen anmelden:
 --   UI:RegisterSettingsSection(id, { order = 100, height = 260, build = function(parent) return frame end, refresh = function(frame) end })
--- Die Abschnitte stehen in zwei Spalten rechts neben den allgemeinen Einstellungen. Die Hoehe eines Abschnitts
+-- def.category (optional) ordnet den Abschnitt einem Unter-Reiter zu: "general" (Standard, mit den allgemeinen Einstellungen
+-- links), "database", "tooltips", "quest" oder "modules". Reiter ohne Abschnitte werden nicht gezeigt.
+-- Die Abschnitte stehen in Spalten (allgemein: zwei Spalten rechts neben den allgemeinen Einstellungen). Die Hoehe eines Abschnitts
 -- ist der Wert frame.flowH, wenn er ihn meldet (UI.CreateSection tut das), sonst def.height. Die ganze Seite
 -- scrollt, wenn sie hoeher ist als das Fenster; die Breiten richten sich nach der Fensterbreite.
 local settingsSections = {}
 local settingsFrame, settingsBody, settingsScroll, settingsLeft
-local vline1, vline2
+local vlines = {}
+local catBar, catButtons = nil, {}
+local currentCat
+local CATS = { "general", "database", "tooltips", "quest", "modules" }
+local CAT_LABEL = {
+    general = "SETTINGS_CAT_GENERAL", database = "SETTINGS_CAT_DATABASE", tooltips = "SETTINGS_CAT_TOOLTIPS",
+    quest = "SETTINGS_CAT_QUEST", modules = "SETTINGS_CAT_MODULES",
+}
+local function CatOf(def)
+    return CAT_LABEL[def.category] and def.category or "general"
+end
+local function CountCats()
+    local counts = {}
+    for _, def in ipairs(settingsSections) do
+        local c = CatOf(def)
+        counts[c] = (counts[c] or 0) + 1
+    end
+    return counts
+end
+-- gewaehlter Unter-Reiter (gemerkt); ohne Abschnitte faellt er auf "general" zurueck
+local function CurrentCat()
+    if not currentCat then
+        local c = FW.settings and FW.settings.settingsCat
+        currentCat = CAT_LABEL[c] and c or "general"
+    end
+    if currentCat ~= "general" and not CountCats()[currentCat] then
+        currentCat = "general"
+    end
+    return currentCat
+end
+local function UpdateCatBar()
+    if not catBar then return end
+    local cat, counts, x = CurrentCat(), CountCats(), 0
+    for _, b in ipairs(catButtons) do
+        if b.cat == "general" or counts[b.cat] then
+            b:Show()
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", catBar, "TOPLEFT", x, 0)
+            x = x + b:GetWidth() + 6
+            b:SetStyle(b.cat == cat and "primary" or "default")
+        else
+            b:Hide()
+        end
+    end
+end
 
 -- Abschnitt mit Ueberschrift, Trennlinie und einem Stapel darunter: local f, stack = UI.CreateSection(parent, "Titel")
 function UI.CreateSection(parent, titleText)
@@ -279,7 +325,78 @@ local function LeftWidth(W)
 end
 
 local layingOut, pendingLayout, layoutDepth = false, false, 0
-local function LayoutSections()
+local LayoutSections
+local function DoLayout()
+    local W = settingsBody:GetWidth() or 0
+    if W < 200 then
+        W = 1000
+    end
+    local cat = CurrentCat()
+    local general = cat == "general"
+    local leftW = LeftWidth(W)
+    local x0 = general and (leftW + LEFT_GAP) or 0
+    local ncol = general and 2 or FW.Util.Clamp(math.floor((W + SECTION_GAP) / (420 + SECTION_GAP)), 1, 3)
+    local colW = math.max(200, math.floor((W - x0 - (ncol - 1) * SECTION_GAP) / ncol))
+    local xs, ypos = {}, {}
+    for i = 1, ncol do
+        xs[i] = x0 + (i - 1) * (colW + SECTION_GAP)
+        ypos[i] = 0
+    end
+    if general then settingsLeft:Show() else settingsLeft:Hide() end
+    settingsLeft:SetWidth(leftW)
+    for _, def in ipairs(settingsSections) do
+        local frame = def.frame
+        if CatOf(def) ~= cat then
+            if frame then frame:Hide() end
+        else
+            local best = 1                                   -- jeweils in die kuerzeste Spalte
+            for i = 2, ncol do
+                if ypos[i] > ypos[best] then best = i end
+            end
+            local h = (frame and frame.flowH) or def.height or 260
+            def.col, def.y = best, ypos[best]
+            ypos[best] = ypos[best] - h - 10
+            if frame then
+                frame:Show()
+                frame:ClearAllPoints()
+                frame:SetPoint("TOPLEFT", settingsBody, "TOPLEFT", xs[best], def.y)
+                local wChanged = frame.laidW ~= colW
+                frame.laidW = colW
+                frame:SetWidth(colW)
+                frame:SetHeight(h)
+                if wChanged and frame.stack and frame.stack.Layout then pcall(frame.stack.Layout, frame.stack) end
+            end
+        end
+    end
+    local contentH = general and (settingsLeft.flowH or 0) or 0
+    for i = 1, ncol do
+        contentH = math.max(contentH, -ypos[i])
+    end
+    contentH = contentH + 20
+    settingsBody.contentH = contentH
+    settingsBody:SetHeight(contentH)
+    settingsScroll:SetContentHeight(contentH)
+    local pos = {}
+    if general then
+        pos[1] = x0 - 20
+        pos[2] = xs[2] - SECTION_GAP / 2
+    else
+        for i = 2, ncol do pos[#pos + 1] = xs[i] - SECTION_GAP / 2 end
+    end
+    for i, line in ipairs(vlines) do
+        if pos[i] then
+            line:Show()
+            line:ClearAllPoints()
+            line:SetPoint("TOPLEFT", settingsBody, "TOPLEFT", pos[i], 0)
+            line:SetPoint("BOTTOMLEFT", settingsBody, "TOPLEFT", pos[i], -contentH)
+        else
+            line:Hide()
+        end
+    end
+    UpdateCatBar()
+end
+
+LayoutSections = function()
     if not settingsBody then
         return
     end
@@ -288,40 +405,15 @@ local function LayoutSections()
         return
     end
     layingOut = true
-    local W = settingsBody:GetWidth() or 0
-    if W < 200 then
-        W = 1000
-    end
-    local leftW = LeftWidth(W)
-    local x1 = leftW + LEFT_GAP
-    local colW = math.max(200, math.floor((W - x1 - SECTION_GAP) / 2))
-    local x2 = x1 + colW + SECTION_GAP
-    settingsLeft:SetWidth(leftW)
-    local ypos = { 0, 0 }
-    for i, def in ipairs(settingsSections) do
-        def.col = (ypos[1] >= ypos[2]) and 1 or 2   -- jeweils in die kuerzere Spalte
-        local h = (def.frame and def.frame.flowH) or def.height or 260
-        def.y = ypos[def.col]
-        ypos[def.col] = ypos[def.col] - h - 10
-        local frame = def.frame
-        if frame then
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", settingsBody, "TOPLEFT", def.col == 2 and x2 or x1, def.y)
-            frame:SetWidth(colW)
-            frame:SetHeight(h)
-        end
-    end
-    local contentH = math.max(-ypos[1], -ypos[2], settingsLeft.flowH or 0) + 20
-    settingsBody.contentH = contentH
-    settingsBody:SetHeight(contentH)
-    settingsScroll:SetContentHeight(contentH)
-    vline1:ClearAllPoints()
-    vline1:SetPoint("TOPLEFT", settingsBody, "TOPLEFT", x1 - 20, 0)
-    vline1:SetPoint("BOTTOMLEFT", settingsBody, "TOPLEFT", x1 - 20, -contentH)
-    vline2:ClearAllPoints()
-    vline2:SetPoint("TOPLEFT", settingsBody, "TOPLEFT", x2 - SECTION_GAP / 2, 0)
-    vline2:SetPoint("BOTTOMLEFT", settingsBody, "TOPLEFT", x2 - SECTION_GAP / 2, -contentH)
+    local ok, err = pcall(DoLayout)
     layingOut = false
+    if not ok then
+        pendingLayout = false
+        if DEFAULT_CHAT_FRAME then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff5555Freewood: Fehler in den Einstellungen: " .. tostring(err) .. "|r")
+        end
+        return
+    end
     if pendingLayout and layoutDepth < 4 then
         pendingLayout = false
         layoutDepth = layoutDepth + 1
@@ -329,6 +421,12 @@ local function LayoutSections()
         layoutDepth = layoutDepth - 1
     end
     pendingLayout = false
+end
+
+local function SelectCategory(cat)
+    currentCat = cat
+    if FW.settings then FW.settings.settingsCat = cat end
+    LayoutSections()
 end
 
 local function BuildSection(def)
@@ -367,9 +465,22 @@ local function BuildSettings(content)
     divider:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -30)
     divider:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, -30)
 
+    -- Unter-Reiter (Kategorien)
+    catBar = CreateFrame("Frame", nil, f)
+    catBar:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -42)
+    catBar:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, -42)
+    catBar:SetHeight(28)
+    catButtons = {}
+    for _, cat in ipairs(CATS) do
+        local cat = cat                  -- Schleifenvariable fuer die Closure sichern
+        local b = UI.CreateButton(catBar, L[CAT_LABEL[cat]], 160, 26, function() SelectCategory(cat) end)
+        b.cat = cat
+        catButtons[#catButtons + 1] = b
+    end
+
     -- Alles darunter scrollt, wenn das Fenster zu niedrig ist
     local scroll = UI.CreateScrollFrame(f)
-    scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -42)
+    scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -78)
     scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
     local body = scroll.child
     settingsScroll, settingsBody, settingsFrame = scroll, body, f
@@ -464,7 +575,7 @@ local function BuildSettings(content)
             b:SetPoint("LEFT", langRow, "LEFT", (i - 1) * (bw + 6), 0)
         end
     end
-    langRow:SetScript("OnSizeChanged", function(_, w) LayoutLang(w) end)
+    langRow:SetScript("OnSizeChanged", function(self) LayoutLang(self:GetWidth()) end)
     LayoutLang(stack:Width())
 
     local note = UI.CreateLabel(lf, L.SETTINGS_LANGUAGE_NOTE, { size = 11, color = "textDim", justifyV = "TOP" })
@@ -496,9 +607,10 @@ local function BuildSettings(content)
         line:SetColorTexture(UI.Color("gold", 0.35))
         return line
     end
-    vline1, vline2 = VLine(), VLine()
+    vlines = { VLine(), VLine(), VLine() }
 
-    body:SetScript("OnSizeChanged", function(_, w)
+    body:SetScript("OnSizeChanged", function(self)
+        local w = self:GetWidth()
         if type(w) == "number" and w > 0 then
             stack:Layout()
             LayoutSections()

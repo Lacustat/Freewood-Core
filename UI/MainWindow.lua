@@ -209,6 +209,10 @@ local function ResolveLabel(def)
     return label or "?"
 end
 
+local TAB_ROW_H = 34
+
+-- Tabs in Zeilen umbrechen, wenn sie nicht in eine Zeile passen; die Leiste waechst mit,
+-- der Inhaltsbereich haengt an ihrem unteren Rand und rutscht mit.
 local function LayoutTabs()
     table.sort(tabs, function(a, b)
         if a.order ~= b.order then
@@ -216,12 +220,31 @@ local function LayoutTabs()
         end
         return a.seq < b.seq
     end)
-    local x = 12
+    local barW = frame.TabBar:GetWidth()
+    if not barW or barW < 100 then
+        barW = (frame:GetWidth() or 1000) - 2
+    end
+    local limit = barW - 12
+    local x, row = 12, 0
+    local rowOf = {}
     for _, tab in ipairs(tabs) do
         if tab.button then
+            local w = tab.button:GetWidth()
+            if x + w > limit and x > 12 then
+                row = row + 1
+                x = 12
+            end
+            rowOf[tab] = { row = row, x = x }
+            x = x + w + 4
+        end
+    end
+    local rows = row + 1
+    frame.TabBar:SetHeight(rows * TAB_ROW_H + 2)
+    for _, tab in ipairs(tabs) do
+        local at = rowOf[tab]
+        if at then
             tab.button:ClearAllPoints()
-            tab.button:SetPoint("BOTTOMLEFT", frame.TabBar, "BOTTOMLEFT", x, 1)
-            x = x + tab.button:GetWidth() + 4
+            tab.button:SetPoint("BOTTOMLEFT", frame.TabBar, "BOTTOMLEFT", at.x, 1 + (rows - 1 - at.row) * TAB_ROW_H)
         end
     end
 end
@@ -287,6 +310,9 @@ local function BuildOnce()
         CreateTabButton(tab)
     end
     LayoutTabs()
+    frame:HookScript("OnSizeChanged", function()
+        LayoutTabs()
+    end)
 end
 
 frame:SetScript("OnShow", function()
