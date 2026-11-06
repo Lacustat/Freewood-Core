@@ -315,17 +315,10 @@ FW:RegisterEvent("CHAT_MSG_CHANNEL_JOIN", OnJoin)
 FW:RegisterEvent("CHAT_MSG_CHANNEL_LEAVE", OnLeave)
 FW:RegisterEvent("CHAT_MSG_CHANNEL_NOTICE", OnNotice)
 
--- Die Listenausgabe des Spiels soll nicht im Chat landen, solange wir selbst abfragen
-if type(G.ChatFrame_AddMessageEventFilter) == "function" then
-    local function Hide()
-        if Ch.probe then return false end
-        local now = (G.GetTime and G.GetTime()) or 0
-        if Ch.current or (now - Ch.lastSend) < SUPPRESS then return true end
-        return false
-    end
-    pcall(G.ChatFrame_AddMessageEventFilter, "CHAT_MSG_CHANNEL_LIST", Hide)
-    Ch.filter = true
-end
+-- Frueher wurde hier mit ChatFrame_AddMessageEventFilter die Listenausgabe im Chat unterdrueckt. Ein Filter aus einem Addon
+-- veraendert eine Blizzard-Tabelle und kann Aktionen anderer Wege (z.B. Emotes per Makro) als "blockiert" markieren
+-- (ADDON_ACTION_BLOCKED). Deshalb gibt es ihn nicht mehr; die Kanalliste kann dadurch kurz im Chat erscheinen.
+Ch.filter = false
 
 -- Beitreten / Verlassen (JoinChannelByName legt den Kanal bei Bedarf an). Das Spiel erlaubt hoechstens 10 Kanaele.
 Ch.MAX = 10
