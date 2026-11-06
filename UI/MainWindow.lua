@@ -351,3 +351,27 @@ function UI:Toggle(tabId)
         self:Show(tabId)
     end
 end
+
+-- Fuer Tastenbelegungen: Fenster auf dem Reiter oeffnen; ist er schon aktiv, schliesst es wieder.
+function UI:ToggleTab(id)
+    if not id then
+        return self:Toggle()
+    end
+    if not tabsById[id] then
+        return false
+    end
+    if frame:IsShown() and activeId == id then
+        frame:Hide()
+    else
+        self:Show(id)
+    end
+    return true
+end
+
+-- Globale Einstiegspunkte fuer Bindings.xml aller Freewood-Module
+function _G.Freewood_ToggleTab(id)
+    local FW = _G.Freewood
+    if FW and FW.UI then
+        FW.UI:ToggleTab(id)
+    end
+end

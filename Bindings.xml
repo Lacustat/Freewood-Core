@@ -1,0 +1,17 @@
+<Bindings>
+    <Binding name="FREEWOOD_CORE_TOGGLE" header="FREEWOOD_CORE" category="ADDONS">
+        Freewood_ToggleTab(nil)
+    </Binding>
+    <Binding name="FREEWOOD_CORE_CHANNELS" category="ADDONS">
+        Freewood_ToggleTab("channels")
+    </Binding>
+    <Binding name="FREEWOOD_CORE_OVERVIEW" category="ADDONS">
+        Freewood_ToggleTab("overview")
+    </Binding>
+    <Binding name="FREEWOOD_CORE_EXCHANGE" category="ADDONS">
+        Freewood_ToggleTab("exchange")
+    </Binding>
+    <Binding name="FREEWOOD_CORE_SETTINGS" category="ADDONS">
+        Freewood_ToggleTab("settings")
+    </Binding>
+</Bindings>
