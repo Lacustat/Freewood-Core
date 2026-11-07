@@ -3,6 +3,9 @@
 -- Stueck ohne Drosselung (an sich selbst). Der Name muss der volle Name sein ("Pinky Freewood"). Ist der Empfaenger offline,
 -- steht beim Sender die Systemzeile "Momentan ist kein Spieler mit dem Namen ... online".
 --
+-- Testlauf (0.13.1): Jeder Spieler mit diesem Core schickt EINMAL (je Account) eine Testnachricht an "Dr Freewood", 45 bis 150 Sekunden nach
+-- dem Anmelden, nicht im Kampf. Das Protokoll liegt im Dev-Reiter "Fluestertest". Echte Daten bleiben aus (whisperShare = false).
+--
 -- Testnachrichten ("T|...") werden immer angenommen und protokolliert. Alles andere wird nur verarbeitet, wenn der Schalter an ist,
 -- und nur von Spielern, die als bereit gemeldet sind (kommt spaeter; Whisper.Ready).
 -- Protokoll: FreewoodDB.whisperLog (letzte 100 Eintraege) fuer den Dev-Reiter "Fluestertest".
@@ -119,6 +122,29 @@ local function OnAddon(prefix, text, channel, sender)
     end
 end
 
+-- einmaliger Testlauf an den Besitzer
+W.TEST_TARGET = "Dr Freewood"
+
+local function AutoTest()
+    local db = FW.db
+    if not db or db.whisperTestDone then return end
+    if G.InCombatLockdown and G.InCombatLockdown() then
+        if G.C_Timer then G.C_Timer.After(30, AutoTest) end
+        return
+    end
+    local me = W.SelfName()
+    db.whisperTestDone = { t = Now(), version = FW.version or "?" }
+    if me and me:lower() == W.TEST_TARGET:lower() then return end
+    local ok, res = W.SendTest(W.TEST_TARGET)
+    db.whisperTestDone.res = tostring(res)
+end
+
+local function StartAutoTest()
+    if G.C_Timer and G.C_Timer.After then
+        G.C_Timer.After(45 + math.random() * 105, AutoTest)
+    end
+end
+
 local function Register()
     local api = G.C_ChatInfo
     if api and api.RegisterAddonMessagePrefix then pcall(api.RegisterAddonMessagePrefix, PREFIX)
@@ -126,4 +152,5 @@ local function Register()
 end
 Register()
 FW:RegisterEvent("PLAYER_LOGIN", Register)
+FW:RegisterEvent("PLAYER_LOGIN", StartAutoTest)
 FW:RegisterEvent("CHAT_MSG_ADDON", OnAddon)
