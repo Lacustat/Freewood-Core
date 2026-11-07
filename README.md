@@ -1,11 +1,12 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.8.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.9.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
 - [English](#english)
 - [Tastenbelegung · Key bindings](#tastenbelegung--key-bindings)
+- [Reiter ordnen · Arranging tabs](#reiter-ordnen--arranging-tabs)
 
 ## Deutsch
 
@@ -74,3 +75,7 @@ GPL-3.0, see `LICENSE`.
 ## Tastenbelegung · Key bindings
 **DE:** Unter Optionen > Tastaturbelegung gibt es einen eigenen Abschnitt für dieses Modul. Dort lässt sich eine Taste zum Öffnen und Schließen des Reiters belegen (zum Beispiel J für die Gilde). Ist der Reiter schon offen, schließt dieselbe Taste das Fenster. Nach der Installation einmal das Spiel neu starten, damit die neue Datei Bindings.xml gelesen wird.
 **EN:** Options > Key Bindings has its own section for this module. Bind a key to open and close the tab (for example J for the guild). If the tab is already open, the same key closes the window. Restart the game once after installing so the new Bindings.xml file is read.
+
+## Reiter ordnen · Arranging tabs
+**DE:** Die Reiter der Hauptleiste lassen sich mit der Maus ziehen und so in beliebige Reihenfolge bringen (auch in eine andere Zeile). Rechtsklick auf einen Reiter blendet ihn aus. Unter Einstellungen > Reiter blendest du Reiter wieder ein oder stellst die Standard-Reihenfolge her. Der Reiter „Einstellungen“ lässt sich nicht ausblenden. Reihenfolge und Auswahl gelten für den ganzen Account. Neue Reiter, die noch nicht in deiner Reihenfolge stehen, erscheinen hinten.
+**EN:** Drag the tabs of the main bar with the mouse to put them in any order (also into another row). Right-click a tab to hide it. Under Settings > Tabs you can show hidden tabs again or restore the default order. The Settings tab cannot be hidden. Order and visibility apply to the whole account. New tabs that are not yet in your order appear at the end.

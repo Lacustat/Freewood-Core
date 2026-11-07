@@ -184,6 +184,8 @@ FW.defaults = {
             debug = false,
             windowPos = false,
             windowSize = false,
+            tabOrder = {},
+            tabHidden = {},
         },
         disabledModules = {},
         modules = {},

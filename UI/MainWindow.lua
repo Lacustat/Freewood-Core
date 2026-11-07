@@ -209,12 +209,38 @@ local function ResolveLabel(def)
     return label or "?"
 end
 
+-- Reihenfolge und ausgeblendete Reiter: FW.settings.tabOrder (Liste von Ids), FW.settings.tabHidden (Id -> true)
+local function TabRank()
+    local rank = {}
+    local order = FW.settings and FW.settings.tabOrder
+    if type(order) == "table" then
+        for i, id in ipairs(order) do
+            rank[id] = i
+        end
+    end
+    return rank
+end
+
+local function IsTabHidden(tab)
+    local hidden = FW.settings and FW.settings.tabHidden
+    return tab.id ~= "settings" and type(hidden) == "table" and hidden[tab.id] == true
+end
+
 local TAB_ROW_H = 34
 
 -- Tabs in Zeilen umbrechen, wenn sie nicht in eine Zeile passen; die Leiste waechst mit,
 -- der Inhaltsbereich haengt an ihrem unteren Rand und rutscht mit.
 local function LayoutTabs()
+    local rank = TabRank()
     table.sort(tabs, function(a, b)
+        local ra, rb = rank[a.id], rank[b.id]
+        if ra and rb then
+            return ra < rb
+        elseif ra then
+            return true
+        elseif rb then
+            return false
+        end
         if a.order ~= b.order then
             return a.order < b.order
         end
@@ -228,7 +254,10 @@ local function LayoutTabs()
     local x, row = 12, 0
     local rowOf = {}
     for _, tab in ipairs(tabs) do
-        if tab.button then
+        if tab.button and IsTabHidden(tab) then
+            tab.button:Hide()
+        elseif tab.button then
+            tab.button:Show()
             local w = tab.button:GetWidth()
             if x + w > limit and x > 12 then
                 row = row + 1
@@ -249,10 +278,24 @@ local function LayoutTabs()
     end
 end
 
+local StartTabDrag
+
 local function CreateTabButton(tab)
     local button = UI.CreateTabButton(frame.TabBar, ResolveLabel(tab.def))
-    button:SetScript("OnClick", function()
-        UI:SelectTab(tab.id)
+    button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    button:SetScript("OnClick", function(_, mouse)
+        if mouse == "RightButton" then
+            UI:SetTabHidden(tab.id, true, true)
+        else
+            UI:SelectTab(tab.id)
+        end
+    end)
+    button:RegisterForDrag("LeftButton")
+    button:SetScript("OnDragStart", function()
+        StartTabDrag(tab)
+    end)
+    button:SetScript("OnDragStop", function()
+        UI:StopTabDrag(true)
     end)
     tab.button = button
 end
@@ -315,11 +358,225 @@ local function BuildOnce()
     end)
 end
 
+------------------------------------------------------------------------
+-- Reiter ordnen und ausblenden
+------------------------------------------------------------------------
+
+-- Liste aller Reiter in der aktuellen Reihenfolge: { id, label, hidden, locked }
+function UI:GetTabList()
+    LayoutTabs()
+    local list = {}
+    for _, tab in ipairs(tabs) do
+        list[#list + 1] = { id = tab.id, label = ResolveLabel(tab.def), hidden = IsTabHidden(tab), locked = (tab.id == "settings") }
+    end
+    return list
+end
+
+local function FirstVisibleId()
+    for _, tab in ipairs(tabs) do
+        if not IsTabHidden(tab) then
+            return tab.id
+        end
+    end
+    return nil
+end
+
+function UI:SetTabHidden(id, hide, announce)
+    local tab = tabsById[id]
+    if not tab or id == "settings" or not FW.settings then
+        return
+    end
+    if type(FW.settings.tabHidden) ~= "table" then
+        FW.settings.tabHidden = {}
+    end
+    FW.settings.tabHidden[id] = hide and true or nil
+    if built then
+        LayoutTabs()
+    end
+    if hide and activeId == id then
+        activeId = FirstVisibleId()
+        if frame:IsShown() and activeId then
+            self:SelectTab(activeId)
+        end
+    end
+    if hide and announce then
+        FW:Print(string.format(FW.L.TABS_HIDDEN_NOTE, ResolveLabel(tab.def)))
+    end
+end
+
+function UI:ResetTabOrder()
+    if not FW.settings then
+        return
+    end
+    FW.settings.tabOrder = {}
+    FW.settings.tabHidden = {}
+    if built then
+        LayoutTabs()
+    end
+end
+
+-- Ziehen: Geisterbild am Mauszeiger, goldene Einfuegemarke an der Zielstelle
+local drag
+
+local function VisibleTabs()
+    local list = {}
+    for _, tab in ipairs(tabs) do
+        if tab.button and tab.button:IsShown() then
+            list[#list + 1] = tab
+        end
+    end
+    return list
+end
+
+-- Index (1 .. n+1) in der Liste der sichtbaren Reiter, vor dem eingefuegt wird
+local function DropIndex(list, cx, cy)
+    local best, bestScore, after
+    for i, tab in ipairs(list) do
+        local b = tab.button
+        local l, r, top, bottom = b:GetLeft(), b:GetRight(), b:GetTop(), b:GetBottom()
+        if l and r and top and bottom then
+            local sc = b:GetEffectiveScale()
+            local x, y = cx / sc, cy / sc
+            local dy = 0
+            if y > top then
+                dy = y - top
+            elseif y < bottom then
+                dy = bottom - y
+            end
+            local mid = (l + r) / 2
+            local score = dy * 10000 + math.abs(x - mid)
+            if not bestScore or score < bestScore then
+                best, bestScore, after = i, score, (x >= mid)
+            end
+        end
+    end
+    if not best then
+        return nil
+    end
+    return after and (best + 1) or best
+end
+
+local function PlaceIndicator(list, index)
+    local ind = drag.indicator
+    local ref, side
+    if index <= #list then
+        ref, side = list[index], "before"
+    else
+        ref, side = list[#list], "after"
+    end
+    ind:ClearAllPoints()
+    if side == "before" then
+        ind:SetPoint("TOPLEFT", ref.button, "TOPLEFT", -3, -2)
+        ind:SetPoint("BOTTOMRIGHT", ref.button, "BOTTOMLEFT", -1, 2)
+    else
+        ind:SetPoint("TOPLEFT", ref.button, "TOPRIGHT", 1, -2)
+        ind:SetPoint("BOTTOMRIGHT", ref.button, "BOTTOMRIGHT", 3, 2)
+    end
+    ind:Show()
+end
+
+local function DragUpdate()
+    if not drag then
+        return
+    end
+    local cx, cy = GetCursorPosition()
+    local ui = UIParent:GetEffectiveScale()
+    drag.ghost:ClearAllPoints()
+    drag.ghost:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx / ui, cy / ui)
+    local list = VisibleTabs()
+    local index = DropIndex(list, cx, cy)
+    drag.index = index
+    drag.list = list
+    if index then
+        PlaceIndicator(list, index)
+    else
+        drag.indicator:Hide()
+    end
+end
+
+function StartTabDrag(tab)
+    if drag or not tab.button then
+        return
+    end
+    local ghost = CreateFrame("Frame", nil, UIParent)
+    ghost:SetFrameStrata("TOOLTIP")
+    ghost:SetSize(tab.button:GetWidth(), 30)
+    local bg = ghost:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(UI.Color("gold", 0.35))
+    local text = UI.CreateLabel(ghost, ResolveLabel(tab.def), { font = "heading", size = 13, color = "goldLight", justify = "CENTER" })
+    text:SetPoint("CENTER", 0, 0)
+    local indicator = frame.TabBar:CreateTexture(nil, "OVERLAY")
+    indicator:SetColorTexture(UI.Color("goldLight"))
+    indicator:Hide()
+    drag = { tab = tab, ghost = ghost, indicator = indicator }
+    tab.button:SetAlpha(0.4)
+    ghost:SetScript("OnUpdate", DragUpdate)
+end
+
+function UI:StopTabDrag(apply)
+    local d = drag
+    if not d then
+        return
+    end
+    drag = nil
+    d.ghost:SetScript("OnUpdate", nil)
+    d.ghost:Hide()
+    d.indicator:Hide()
+    d.tab.button:SetAlpha(1)
+    if not apply or not d.index or not d.list or not FW.settings then
+        return
+    end
+    local ref = d.list[d.index]      -- vor diesem Reiter einfuegen (nil = ans Ende der sichtbaren)
+    if ref == d.tab then
+        return
+    end
+    local ids = {}
+    for _, tab in ipairs(tabs) do
+        if tab ~= d.tab then
+            ids[#ids + 1] = tab.id
+        end
+    end
+    local pos
+    if ref then
+        for i, id in ipairs(ids) do
+            if id == ref.id then
+                pos = i
+                break
+            end
+        end
+    else
+        local last = d.list[#d.list]
+        if last == d.tab then
+            last = d.list[#d.list - 1]
+        end
+        if last then
+            for i, id in ipairs(ids) do
+                if id == last.id then
+                    pos = i + 1
+                    break
+                end
+            end
+        end
+    end
+    table.insert(ids, pos or (#ids + 1), d.tab.id)
+    FW.settings.tabOrder = ids
+    LayoutTabs()
+end
+
+frame:HookScript("OnHide", function()
+    UI:StopTabDrag(false)
+end)
+
 frame:SetScript("OnShow", function()
     BuildOnce()
     local _, _, _, toc = GetBuildInfo()
     local left = FW.L.TITLE .. "  |  " .. string.format(FW.L.SLASH_VERSION, FW.version, FW.API_VERSION, tostring(toc or "?"))
     frame.Footer.Left:SetText(left)
+    local current = activeId and tabsById[activeId]
+    if not current or IsTabHidden(current) then
+        activeId = FirstVisibleId()
+    end
     UI:SelectTab(activeId or (tabs[1] and tabs[1].id))
 end)
 
