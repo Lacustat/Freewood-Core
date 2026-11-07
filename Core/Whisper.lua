@@ -3,7 +3,7 @@
 -- Stueck ohne Drosselung (an sich selbst). Der Name muss der volle Name sein ("Pinky Freewood"). Ist der Empfaenger offline,
 -- steht beim Sender die Systemzeile "Momentan ist kein Spieler mit dem Namen ... online".
 --
--- Testlauf (0.13.1): Jeder Spieler mit diesem Core schickt EINMAL (je Account) eine Testnachricht an "Dr Freewood", 45 bis 150 Sekunden nach
+-- Testlauf (0.13.1, ab 0.13.2 aus, siehe W.AUTO_TEST): Jeder Spieler mit diesem Core schickt EINMAL (je Account) eine Testnachricht an "Dr Freewood", 45 bis 150 Sekunden nach
 -- dem Anmelden, nicht im Kampf. Das Protokoll liegt im Dev-Reiter "Fluestertest". Echte Daten bleiben aus (whisperShare = false).
 --
 -- Testnachrichten ("T|...") werden immer angenommen und protokolliert. Alles andere wird nur verarbeitet, wenn der Schalter an ist,
@@ -139,7 +139,11 @@ local function AutoTest()
     db.whisperTestDone.res = tostring(res)
 end
 
+-- Der Testlauf ist beendet (Ziel erreicht: Test von einem fremden Spieler kam an). Zum erneuten Einschalten: W.AUTO_TEST = true.
+W.AUTO_TEST = false
+
 local function StartAutoTest()
+    if not W.AUTO_TEST then return end
     if G.C_Timer and G.C_Timer.After then
         G.C_Timer.After(45 + math.random() * 105, AutoTest)
     end

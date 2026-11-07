@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.13.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.13.2 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -90,3 +90,4 @@ GPL-3.0, see `LICENSE`.
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
 **0.13.1 DE:** Testlauf: Jeder Spieler mit diesem Core schickt einmal je Account eine Testnachricht an „Dr Freewood“ (45–150 s nach dem Anmelden, nicht im Kampf). Echte Daten bleiben aus. / **EN:** Test run: every player with this Core sends one test message per account to "Dr Freewood" (45–150 s after login, not in combat). Real data stays off.
+**0.13.2 DE:** Der einmalige Testlauf an „Dr Freewood“ ist beendet (`Whisper.AUTO_TEST = false`); der Test im Dev-Reiter bleibt. / **EN:** The one-time test run to "Dr Freewood" is finished (`Whisper.AUTO_TEST = false`); the test in the Dev tab stays.
