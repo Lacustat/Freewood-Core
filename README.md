@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.15.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.15.1 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -91,6 +91,9 @@ GPL-3.0, see `LICENSE`.
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
 **0.13.1 DE:** Testlauf: Jeder Spieler mit diesem Core schickt einmal je Account eine Testnachricht an „Dr Freewood“ (45–150 s nach dem Anmelden, nicht im Kampf). Echte Daten bleiben aus. / **EN:** Test run: every player with this Core sends one test message per account to "Dr Freewood" (45–150 s after login, not in combat). Real data stays off.
 **0.13.2 DE:** Der einmalige Testlauf an „Dr Freewood“ ist beendet (`Whisper.AUTO_TEST = false`); der Test im Dev-Reiter bleibt. / **EN:** The one-time test run to "Dr Freewood" is finished (`Whisper.AUTO_TEST = false`); the test in the Dev tab stays.
+
+**0.15.1 DE:** Kanäle-Reiter: Die Teilnehmerlisten, die wir für den Reiter abfragen, erscheinen nicht mehr im Chat. Während einer Abfrage sind die Chatfenster vom Ereignis `CHAT_MSG_CHANNEL_LIST` abgemeldet und danach wieder angemeldet (kein Filter, kein Taint). Test: `tests/channels_mute_test.lua`. Manuelles `/chatlist` während einer Abfrage (wenige Sekunden) zeigt nichts.
+**0.15.1 EN:** Channels tab: the member lists we query for the tab no longer appear in chat. While a query runs the chat frames are unregistered from `CHAT_MSG_CHANNEL_LIST` and registered again afterwards (no filter, no taint). Test: `tests/channels_mute_test.lua`. A manual `/chatlist` during a query (a few seconds) shows nothing.
 
 ## Interface: Greifen (0.15.0) · Interface: gryphons (0.15.0)
 **DE:** Einstellungen → Interface → „Aktionsleiste: Greifen“ (`UI/Greifen.lua`). Ersetzt die Original-Greifen (Rahmen unter `MainActionBar` mit den Bildern `UI-HUD-ActionBar-Wyvern-Left/-Right`, gefunden über den Bildnamen) durch Bilder aus `Media/Greifen`. Je Seite: Bild (Dropdown mit Vorschau), Spiegeln, Größe 20–300 %, Versatz waagerecht/senkrecht (0/0 = deckungsgleich mit dem Original). Verschieben im Blizzard-HUD-Bearbeitungsmodus (grüne Felder, Mausrad = Größe) oder mit „Position ändern“. Neue Bilder: `.tga` (512×256 oder 256×128, mit Transparenz; PNG lädt der Client nicht) in `Media/Greifen` legen, den Namen in `Media/Greifen/Greifen.lua` eintragen, Spiel neu starten (WoW kann keinen Ordner auflisten). Mitgeliefert: `affen_greif`. Test: `tests/greifen_test.lua`. Im Spiel bestätigt (Ersetzen, Spiegeln, Bearbeitungsmodus).

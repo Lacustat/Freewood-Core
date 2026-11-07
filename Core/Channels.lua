@@ -150,6 +150,42 @@ local function RosterRead(num)
     return out
 end
 
+-- Listenausgabe im Chat unsichtbar machen, ohne Filter (kein Taint): Waehrend unsere Abfrage laeuft, melden wir
+-- CHAT_MSG_CHANNEL_LIST von den Chatfenstern ab und danach wieder an. Unser eigener Ereignisrahmen bekommt es weiter.
+local muted = {}        -- Chatfenster, bei denen wir das Ereignis abgemeldet haben
+local EV_LIST = "CHAT_MSG_CHANNEL_LIST"
+
+local function MuteList()
+    if next(muted) ~= nil then return end
+    local n = G.NUM_CHAT_WINDOWS or 10
+    local i = 1
+    while i <= n do
+        local f = G["ChatFrame" .. i]
+        if f and f.IsEventRegistered and f.UnregisterEvent then
+            local ok, reg = pcall(f.IsEventRegistered, f, EV_LIST)
+            if ok and reg then
+                pcall(f.UnregisterEvent, f, EV_LIST)
+                muted[f] = true
+            end
+        end
+        i = i + 1
+    end
+end
+
+local function UnmuteList()
+    for f in pairs(muted) do
+        pcall(f.RegisterEvent, f, EV_LIST)
+        muted[f] = nil
+    end
+    Ch.unmuteAt = nil
+end
+
+local function KeepMuted(seconds)
+    local now = (G.GetTime and G.GetTime()) or 0
+    local at = now + seconds
+    if not Ch.unmuteAt or at > Ch.unmuteAt then Ch.unmuteAt = at end
+end
+
 local function Send(num)
     Ch.current = num
     Ch.sentAt = (G.GetTime and G.GetTime()) or 0
@@ -165,6 +201,8 @@ local function Send(num)
         end
         return
     end
+    MuteList()
+    KeepMuted(TIMEOUT + 1)
     local ok, err = pcall(G.ListChannelByName, num)
     if not ok and Ch.probe then P("ListChannelByName(" .. tostring(num) .. ") Fehler: " .. Short(err)) end
 end
@@ -176,6 +214,7 @@ pump:SetScript("OnUpdate", function()
         Ch.current = nil
         Ch.timeouts = (Ch.timeouts or 0) + 1
     end
+    if Ch.unmuteAt and now >= Ch.unmuteAt then UnmuteList() end
     if not Ch.current and table.getn(Ch.queue) > 0 and now - Ch.lastSend >= SPACING then
         local num = Ch.queue[1]
         RemoveAt(Ch.queue, 1)
@@ -262,6 +301,10 @@ local function OnList(a1, a2, a3, a4, a5, a6, a7, a8, a9)
     e.listed = Ch.ParseNames(a1)
     e.stamp = (G.GetTime and G.GetTime()) or 0
     if Ch.current == e.num then Ch.current = nil end
+    if Ch.unmuteAt then
+        local now = (G.GetTime and G.GetTime()) or 0
+        Ch.unmuteAt = now + 0.6   -- Antwort ist da; kurz warten, falls noch ein Teil nachkommt, dann Chatfenster wieder anmelden
+    end
     Ch.Merge(e)
 end
 
@@ -315,9 +358,9 @@ FW:RegisterEvent("CHAT_MSG_CHANNEL_JOIN", OnJoin)
 FW:RegisterEvent("CHAT_MSG_CHANNEL_LEAVE", OnLeave)
 FW:RegisterEvent("CHAT_MSG_CHANNEL_NOTICE", OnNotice)
 
--- Frueher wurde hier mit ChatFrame_AddMessageEventFilter die Listenausgabe im Chat unterdrueckt. Ein Filter aus einem Addon
--- veraendert eine Blizzard-Tabelle und kann Aktionen anderer Wege (z.B. Emotes per Makro) als "blockiert" markieren
--- (ADDON_ACTION_BLOCKED). Deshalb gibt es ihn nicht mehr; die Kanalliste kann dadurch kurz im Chat erscheinen.
+-- Die Listenausgabe im Chat wird seit 0.15.1 ohne Filter unterdrueckt: waehrend einer Abfrage sind die Chatfenster vom Ereignis
+-- CHAT_MSG_CHANNEL_LIST abgemeldet (siehe MuteList). Ein Filter (ChatFrame_AddMessageEventFilter) veraendert eine Blizzard-Tabelle
+-- und kann Aktionen anderer Wege (z.B. Emotes per Makro) als "blockiert" markieren (ADDON_ACTION_BLOCKED); deshalb gibt es ihn nicht.
 Ch.filter = false
 
 -- Beitreten / Verlassen (JoinChannelByName legt den Kanal bei Bedarf an). Das Spiel erlaubt hoechstens 10 Kanaele.
