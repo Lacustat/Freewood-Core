@@ -234,6 +234,11 @@ eq(op.rows[6][1], "STATS_PLAYED", "Spielzeit-Zeile"); eq(op.rows[6][2], "1h 23m"
 local rn = S.NewRecord(); rn.c = { online = 100 }
 eq(S.Model(rn, {})[1].rows[6][2], "1m 40s", "ohne /played gilt die erfasste Zeit")
 eq(S.Sum({ a = rp, b = rn }).played, 5100, "Summe Spielzeit")
+_G.C_Spell = { GetSpellName = function(id) if id == 75 then return "Autoschuss" end end }
+local rs = S.NewRecord()
+eq(S.SpellName(75, rs), "Autoschuss", "Zaubername ueber C_Spell"); eq(rs.spn[75], "Autoschuss", "Zaubername gemerkt")
+_G.C_Spell = nil
+eq(S.SpellName(75, rs), "Autoschuss", "Zaubername aus Datensatz"); eq(S.SpellName(999, rs), "#999", "unbekannt")
 -- Reiter
 Load("Stats/StatsUI.lua")
 local def = tabs.stats

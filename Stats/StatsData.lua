@@ -40,6 +40,28 @@ function Stats.PatternFor(fmt)
     return "^" .. p
 end
 
+-- Zaubername: gemerkter Name des Datensatzes, sonst die Abfragen des Clients (Forever: C_Spell), sonst "#id"
+function Stats.SpellName(id, rec)
+    local saved = rec and rec.spn and rec.spn[id]
+    if type(saved) == "string" and saved ~= "" then return saved end
+    local name
+    local CS = G.C_Spell
+    if CS and CS.GetSpellName then name = Call(CS.GetSpellName, id) end
+    if not name and CS and CS.GetSpellInfo then
+        local info = Call(CS.GetSpellInfo, id)
+        name = type(info) == "table" and info.name or (type(info) == "string" and info) or nil
+    end
+    if not name and G.GetSpellInfo then
+        local n = Call(G.GetSpellInfo, id)
+        name = type(n) == "table" and n.name or n
+    end
+    if type(name) == "string" and name ~= "" then
+        if rec then rec.spn = rec.spn or {}; rec.spn[id] = name end
+        return name
+    end
+    return "#" .. tostring(id)
+end
+
 -- Qualitaet (0 grau .. 5 orange) aus einem Gegenstandslink
 local QUALITY_COLOR = { ["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2, ["0070dd"] = 3, ["a335ee"] = 4, ["ff8000"] = 5, ["e6cc80"] = 6 }
 function Stats.QualityOfLink(link)
@@ -259,11 +281,7 @@ function Stats.Model(rec, opts)
     Row(r, L.STATS_HKILLS, Stats.Num(c.honorKills))
     Row(r, L.STATS_DEATHS, Stats.Num(c.deaths))
     Row(r, L.STATS_CASTS, Stats.Num(c.casts))
-    for i, e in ipairs(Top(rec.sp, 8, function(id)
-        local name = Call(G.GetSpellInfo, id)
-        if type(name) == "table" then name = name.name end
-        return tostring(name or ("#" .. tostring(id)))
-    end)) do
+    for i, e in ipairs(Top(rec.sp, 8, function(id) return Stats.SpellName(id, rec) end)) do
         Row(r, string.format("%d. %s", i, e[1]), Stats.Num(e[2]))
     end
 
@@ -470,6 +488,7 @@ function Stats.Sum(chars)
         n = n + 1
         Merge(out.c, rec.c)
         Merge(out.sp, rec.sp)
+        for k, v in pairs(rec.spn or {}) do out.spn = out.spn or {}; out.spn[k] = v end
         Merge(out.inst, rec.inst)
         Merge(out.dz, rec.dz)
         Merge(out.ch, rec.ch)

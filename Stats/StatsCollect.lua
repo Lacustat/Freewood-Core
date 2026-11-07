@@ -228,6 +228,7 @@ local function OnCast(_, unit, _, spellID)
     if not rec or type(spellID) ~= "number" then return end
     Stats.Inc(rec.c, "casts", 1)
     Stats.Inc(rec.sp, spellID, 1)
+    if not (rec.spn and rec.spn[spellID]) then Stats.SpellName(spellID, rec) end
 end
 
 local function OnQuestTurned(_, questID, xp, money)
