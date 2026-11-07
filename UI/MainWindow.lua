@@ -358,6 +358,15 @@ local function BuildOnce()
     end)
 end
 
+-- Schriftgroesse der Haupt-Reiter (Design-Reiter in den Einstellungen)
+function UI:ApplyTabFont(size)
+    UI.tabFontSize = size
+    for _, tab in ipairs(tabs) do
+        if tab.button then tab.button:SetFontSize(size) end
+    end
+    if built then LayoutTabs() end
+end
+
 ------------------------------------------------------------------------
 -- Reiter ordnen und ausblenden
 ------------------------------------------------------------------------

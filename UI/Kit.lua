@@ -46,6 +46,16 @@ local function HexToRGB(hex)
         tonumber(hex:sub(5, 6), 16) / 255
 end
 
+-- Ausgangswerte merken (Design-Reiter kann einzelne Farben ueberschreiben, siehe UI/Design.lua)
+UI.hexDefault = {}
+for k, v in pairs(UI.hex) do UI.hexDefault[k] = v end
+
+-- Flaechenfarben (Hintergruende) werden mit UI.alphaFactor (Einstellung "Transparenz") multipliziert
+UI.alphaFactor = 1
+UI.surface = { bgDeep = true, bg = true, panel = true, card = true, hover = true }
+
+local pendingKey, pendingBase, pendingT
+
 -- key: Name aus UI.hex oder ein Hex-Wert wie "ff8000". Rueckgabe: r, g, b, a
 function UI.Color(key, alpha)
     local c = colorCache[key]
@@ -53,8 +63,40 @@ function UI.Color(key, alpha)
         c = { HexToRGB(UI.hex[key] or key) }
         colorCache[key] = c
     end
-    return c[1], c[2], c[3], alpha or 1
+    pendingKey, pendingBase, pendingT = key, alpha or 1, GetTime and GetTime() or 0
+    local a = alpha or 1
+    if UI.surface[key] then a = a * UI.alphaFactor end
+    return c[1], c[2], c[3], a
 end
+
+function UI.ResetColorCache()
+    for k in pairs(colorCache) do colorCache[k] = nil end
+end
+
+-- Alle Texturen/Texte, die ihre Farbe aus UI.Color bekamen, werden gemerkt (schwache Tabelle), damit der Design-Reiter sie
+-- sofort umfaerben kann. Erkannt wird ein SetColorTexture/SetTextColor im selben Bild direkt nach UI.Color mit gleicher Farbe.
+UI.tracked = setmetatable({}, { __mode = "k" })
+
+local function Close(a, b) return math.abs(a - b) < 0.006 end
+
+local function OnColorSet(self, kind, r, g, b)
+    if not pendingKey or type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then return end
+    if _G.issecretvalue and (_G.issecretvalue(r) or _G.issecretvalue(g) or _G.issecretvalue(b)) then return end
+    if (GetTime and GetTime() or 0) ~= pendingT or not UI.hex[pendingKey] then return end
+    local pr, pg, pb = HexToRGB(UI.hex[pendingKey])
+    if Close(r, pr) and Close(g, pg) and Close(b, pb) then
+        UI.tracked[self] = { key = pendingKey, a = pendingBase, kind = kind }
+    end
+end
+
+UI.liveColors = pcall(function()
+    local f = CreateFrame("Frame")
+    local function Methods(obj) return getmetatable(obj).__index end
+    hooksecurefunc(Methods(f:CreateTexture()), "SetColorTexture", function(self, r, g, b) OnColorSet(self, "tex", r, g, b) end)
+    hooksecurefunc(Methods(f:CreateFontString()), "SetTextColor", function(self, r, g, b) OnColorSet(self, "text", r, g, b) end)
+    local eb = CreateFrame("EditBox")
+    hooksecurefunc(Methods(eb), "SetTextColor", function(self, r, g, b) OnColorSet(self, "text", r, g, b) end)
+end)
 
 function UI.Hex(key)
     return UI.hex[key] or key
@@ -68,7 +110,14 @@ end
 -- Schriften
 ------------------------------------------------------------------------
 
+-- UI.fontOverride = { heading = Pfad, body = Pfad } (Design-Reiter); leer = Spielschrift
+UI.fontOverride = {}
+
 function UI.GetFontPath(kind)
+    local o = UI.fontOverride[kind == "heading" and "heading" or "body"]
+    if o and o ~= "" then
+        return o
+    end
     if kind == "heading" then
         return "Fonts\\FRIZQT__.TTF"
     end
@@ -231,6 +280,10 @@ function UI.CreateButton(parent, text, width, height, onClick, styleName)
         end
     end)
 
+    function b:SetFontSize(size)
+        UI.SetFont(self.label, "heading", size)
+        self:SetWidth(math.max(90, self.label:GetStringWidth() + 36))
+    end
     function b:SetLabel(newText)
         self.label:SetText(newText)
     end
@@ -268,7 +321,7 @@ function UI.CreateTabButton(parent, text)
     b.under:SetColorTexture(UI.Color("gold"))
     b.under:Hide()
 
-    b.label = UI.CreateLabel(b, text, { font = "heading", size = 13, color = "textDim", justify = "CENTER" })
+    b.label = UI.CreateLabel(b, text, { font = "heading", size = UI.tabFontSize or 13, color = "textDim", justify = "CENTER" })
     b.label:SetPoint("CENTER", 0, 1)
     b:SetWidth(math.max(90, b.label:GetStringWidth() + 36))
 
