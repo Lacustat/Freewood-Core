@@ -12,6 +12,7 @@ if not UI or not Stats then return end
 local G = _G
 local BTN_H, LIST_W, HEAD_H, LEFT_PAD = 26, 200, 24, 10
 local VALUE_W = 190
+local ROW_H = 18
 
 local function Db() return Stats.Db() or { chars = {}, open = {} } end
 
@@ -98,7 +99,7 @@ local function Build(content)
     ---------------- rechts: Kategorien ----------------
     local scroll = UI.CreateScrollFrame(f)
     local child = scroll.child
-    local heads, lefts, rights = {}, {}, {}
+    local heads = {}
 
     local function Head(i)
         local h = heads[i]
@@ -112,13 +113,22 @@ local function Build(content)
             h.label:SetPoint("LEFT", h, "LEFT", 10, 0)
             h.label:SetJustifyH("LEFT")
             heads[i] = h
-            lefts[i] = UI.CreateLabel(child, "", { size = 12, justifyV = "TOP" })
-            rights[i] = UI.CreateLabel(child, "", { size = 12, justify = "RIGHT", justifyV = "TOP" })
-            lefts[i]:SetWordWrap(false)
-            rights[i]:SetWordWrap(false)
-            if lefts[i].SetSpacing then lefts[i]:SetSpacing(3); rights[i]:SetSpacing(3) end
         end
         return h
+    end
+
+    -- eine Zeile je Wert (ein einzeiliger Text je Label: mehrzeilige Texte zeigt der Forever-Client mit SetWordWrap(false) nur in der ersten Zeile)
+    local rowPool = {}
+    local rowUsed = 0
+    local function RowLabels()
+        rowUsed = rowUsed + 1
+        local p = rowPool[rowUsed]
+        if not p then
+            p = { l = UI.CreateLabel(child, "", { size = 12, justifyV = "MIDDLE" }), r = UI.CreateLabel(child, "", { size = 12, justify = "RIGHT", justifyV = "MIDDLE" }) }
+            p.l:SetWordWrap(false); p.r:SetWordWrap(false)
+            rowPool[rowUsed] = p
+        end
+        return p.l, p.r
     end
 
     local function CurrentModel()
@@ -163,6 +173,7 @@ local function Build(content)
         local open = Db().open
         local y = 0
         local n = 0
+        rowUsed = 0
         if not cats then
             n = 1
             local h = Head(1)
@@ -171,7 +182,6 @@ local function Build(content)
             h:SetPoint("TOPLEFT", child, "TOPLEFT", 0, 0)
             h:SetPoint("TOPRIGHT", child, "TOPRIGHT", -4, 0)
             h:Show()
-            lefts[1]:Hide(); rights[1]:Hide()
         else
             for i, cat in ipairs(cats) do
                 n = i
@@ -185,29 +195,24 @@ local function Build(content)
                 h:Show()
                 y = y + HEAD_H + 4
                 if isOpen then
-                    local lt, rt = {}, {}
                     for _, row in ipairs(cat.rows) do
-                        lt[#lt + 1] = tostring(row[1] or "")
-                        rt[#rt + 1] = tostring(row[2] or "")
+                        local l, r = RowLabels()
+                        l:SetText(tostring(row[1] or "")); r:SetText(tostring(row[2] or ""))
+                        l:ClearAllPoints(); r:ClearAllPoints()
+                        l:SetPoint("TOPLEFT", child, "TOPLEFT", LEFT_PAD, -y)
+                        l:SetPoint("TOPRIGHT", child, "TOPRIGHT", -(VALUE_W + 14), -y)
+                        l:SetHeight(ROW_H)
+                        r:SetPoint("TOPRIGHT", child, "TOPRIGHT", -10, -y)
+                        r:SetWidth(VALUE_W); r:SetHeight(ROW_H)
+                        l:Show(); r:Show()
+                        y = y + ROW_H
                     end
-                    local l, r = lefts[i], rights[i]
-                    l:SetText(table.concat(lt, "\n"))
-                    r:SetText(table.concat(rt, "\n"))
-                    l:ClearAllPoints(); r:ClearAllPoints()
-                    l:SetPoint("TOPLEFT", child, "TOPLEFT", LEFT_PAD, -y)
-                    l:SetPoint("TOPRIGHT", child, "TOPRIGHT", -(VALUE_W + 14), -y)
-                    r:SetPoint("TOPRIGHT", child, "TOPRIGHT", -10, -y)
-                    r:SetWidth(VALUE_W)
-                    local hgt = math.max(l:GetStringHeight() or 0, r:GetStringHeight() or 0, #lt * 15)
-                    l:SetHeight(hgt); r:SetHeight(hgt)
-                    l:Show(); r:Show()
-                    y = y + hgt + 8
-                else
-                    lefts[i]:Hide(); rights[i]:Hide()
+                    y = y + 8
                 end
             end
         end
-        for i = n + 1, #heads do heads[i]:Hide(); lefts[i]:Hide(); rights[i]:Hide() end
+        for i = n + 1, #heads do heads[i]:Hide() end
+        for i = rowUsed + 1, #rowPool do rowPool[i].l:Hide(); rowPool[i].r:Hide() end
         scroll:SetContentHeight(math.max(y, 50))
     end
 
