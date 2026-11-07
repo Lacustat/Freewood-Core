@@ -18,6 +18,7 @@ Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert
 - Einstellungen: Fenstergröße (50 bis 150 %) und die Optionen der einzelnen Module an einer Stelle.
 - Austausch: Datenarten (zum Beispiel Wildtiere) als Text-Code exportieren und bei einem anderen Spieler importieren. Der Code ist komprimiert, nicht verschlüsselt.
 - Beobachten-Fenster (`/fwwatch`): eigene Merkliste für Rezepte mit Materialien und Taschenbestand; andere Module (zum Beispiel Guild, später Auction) legen Rezepte hinein.
+- Statistik-Reiter (0.10.0): Unterreiter „Charakter“ und „Account“ (Charakterliste links, Summe aller Charaktere). Einklappbare Kategorien: Überblick, Werte, Kampf, Erfahrung, Gold (nach Quelle), Beute, Reisen (zu Fuß, Reittier, Schwimmen, Flug), Soziales, Tode. Knopf „Wegenetz anzeigen“ blendet die Karte der gelaufenen Wege (Codex) ein. Alle Daten werden nur lokal gezählt; Fehlendes füllt sich mit dem Spielen.
 - Minimap-Knopf, der das Fenster öffnet.
 - Gemeinsame Bausteine (Fenster, Knöpfe, Auswahlfelder, Listen) für alle Module.
 
@@ -51,6 +52,7 @@ The base addon of the Freewood family for World of Warcraft: Forever. It provide
 - Settings: window size (50 to 150 %) and the options of all modules in one place.
 - Exchange: export data kinds (for example wild beasts) as a text code and import them on another player's game. The code is compressed, not encrypted.
 - Watch window (`/fwwatch`): its own list for recipes with materials and live bag counts; other modules (for example Guild, later Auction) put recipes into it.
+- Statistics tab (0.10.0): sub-tabs "Character" and "Account" (character list on the left, sum of all characters). Collapsible categories: overview, values, combat, experience, gold (by source), loot, travel (foot, mount, swimming, flight), social, deaths. A "Show path network" button toggles the map of walked paths (Codex). Everything is counted locally; gaps fill as you play.
 - Minimap button that opens the window.
 - Shared building blocks (windows, buttons, dropdowns, lists) for all modules.
 

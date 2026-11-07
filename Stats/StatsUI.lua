@@ -1,0 +1,288 @@
+-- Freewood-Core: Statistik, Reiter
+-- Zwei Unterreiter: "Charakter" (alle Zahlen des angemeldeten Charakters) und "Account" (Liste aller Charaktere plus Summe,
+-- jeder Charakter einzeln aufrufbar). Die Zahlen stehen in Kategorien zum Auf- und Zuklappen (gemerkt je Account).
+-- Knopf "Wegenetz anzeigen": zeigt das mit dem Charakter gelaufene Wegenetz (Freewood-Codex) auf der Weltkarte.
+
+local ADDON, FW = ...
+
+local UI = FW.UI
+local Stats = FW.Stats
+if not UI or not Stats then return end
+
+local G = _G
+local BTN_H, LIST_W, HEAD_H, LEFT_PAD = 26, 200, 24, 10
+local VALUE_W = 190
+
+local function Db() return Stats.Db() or { chars = {}, open = {} } end
+
+local function CodexInfo()
+    local C = FW.Codex
+    if not C then return nil end
+    local out = {}
+    local ok, st = pcall(function() return C.Path and C.Path.Stats and C.Path.Stats() end)
+    if ok and type(st) == "table" then out.cells, out.edges = st.cells, st.edges end
+    local ok2, n = pcall(function() return C.Flight and C.Flight.Count and C.Flight.Count() end)
+    if ok2 and type(n) == "number" then out.flights = n end
+    return (out.cells or out.flights) and out or nil
+end
+
+local function ClassColor(class)
+    local c = G.RAID_CLASS_COLORS and class and G.RAID_CLASS_COLORS[class]
+    if c then return c.r, c.g, c.b end
+    return UI.Color("text")
+end
+
+local function Build(content)
+    local L = FW.L
+    local f = CreateFrame("Frame", nil, content)
+    local mode = "char"                  -- "char" | "acct"
+    local selected = nil                 -- Schluessel oder "ALL" (Account)
+    local confirmKey
+
+    ---------------- obere Leiste ----------------
+    local subButtons = {}
+    local function MakeSub(key, textKey, x, w)
+        local b = UI.CreateButton(f, L[textKey], w, BTN_H, function()
+            mode = key
+            f.Refresh()
+        end, "ghost")
+        b:SetPoint("TOPLEFT", f, "TOPLEFT", x, 0)
+        b.key = key
+        subButtons[#subButtons + 1] = b
+        return b
+    end
+    MakeSub("char", "STATS_SUB_CHAR", 0, 130)
+    MakeSub("acct", "STATS_SUB_ACCOUNT", 136, 130)
+
+    local pathButton = UI.CreateButton(f, "", 200, BTN_H, function()
+        local PM = FW.Codex and FW.Codex.PathMap
+        if PM and PM.Toggle then
+            PM.Toggle()
+            f.Refresh()
+        else
+            FW:Print(L.STATS_NEED_CODEX)
+        end
+    end, "default")
+    pathButton:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
+
+    local allButton = UI.CreateButton(f, L.STATS_TOGGLE_ALL, 150, BTN_H, function()
+        local open = Db().open
+        local any = false
+        for _, v in pairs(open) do if v then any = true end end
+        f.openAll = not any
+        for _, cat in ipairs(f.cats or {}) do open[cat.id] = f.openAll or nil end
+        f.Render()
+    end, "default")
+    allButton:SetPoint("RIGHT", pathButton, "LEFT", -6, 0)
+
+    ---------------- linke Liste (Account) ----------------
+    local listScroll = UI.CreateScrollFrame(f)
+    listScroll:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(BTN_H + 10))
+    listScroll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, BTN_H + 8)
+    listScroll:SetWidth(LIST_W)
+    local listButtons = {}
+
+    local removeButton = UI.CreateButton(f, L.STATS_REMOVE, LIST_W, BTN_H, function()
+        if not selected or selected == "ALL" then return end
+        if confirmKey ~= selected then
+            confirmKey = selected
+            f.Refresh()
+            return
+        end
+        Db().chars[selected] = nil
+        confirmKey, selected = nil, "ALL"
+        f.Refresh()
+    end, "default")
+    removeButton:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0)
+
+    ---------------- rechts: Kategorien ----------------
+    local scroll = UI.CreateScrollFrame(f)
+    local child = scroll.child
+    local heads, lefts, rights = {}, {}, {}
+
+    local function Head(i)
+        local h = heads[i]
+        if not h then
+            h = UI.CreateButton(child, "", 100, HEAD_H, function(self)
+                local open = Db().open
+                open[self.catId] = (not open[self.catId]) or nil
+                f.Render()
+            end, "default")
+            h.label:ClearAllPoints()
+            h.label:SetPoint("LEFT", h, "LEFT", 10, 0)
+            h.label:SetJustifyH("LEFT")
+            heads[i] = h
+            lefts[i] = UI.CreateLabel(child, "", { size = 12, justifyV = "TOP" })
+            rights[i] = UI.CreateLabel(child, "", { size = 12, justify = "RIGHT", justifyV = "TOP" })
+            lefts[i]:SetWordWrap(false)
+            rights[i]:SetWordWrap(false)
+            if lefts[i].SetSpacing then lefts[i]:SetSpacing(3); rights[i]:SetSpacing(3) end
+        end
+        return h
+    end
+
+    local function CurrentModel()
+        local db = Db()
+        if mode == "char" then
+            local rec = Stats.Rec(false)
+            if not rec then return nil end
+            return Stats.Model(rec, { codex = CodexInfo() })
+        end
+        if not selected or (selected ~= "ALL" and not db.chars[selected]) then selected = "ALL" end
+        if selected == "ALL" then
+            local sum = Stats.Sum(db.chars)
+            local cats = Stats.Model(sum, { codex = CodexInfo() })
+            -- Charakterliste vorn
+            local rows = {}
+            rows[#rows + 1] = { L.STATS_CHARS_N, Stats.Num(sum.count or 0) }
+            rows[#rows + 1] = { L.STATS_LEVELS, Stats.Num(sum.levelSum or 0) }
+            for _, e in ipairs(Stats.CharList(db.chars)) do
+                rows[#rows + 1] = { string.format("%s (%d)", e.name, e.level), string.format("%s | %s", Stats.Money(e.money), Stats.Duration(e.online)) }
+            end
+            table.insert(cats, 1, { id = "chars", title = L.STATS_C_CHARS, rows = rows })
+            -- "Ueberblick" der Summe ersetzen: Name/Klasse sind hier leer
+            for i, cat in ipairs(cats) do
+                if cat.id == "overview" then
+                    cat.rows = {
+                        { L.STATS_ONLINE, Stats.Duration(sum.c.online or 0) },
+                        { L.STATS_REST, Stats.Duration(sum.c.restSecs or 0) },
+                        { L.STATS_AFK, Stats.Duration(sum.c.afkSecs or 0) },
+                    }
+                elseif cat.id == "values" then
+                    cat.rows = { { L.STATS_GOLDNOW, Stats.Money((sum.snap or {}).money) } }
+                end
+            end
+            return cats
+        end
+        return Stats.Model(db.chars[selected], { codex = CodexInfo() })
+    end
+
+    function f.Render()
+        local cats = CurrentModel()
+        f.cats = cats or {}
+        local open = Db().open
+        local y = 0
+        local n = 0
+        if not cats then
+            n = 1
+            local h = Head(1)
+            h.label:SetText(L.STATS_NONE)
+            h:ClearAllPoints()
+            h:SetPoint("TOPLEFT", child, "TOPLEFT", 0, 0)
+            h:SetPoint("TOPRIGHT", child, "TOPRIGHT", -4, 0)
+            h:Show()
+            lefts[1]:Hide(); rights[1]:Hide()
+        else
+            for i, cat in ipairs(cats) do
+                n = i
+                local h = Head(i)
+                h.catId = cat.id
+                local isOpen = open[cat.id] and true or false
+                h.label:SetText((isOpen and "- " or "+ ") .. cat.title .. "  (" .. #cat.rows .. ")")
+                h:ClearAllPoints()
+                h:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -y)
+                h:SetPoint("TOPRIGHT", child, "TOPRIGHT", -4, -y)
+                h:Show()
+                y = y + HEAD_H + 4
+                if isOpen then
+                    local lt, rt = {}, {}
+                    for _, row in ipairs(cat.rows) do
+                        lt[#lt + 1] = tostring(row[1] or "")
+                        rt[#rt + 1] = tostring(row[2] or "")
+                    end
+                    local l, r = lefts[i], rights[i]
+                    l:SetText(table.concat(lt, "\n"))
+                    r:SetText(table.concat(rt, "\n"))
+                    l:ClearAllPoints(); r:ClearAllPoints()
+                    l:SetPoint("TOPLEFT", child, "TOPLEFT", LEFT_PAD, -y)
+                    l:SetPoint("TOPRIGHT", child, "TOPRIGHT", -(VALUE_W + 14), -y)
+                    r:SetPoint("TOPRIGHT", child, "TOPRIGHT", -10, -y)
+                    r:SetWidth(VALUE_W)
+                    local hgt = math.max(l:GetStringHeight() or 0, r:GetStringHeight() or 0, #lt * 15)
+                    l:SetHeight(hgt); r:SetHeight(hgt)
+                    l:Show(); r:Show()
+                    y = y + hgt + 8
+                else
+                    lefts[i]:Hide(); rights[i]:Hide()
+                end
+            end
+        end
+        for i = n + 1, #heads do heads[i]:Hide(); lefts[i]:Hide(); rights[i]:Hide() end
+        scroll:SetContentHeight(math.max(y, 50))
+    end
+
+    function f.RefreshList()
+        local db = Db()
+        local entries = { { key = "ALL", text = L.STATS_ALL } }
+        for _, e in ipairs(Stats.CharList(db.chars)) do
+            entries[#entries + 1] = { key = e.key, text = string.format("%s  %d", e.name, e.level), class = e.class }
+        end
+        for i, e in ipairs(entries) do
+            local b = listButtons[i]
+            if not b then
+                b = UI.CreateButton(listScroll.child, "", LIST_W - 14, BTN_H, function(self)
+                    selected = self.key
+                    confirmKey = nil
+                    f.Refresh()
+                end, "ghost")
+                listButtons[i] = b
+            end
+            b.key = e.key
+            b.label:SetText(e.text)
+            if e.class then b.label:SetTextColor(ClassColor(e.class)) else b.label:SetTextColor(UI.Color("goldLight")) end
+            b:SetStyle(e.key == selected and "primary" or "ghost")
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", listScroll.child, "TOPLEFT", 0, -((i - 1) * (BTN_H + 4)))
+            b:Show()
+        end
+        for i = #entries + 1, #listButtons do listButtons[i]:Hide() end
+        listScroll:SetContentHeight(math.max(#entries * (BTN_H + 4), 50))
+    end
+
+    function f.Refresh()
+        if not (G.InCombatLockdown and G.InCombatLockdown()) then
+            pcall(Stats.UpdateInfo)
+            pcall(Stats.Snapshot)
+        end
+        for _, b in ipairs(subButtons) do b:SetStyle(b.key == mode and "primary" or "ghost") end
+        local acct = (mode == "acct")
+        scroll:ClearAllPoints()
+        if acct then
+            listScroll:Show()
+            f.RefreshList()
+            scroll:SetPoint("TOPLEFT", f, "TOPLEFT", LIST_W + 10, -(BTN_H + 10))
+            local current = Stats.Key()
+            if selected and selected ~= "ALL" and selected ~= current then
+                removeButton:Show()
+                removeButton.label:SetText(confirmKey == selected and L.STATS_REMOVE_SURE or L.STATS_REMOVE)
+            else
+                removeButton:Hide()
+            end
+        else
+            listScroll:Hide()
+            removeButton:Hide()
+            scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(BTN_H + 10))
+        end
+        scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
+        local PM = FW.Codex and FW.Codex.PathMap
+        pathButton.label:SetText((PM and PM.on) and L.STATS_PATH_HIDE or L.STATS_PATH_SHOW)
+        f.Render()
+    end
+
+    f.acc = 0
+    f:SetScript("OnUpdate", function(self, elapsed)
+        self.acc = self.acc + (elapsed or 0)
+        if self.acc < 5 then return end
+        self.acc = 0
+        if self:IsVisible() and not (G.InCombatLockdown and G.InCombatLockdown()) then self.Render() end
+    end)
+    f:SetScript("OnSizeChanged", function() f.Render() end)
+    return f
+end
+
+UI:RegisterTab("stats", {
+    label = function() return FW.L.TAB_STATS end,
+    order = 95,
+    build = Build,
+    onShow = function(f) f.Refresh() end,
+})
