@@ -180,6 +180,7 @@ local function Build(content)
             for i, cat in ipairs(cats) do
                 if cat.id == "overview" then
                     cat.rows = {
+                        { L.STATS_PLAYED, Stats.Duration(sum.played or 0) },
                         { L.STATS_ONLINE, Stats.Duration(sum.c.online or 0) },
                         { L.STATS_REST, Stats.Duration(sum.c.restSecs or 0) },
                         { L.STATS_AFK, Stats.Duration(sum.c.afkSecs or 0) },

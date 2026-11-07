@@ -228,6 +228,12 @@ for _, c in ipairs(mk) do if c.id == "kills" then hasKills = c end end
 eq(hasKills ~= nil and #hasKills.rows, 5, "Kategorie Kills")
 for _, id in ipairs({ "overview", "values", "combat", "kills", "xp", "gold", "loot", "travel", "social", "quests", "charx", "rep", "skills", "gear", "explore", "deaths" }) do eq(S.ICONS[id] ~= nil, true, "Symbol " .. id) end
 
+local rp = S.NewRecord(); rp.c = { online = 100 }; rp.played = 5000
+local op = S.Model(rp, {})[1]
+eq(op.rows[6][1], "STATS_PLAYED", "Spielzeit-Zeile"); eq(op.rows[6][2], "1h 23m", "Spielzeit aus /played")
+local rn = S.NewRecord(); rn.c = { online = 100 }
+eq(S.Model(rn, {})[1].rows[6][2], "1m 40s", "ohne /played gilt die erfasste Zeit")
+eq(S.Sum({ a = rp, b = rn }).played, 5100, "Summe Spielzeit")
 -- Reiter
 Load("Stats/StatsUI.lua")
 local def = tabs.stats

@@ -226,10 +226,10 @@ function Stats.Model(rec, opts)
     Row(r, L.STATS_FACTION, tostring(info.faction or "?"))
     Row(r, L.STATS_LEVEL, tostring(info.level or "?"))
     if info.guild and info.guild ~= "" then Row(r, L.STATS_GUILD, info.guild .. (info.rank and (" (" .. info.rank .. ")") or "")) end
+    Row(r, L.STATS_PLAYED, Stats.Duration(math.max(rec.played or 0, c.online or 0)))
     Row(r, L.STATS_ONLINE, Stats.Duration(c.online or 0))
     Row(r, L.STATS_REST, Stats.Duration(c.restSecs or 0))
     Row(r, L.STATS_AFK, Stats.Duration(c.afkSecs or 0))
-    if rec.played then Row(r, L.STATS_PLAYED, Stats.Duration(rec.played)) end
     Row(r, L.STATS_FIRST, G.date and G.date("%d.%m.%Y %H:%M", rec.first or 0) or tostring(rec.first))
     Row(r, L.STATS_LAST, G.date and G.date("%d.%m.%Y %H:%M", rec.last or 0) or tostring(rec.last))
 
@@ -480,6 +480,7 @@ function Stats.Sum(chars)
         levels = levels + lv
         maxLevel = math.max(maxLevel, lv)
         money = money + (tonumber((rec.snap or {}).money) or 0)
+        out.played = (out.played or 0) + math.max(rec.played or 0, (rec.c or {}).online or 0)
         if not out.first or (rec.first or 0) < out.first then out.first = rec.first end
         out.last = math.max(out.last, rec.last or 0)
     end
