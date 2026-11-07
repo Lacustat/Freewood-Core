@@ -1,14 +1,12 @@
--- Freewood-Core: Daten per Fluestern (Addon-Nachricht, unsichtbar). VORBEREITET, im Spiel AUS (settings.whisperShare = false).
--- Im Spiel gemessen (7. November 2026): WHISPER-Addon-Nachrichten kommen an, erscheinen nicht im Chat, 100 Stueck an einem
--- Stueck ohne Drosselung (an sich selbst). Der Name muss der volle Name sein ("Pinky Freewood"). Ist der Empfaenger offline,
--- steht beim Sender die Systemzeile "Momentan ist kein Spieler mit dem Namen ... online".
+-- Freewood-Core: Daten per Fluestern (Addon-Nachricht, unsichtbar).
+-- Im Spiel gemessen (7. November 2026): WHISPER-Addon-Nachrichten kommen an (auch von fremden Spielern), erscheinen nicht im Chat,
+-- 100 Stueck an einem Stueck ohne Drosselung (an sich selbst). Der Name muss der volle Name sein ("Pinky Freewood").
+-- Ist der Empfaenger offline, steht beim Sender sonst die Systemzeile "Momentan ist kein Spieler mit dem Namen ... online";
+-- sie wird hier ausgeblendet (Filter) und als "offline" gemeldet (Ereignis WHISPER_OFFLINE).
 --
--- Testlauf (0.13.1, ab 0.13.2 aus, siehe W.AUTO_TEST): Jeder Spieler mit diesem Core schickt EINMAL (je Account) eine Testnachricht an "Dr Freewood", 45 bis 150 Sekunden nach
--- dem Anmelden, nicht im Kampf. Das Protokoll liegt im Dev-Reiter "Fluestertest". Echte Daten bleiben aus (whisperShare = false).
---
--- Testnachrichten ("T|...") werden immer angenommen und protokolliert. Alles andere wird nur verarbeitet, wenn der Schalter an ist,
--- und nur von Spielern, die als bereit gemeldet sind (kommt spaeter; Whisper.Ready).
--- Protokoll: FreewoodDB.whisperLog (letzte 100 Eintraege) fuer den Dev-Reiter "Fluestertest".
+-- Nachrichten: "<Art>|<Text>". Arten: T Test, H Hallo, A Antwort "bereit", K Quittung, S Stopp, P Datenstueck.
+-- Senden der Arten H und P nur bei eingeschalteter Einstellung settings.whisperSend (Standard AN, "Daten an den Entwickler senden").
+-- Steuerarten (T, A, K, S) gehen immer. Protokoll: FreewoodDB.whisperLog (letzte 100 Eintraege) fuer den Dev-Reiter "Fluestertest".
 
 local ADDON, FW = ...
 
@@ -21,7 +19,9 @@ local MAX_LOG = 100
 local MAX_LEN = 240
 
 W.PREFIX = PREFIX
-W.ready = {}   -- ready[nameLower] = Zeitpunkt, bis zu dem der Spieler als bereit gilt (spaeter)
+W.TARGETS = { "Pinky Freewood", "Dr Freewood" }   -- Empfaenger in dieser Reihenfolge
+W.TEST_TARGET = "Dr Freewood"
+W.last = nil   -- letzte Sendung { name = klein, t = GetTime }
 
 local function Secret(v)
     return G.issecretvalue and G.issecretvalue(v) or false
@@ -45,29 +45,29 @@ local function ResultName(res)
 end
 
 -- Protokoll: { t = Zeit, dir = "out"|"in", peer = Name, text = Text, res = Ergebnis }
+-- Datenstuecke (P) und Quittungen werden nicht einzeln protokolliert (zu viele), nur Test, Hallo, Antwort, Stopp.
 function W.Log(dir, peer, text, res)
     local s = Store()
     if not s then return end
-    s[#s + 1] = { t = Now(), dir = dir, peer = tostring(peer or "?"), text = (tostring(text or ""):gsub("|", "/")):sub(1, 60), res = res }
+    s[#s + 1] = { t = Now(), dir = dir, peer = tostring(peer or "?"), text = (tostring(text or ""):gsub("|", "/")):sub(1, 60), res = res or "" }
     while #s > MAX_LOG do table.remove(s, 1) end
     FW:Fire("WHISPER_LOG")
 end
 
-function W.GetLog()
-    return Store() or {}
-end
+function W.GetLog() return Store() or {} end
 
 function W.ClearLog()
     if FW.db then FW.db.whisperLog = {} end
     FW:Fire("WHISPER_LOG")
 end
 
-function W.Armed()
-    return FW.settings ~= nil and FW.settings.whisperShare == true
+-- Einstellung "Daten an den Entwickler senden" (Standard AN)
+function W.Enabled()
+    return not (FW.settings and FW.settings.whisperSend == false)
 end
 
-function W.SetArmed(on)
-    if FW.settings then FW.settings.whisperShare = on and true or false end
+function W.SetEnabled(on)
+    if FW.settings then FW.settings.whisperSend = on and true or false end
 end
 
 -- Eigener voller Name (Vor- und Nachname), soweit das Spiel ihn liefert
@@ -89,17 +89,21 @@ local function CleanName(name)
     return name
 end
 
--- Einzelne Nachricht senden. Rueckgabe: ok, Ergebnisname. kind "T" = Test (immer erlaubt), sonst nur bei eingeschaltetem Schalter.
+local QUIET = { P = true, K = true }
+
+-- Einzelne Nachricht senden. Rueckgabe: ok, Ergebnisname. Art T/A/K/S immer erlaubt, H und P nur bei eingeschalteter Einstellung.
 function W.Send(name, text, kind)
     name = CleanName(name)
     if not name then return false, "Name" end
     if type(text) ~= "string" or text == "" or #text > MAX_LEN then return false, "Text" end
-    if kind ~= "T" and not W.Armed() then return false, "aus" end
+    kind = kind or "D"
+    if (kind == "H" or kind == "P" or kind == "D") and not W.Enabled() then return false, "aus" end
     local api = G.C_ChatInfo
     if not (api and api.SendAddonMessage) then return false, "keine Schnittstelle" end
-    local ok, res = pcall(api.SendAddonMessage, PREFIX, (kind or "D") .. "|" .. text, "WHISPER", name)
+    W.last = { name = name:lower(), t = G.GetTime and G.GetTime() or 0 }
+    local ok, res = pcall(api.SendAddonMessage, PREFIX, kind .. "|" .. text, "WHISPER", name)
     local rname = ok and ResultName(res) or "Fehler"
-    W.Log("out", name, (kind or "D") .. "|" .. text, rname)
+    if not QUIET[kind] then W.Log("out", name, kind .. "|" .. text, rname) end
     return ok and (res == 0 or res == nil or rname == "Success"), rname
 end
 
@@ -113,17 +117,32 @@ end
 local function OnAddon(prefix, text, channel, sender)
     if prefix ~= PREFIX or Secret(text) or Secret(sender) then return end
     if channel ~= "WHISPER" then return end
-    if type(text) ~= "string" or #text > 255 then return end
+    if type(text) ~= "string" or #text > 255 or type(sender) ~= "string" then return end
     local kind, body = text:match("^(%a)|(.*)$")
     if kind == "T" then
         W.Log("in", sender, text, "")
-    elseif kind and W.Armed() then
+    elseif kind then
         FW:Fire("WHISPER_DATA", sender, kind, body)
     end
 end
 
--- einmaliger Testlauf an den Besitzer
-W.TEST_TARGET = "Dr Freewood"
+-- "Momentan ist kein Spieler mit dem Namen 'X' online." nach einer Sendung an X ausblenden und als offline melden
+local function SystemFilter(_, _, msg, ...)
+    if type(msg) ~= "string" or Secret(msg) or not W.last then return false end
+    local now = G.GetTime and G.GetTime() or 0
+    if now - W.last.t > 6 then return false end
+    if msg:lower():find(W.last.name, 1, true) then
+        FW:Fire("WHISPER_OFFLINE", W.last.name)
+        return true
+    end
+    return false
+end
+if G.ChatFrame_AddMessageEventFilter then
+    pcall(G.ChatFrame_AddMessageEventFilter, "CHAT_MSG_SYSTEM", SystemFilter)
+end
+
+-- Der Testlauf ist beendet (Ziel erreicht). Zum erneuten Einschalten: W.AUTO_TEST = true.
+W.AUTO_TEST = false
 
 local function AutoTest()
     local db = FW.db
@@ -138,9 +157,6 @@ local function AutoTest()
     local ok, res = W.SendTest(W.TEST_TARGET)
     db.whisperTestDone.res = tostring(res)
 end
-
--- Der Testlauf ist beendet (Ziel erreicht: Test von einem fremden Spieler kam an). Zum erneuten Einschalten: W.AUTO_TEST = true.
-W.AUTO_TEST = false
 
 local function StartAutoTest()
     if not W.AUTO_TEST then return end
