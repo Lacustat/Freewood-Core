@@ -24,7 +24,8 @@ local function CodexInfo()
     if ok and type(st) == "table" then out.cells, out.edges = st.cells, st.edges end
     local ok2, n = pcall(function() return C.Flight and C.Flight.Count and C.Flight.Count() end)
     if ok2 and type(n) == "number" then out.flights = n end
-    return (out.cells or out.flights) and out or nil
+    out.kills = Stats.CodexKills and Stats.CodexKills(C)
+    return (out.cells or out.flights or out.kills) and out or nil
 end
 
 local function ClassColor(class)
@@ -109,8 +110,11 @@ local function Build(content)
                 open[self.catId] = (not open[self.catId]) or nil
                 f.Render()
             end, "default")
+            h.icon = h:CreateTexture(nil, "OVERLAY")
+            h.icon:SetSize(HEAD_H - 6, HEAD_H - 6)
+            h.icon:SetPoint("LEFT", h, "LEFT", 6, 0)
             h.label:ClearAllPoints()
-            h.label:SetPoint("LEFT", h, "LEFT", 10, 0)
+            h.label:SetPoint("LEFT", h, "LEFT", HEAD_H + 6, 0)
             h.label:SetJustifyH("LEFT")
             heads[i] = h
         end
@@ -118,17 +122,39 @@ local function Build(content)
     end
 
     -- eine Zeile je Wert (ein einzeiliger Text je Label: mehrzeilige Texte zeigt der Forever-Client mit SetWordWrap(false) nur in der ersten Zeile)
+    -- Jede Zeile ist ein Rahmen mit Hervorhebung beim Drueberfahren; die Labels haengen am Zeilenrahmen.
     local rowPool = {}
     local rowUsed = 0
-    local function RowLabels()
+    local function RowFrame()
         rowUsed = rowUsed + 1
         local p = rowPool[rowUsed]
         if not p then
-            p = { l = UI.CreateLabel(child, "", { size = 12, justifyV = "MIDDLE" }), r = UI.CreateLabel(child, "", { size = 12, justify = "RIGHT", justifyV = "MIDDLE" }) }
-            p.l:SetWordWrap(false); p.r:SetWordWrap(false)
-            rowPool[rowUsed] = p
+            local row = CreateFrame("Frame", nil, child)
+            row:SetHeight(ROW_H)
+            row:EnableMouse(true)
+            row.hl = row:CreateTexture(nil, "BACKGROUND")
+            row.hl:SetAllPoints(row)
+            row.hl:SetColorTexture(UI.Color("hover"))
+            row.hl:Hide()
+            row:SetScript("OnEnter", function(self) self.hl:Show() end)
+            row:SetScript("OnLeave", function(self) self.hl:Hide() end)
+            row:EnableMouseWheel(true)
+            row:SetScript("OnMouseWheel", function(_, delta)
+                local fn = scroll.scroll and scroll.scroll:GetScript("OnMouseWheel")
+                if fn then fn(scroll.scroll, delta) end
+            end)
+            row.l = UI.CreateLabel(row, "", { size = 12, justifyV = "MIDDLE" })
+            row.r = UI.CreateLabel(row, "", { size = 12, justify = "RIGHT", justifyV = "MIDDLE" })
+            row.l:SetWordWrap(false); row.r:SetWordWrap(false)
+            row.l:SetPoint("TOPLEFT", row, "TOPLEFT", LEFT_PAD, 0)
+            row.l:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -(VALUE_W + 14), 0)
+            row.r:SetPoint("TOPRIGHT", row, "TOPRIGHT", -10, 0)
+            row.r:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -10, 0)
+            row.r:SetWidth(VALUE_W)
+            rowPool[rowUsed] = row
+            p = row
         end
-        return p.l, p.r
+        return p
     end
 
     local function CurrentModel()
@@ -187,6 +213,8 @@ local function Build(content)
                 n = i
                 local h = Head(i)
                 h.catId = cat.id
+                local icon = Stats.ICONS and Stats.ICONS[cat.id]
+                if icon then h.icon:SetTexture("Interface\\Icons\\" .. icon); h.icon:Show() else h.icon:Hide() end
                 local isOpen = open[cat.id] and true or false
                 h.label:SetText((isOpen and "- " or "+ ") .. cat.title .. "  (" .. #cat.rows .. ")")
                 h:ClearAllPoints()
@@ -195,16 +223,14 @@ local function Build(content)
                 h:Show()
                 y = y + HEAD_H + 4
                 if isOpen then
-                    for _, row in ipairs(cat.rows) do
-                        local l, r = RowLabels()
-                        l:SetText(tostring(row[1] or "")); r:SetText(tostring(row[2] or ""))
-                        l:ClearAllPoints(); r:ClearAllPoints()
-                        l:SetPoint("TOPLEFT", child, "TOPLEFT", LEFT_PAD, -y)
-                        l:SetPoint("TOPRIGHT", child, "TOPRIGHT", -(VALUE_W + 14), -y)
-                        l:SetHeight(ROW_H)
-                        r:SetPoint("TOPRIGHT", child, "TOPRIGHT", -10, -y)
-                        r:SetWidth(VALUE_W); r:SetHeight(ROW_H)
-                        l:Show(); r:Show()
+                    for _, rw in ipairs(cat.rows) do
+                        local row = RowFrame()
+                        row.l:SetText(tostring(rw[1] or "")); row.r:SetText(tostring(rw[2] or ""))
+                        row.hl:Hide()
+                        row:ClearAllPoints()
+                        row:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -y)
+                        row:SetPoint("TOPRIGHT", child, "TOPRIGHT", -4, -y)
+                        row:Show()
                         y = y + ROW_H
                     end
                     y = y + 8
@@ -212,7 +238,7 @@ local function Build(content)
             end
         end
         for i = n + 1, #heads do heads[i]:Hide() end
-        for i = rowUsed + 1, #rowPool do rowPool[i].l:Hide(); rowPool[i].r:Hide() end
+        for i = rowUsed + 1, #rowPool do rowPool[i]:Hide() end
         scroll:SetContentHeight(math.max(y, 50))
     end
 

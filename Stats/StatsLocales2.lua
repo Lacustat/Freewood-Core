@@ -3,6 +3,10 @@
 local ADDON, FW = ...
 
 FW:AddLocale("enUS", {
+    STATS_C_KILLS = "Kills (Codex, whole account)",
+    STATS_CK_TOTAL = "Kills with experience",
+    STATS_CK_SPECIES = "Different creatures",
+    STATS_CK_LOOTED = "Looted corpses",
     STATS_C_QUESTS = "Quests (matched with the Codex)",
     STATS_Q_DONE = "Completed quests",
     STATS_Q_LOG = "Quests in log",
@@ -35,6 +39,10 @@ FW:AddLocale("enUS", {
 })
 
 FW:AddLocale("deDE", {
+    STATS_C_KILLS = "Kills (Codex, ganzer Account)",
+    STATS_CK_TOTAL = "Kills mit Erfahrung",
+    STATS_CK_SPECIES = "Verschiedene Kreaturen",
+    STATS_CK_LOOTED = "Geplünderte Leichen",
     STATS_C_QUESTS = "Quests (Abgleich mit dem Codex)",
     STATS_Q_DONE = "Erledigte Quests",
     STATS_Q_LOG = "Quests im Log",

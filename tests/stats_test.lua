@@ -218,6 +218,16 @@ local sum2 = S.Sum({ a = rec3, b = rec3 })
 eq(sum2.w.q.done, 4, "Summe Quests"); eq(sum2.w.skillRank["Schmiedekunst"], 150, "Summe Fertigkeit Maximum"); eq(sum2.w.repN, 4, "Summe Ruf")
 S.Model(sum2, {})
 
+-- Kills aus dem Codex
+local cx = { db = { units = { [1] = { n = "Wolf", xp = { [5] = { n = 4 }, [6] = { n = 2 } }, k = 5 }, [2] = { n = "Eber", xp = { [5] = { n = 7 } }, k = 1 }, [3] = { n = "Hase", k = 2 } } } }
+local ck = S.CodexKills(cx)
+eq(ck.total, 13, "Codex Kills gesamt"); eq(ck.species, 2, "Codex Arten"); eq(ck.looted, 8, "Codex Leichen"); eq(ck.top[1][1], "Eber", "Codex Spitzenreiter")
+local mk = S.Model(rec3, { codex = { kills = ck } })
+local hasKills
+for _, c in ipairs(mk) do if c.id == "kills" then hasKills = c end end
+eq(hasKills ~= nil and #hasKills.rows, 5, "Kategorie Kills")
+for _, id in ipairs({ "overview", "values", "combat", "kills", "xp", "gold", "loot", "travel", "social", "quests", "charx", "rep", "skills", "gear", "explore", "deaths" }) do eq(S.ICONS[id] ~= nil, true, "Symbol " .. id) end
+
 -- Reiter
 Load("Stats/StatsUI.lua")
 local def = tabs.stats

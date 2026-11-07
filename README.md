@@ -20,6 +20,7 @@ Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert
 - Beobachten-Fenster (`/fwwatch`): eigene Merkliste für Rezepte mit Materialien und Taschenbestand; andere Module (zum Beispiel Guild, später Auction) legen Rezepte hinein.
 - Statistik-Reiter (0.10.0): Unterreiter „Charakter“ und „Account“ (Charakterliste links, Summe aller Charaktere). Einklappbare Kategorien: Überblick, Werte, Kampf, Erfahrung, Gold (nach Quelle), Beute, Reisen (zu Fuß, Reittier, Schwimmen, Flug), Soziales, Tode. Knopf „Wegenetz anzeigen“ blendet die Karte der gelaufenen Wege (Codex) ein. Alle Daten werden nur lokal gezählt; Fehlendes füllt sich mit dem Spielen.
 - Statistik erweitert (0.11.0): Quests (erledigt, Erfahrung und Gold laut Codex-Daten, je Zone), Ruf, Berufe, Talente, Zauber, Erfolge, Ausrüstung, Taschenwert, Erkundung. Jede Abfrage ist geschützt; antwortet der Client nicht, fehlt nur die Zeile. `/fwstatprobe` zeigt, welche Abfragen im Spiel antworten.
+- Statistik (0.12.0): Symbole an den Kategorien, Zeilen leuchten beim Drüberfahren auf, neue Kategorie „Kills (Codex)“ (Kills mit Erfahrung, Kreaturenarten, geplünderte Leichen, Top 8; gilt für den ganzen Account, weil der Codex account-weit lernt).
 - Minimap-Knopf, der das Fenster öffnet.
 - Gemeinsame Bausteine (Fenster, Knöpfe, Auswahlfelder, Listen) für alle Module.
 
@@ -55,6 +56,7 @@ The base addon of the Freewood family for World of Warcraft: Forever. It provide
 - Watch window (`/fwwatch`): its own list for recipes with materials and live bag counts; other modules (for example Guild, later Auction) put recipes into it.
 - Statistics tab (0.10.0): sub-tabs "Character" and "Account" (character list on the left, sum of all characters). Collapsible categories: overview, values, combat, experience, gold (by source), loot, travel (foot, mount, swimming, flight), social, deaths. A "Show path network" button toggles the map of walked paths (Codex). Everything is counted locally; gaps fill as you play.
 - Statistics extended (0.11.0): quests (completed, experience and gold from Codex data, per zone), reputation, professions, talents, spells, achievements, equipment, bag value, exploration. Every query is guarded; if the client does not answer, only that row is missing. `/fwstatprobe` shows which queries answer in game.
+- Statistics (0.12.0): icons on the categories, rows highlight on mouse-over, new category "Kills (Codex)" (kills with experience, creature species, looted corpses, top 8; account-wide because the Codex learns account-wide).
 - Minimap button that opens the window.
 - Shared building blocks (windows, buttons, dropdowns, lists) for all modules.
 

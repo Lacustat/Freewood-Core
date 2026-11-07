@@ -197,6 +197,15 @@ local function Row(rows, label, value)
     rows[#rows + 1] = { label, value }
 end
 
+-- Symbole der Kategorien (Standard-Symbole des Spiels)
+Stats.ICONS = {
+    overview = "INV_Misc_Note_01", values = "INV_Shield_06", combat = "Ability_Warrior_OffensiveStance", kills = "INV_Sword_04",
+    xp = "INV_Misc_Book_09", gold = "INV_Misc_Coin_01", loot = "INV_Misc_Bag_10", travel = "INV_Misc_Map_01",
+    social = "INV_Letter_02", quests = "INV_Scroll_03", charx = "Spell_Holy_PrayerOfHealing", rep = "INV_Shirt_GuildTabard_01",
+    skills = "INV_Hammer_20", gear = "INV_Chest_Cloth_17", explore = "INV_Misc_Spyglass_02", deaths = "INV_Misc_Bone_HumanSkull_01",
+    chars = "INV_Misc_Eye_01",
+}
+
 -- Kategorien fuer einen Datensatz. opts.codex = { cells, edges, worlds, flights } (Wegenetz und Fluege aus Freewood-Codex)
 function Stats.Model(rec, opts)
     opts = opts or {}
@@ -256,6 +265,16 @@ function Stats.Model(rec, opts)
         return tostring(name or ("#" .. tostring(id)))
     end)) do
         Row(r, string.format("%d. %s", i, e[1]), Stats.Num(e[2]))
+    end
+
+    -- Kills laut Codex (Account-weit, jede Kreatur einzeln)
+    local ck = opts.codex and opts.codex.kills
+    if ck then
+        r = Cat("kills", "STATS_C_KILLS")
+        Row(r, L.STATS_CK_TOTAL, Stats.Num(ck.total))
+        Row(r, L.STATS_CK_SPECIES, Stats.Num(ck.species))
+        Row(r, L.STATS_CK_LOOTED, Stats.Num(ck.looted))
+        for i, e in ipairs(ck.top or {}) do Row(r, string.format("%d. %s", i, tostring(e[1])), Stats.Num(e[2])) end
     end
 
     -- Erfahrung und Quests
@@ -399,6 +418,42 @@ function Stats.Model(rec, opts)
     for i, e in ipairs(Top(rec.dz, 5)) do Row(r, string.format("%d. %s", i, e[1]), Stats.Num(e[2])) end
 
     return cats
+end
+
+-- Kills aus den Codex-Daten (Account-weit): units[id].xp[Spielerstufe] = { n, ... } zaehlt jeden Kill mit Erfahrung,
+-- units[id].k die gelooteten Leichen. Ergebnis wird 30 s gemerkt (die Tabelle hat tausende Eintraege).
+local killCache
+function Stats.CodexKills(codex)
+    local now = Now()
+    if killCache and now - killCache.at < 30 then return killCache.v end
+    local db = codex and codex.db
+    local units = db and db.units
+    if type(units) ~= "table" then return nil end
+    local total, species, looted = 0, 0, 0
+    local per = {}
+    for id, u in pairs(units) do
+        if type(u) == "table" then
+            local n = 0
+            for _, e in pairs(type(u.xp) == "table" and u.xp or {}) do
+                if type(e) == "table" then n = n + (tonumber(e.n) or 0) end
+            end
+            local k = tonumber(u.k) or 0
+            looted = looted + k
+            if n > 0 then
+                total, species = total + n, species + 1
+                per[id] = n
+            end
+        end
+    end
+    if total == 0 and looted == 0 then return nil end
+    local top = Top(per, 8, function(id)
+        local u = units[id]
+        local name = type(u) == "table" and type(u.n) == "string" and u.n or nil
+        return name or ("#" .. tostring(id))
+    end)
+    local v = { total = total, species = species, looted = looted, top = top }
+    killCache = { at = now, v = v }
+    return v
 end
 
 -- Summe aller Charaktere (Zaehler, Zonen usw.); info und snap beschreiben die Gesamtheit
