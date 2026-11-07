@@ -16,7 +16,7 @@ _G.hooksecurefunc = function(tbl, name, fn)
     tbl[name] = function(...) local r = orig(...); fn(...); return r end
 end
 local frameObj = { CreateTexture = function() return New(TexM) end, CreateFontString = function() return New(FsM) end }
-_G.CreateFrame = function(kind) if kind == "EditBox" then return New(EbM) end return frameObj end
+_G.CreateFrame = function(kind) if kind == "EditBox" then local e = New(EbM); e.SetAutoFocus = function() end; e.ClearFocus = function() end; e.Hide = function() end; return e end return frameObj end
 _G.UIParent = { CreateFontString = function() return New(FsM) end }
 _G.UISpecialFrames = {}
 

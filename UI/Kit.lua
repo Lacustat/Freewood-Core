@@ -89,12 +89,18 @@ local function OnColorSet(self, kind, r, g, b)
     end
 end
 
+local G_UIParent = _G.UIParent
 UI.liveColors = pcall(function()
     local f = CreateFrame("Frame")
     local function Methods(obj) return getmetatable(obj).__index end
     hooksecurefunc(Methods(f:CreateTexture()), "SetColorTexture", function(self, r, g, b) OnColorSet(self, "tex", r, g, b) end)
     hooksecurefunc(Methods(f:CreateFontString()), "SetTextColor", function(self, r, g, b) OnColorSet(self, "text", r, g, b) end)
-    local eb = CreateFrame("EditBox")
+    -- Achtung: ein per Lua erzeugtes EditBox holt sich sonst den Tastaturfokus (autoFocus ist standardmaessig an). Deshalb sofort
+    -- ausschalten, Fokus abgeben und verstecken.
+    local eb = CreateFrame("EditBox", nil, G_UIParent)
+    if eb.SetAutoFocus then eb:SetAutoFocus(false) end
+    if eb.ClearFocus then eb:ClearFocus() end
+    if eb.Hide then eb:Hide() end
     hooksecurefunc(Methods(eb), "SetTextColor", function(self, r, g, b) OnColorSet(self, "text", r, g, b) end)
 end)
 
