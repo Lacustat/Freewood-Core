@@ -92,6 +92,7 @@ function Stats.Snapshot()
     end
     if total > 0 then s.bagFree, s.bagTotal = free, total end
     s.money = Call(G.GetMoney)
+    if Stats.World and Stats.World.Refresh and (Now() - ((rec.w and rec.w.at) or 0)) > 300 then pcall(Stats.World.Refresh, true) end
     if s.money then rec.c.maxMoney = math.max(rec.c.maxMoney or 0, s.money) end
 end
 
@@ -366,6 +367,7 @@ function mod:OnEnable()
         Hook("DoEmote", function() Stats.Count("emotes", 1) end)
     end
     ticker:Show()
+    if Stats.World and Stats.World.Start then pcall(Stats.World.Start) end
     if G.C_Timer and G.C_Timer.After then G.C_Timer.After(5, function() pcall(Stats.Snapshot) end) end
 end
 

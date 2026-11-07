@@ -30,7 +30,7 @@ local UI = setmetatable({
 }, { __index = function() return function() return Proxy() end end })
 local FW = { L = setmetatable({ STATS_DUR_D = "%dd %dh %dm", STATS_DUR_H = "%dh %dm", STATS_DUR_M = "%dm %ds", STATS_DUR_S = "%ds" }, { __index = function(_, k) return k end }), UI = UI, activeLocale = "enUS", modules = {},
     Util = { IsSecret = function() return false end }, Print = function() end,
-    RegisterEvent = function(_, ev, fn, owner) registered[ev] = { fn, owner } end, UnregisterEvent = function() end }
+    RegisterEvent = function(_, ev, fn, owner) if not registered[ev] then registered[ev] = { fn, owner } end end, UnregisterEvent = function() end }
 function FW:NewModule(name, opts) opts.db = { chars = {}, open = { overview = true } }; opts.db.chars = {}; self.modules[name] = opts; return opts end
 local function Load(f) assert(loadfile(f))("Freewood-Core", FW) end
 Load("Stats/StatsData.lua")
@@ -131,6 +131,7 @@ _G.LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
 _G.COMBATLOG_XPGAIN_FIRSTPERSON = "%s dies, you gain %d experience."
 _G.COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED = "You gain %d experience."
 Load("Stats/StatsCollect.lua")
+Load("Stats/StatsWorld.lua")
 local mod = FW.modules.Stats
 assert(mod and mod.OnEnable)
 mod:OnEnable()
@@ -159,6 +160,63 @@ Fire("UNIT_SPELLCAST_SUCCEEDED", "player", "guid", 75)
 Fire("UNIT_SPELLCAST_SUCCEEDED", "target", "guid", 99)
 eq(r.c.casts, 1, "Zauber nur eigene"); eq(r.sp[75], 1, "Zauber 75")
 Fire("PLAYER_ENTERING_WORLD"); eq(r.c.loads, 1, "Ladebildschirm"); eq(r.z["Durotar"] ~= nil, true, "Zone erfasst")
+
+
+-- Weltabfragen
+_G.GetNumFactions = function() return 3 end
+_G.GetFactionInfo = function(i)
+    local t = { { "Gruppe", nil, 4, 0, 1, 0, nil, nil, true }, { "Orgrimmar", nil, 8, 0, 1000, 999, nil, nil, false }, { "Donnerfels", nil, 6, 0, 1000, 500, nil, nil, false } }
+    local e = t[i]; return e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8], e[9]
+end
+_G.GetNumSkillLines = function() return 3 end
+_G.GetSkillLineInfo = function(i)
+    if i == 1 then return "Berufe", true end
+    if i == 2 then return "Schmiedekunst", false, nil, 150, 0, 0, 300 end
+    return "Waffen", false, nil, 100, 0, 0, 100
+end
+_G.GetNumTalentTabs = function() return 2 end
+_G.GetTalentTabInfo = function(t) return "Baum" .. t end
+_G.GetNumTalents = function() return 2 end
+_G.GetTalentInfo = function(t, i) return "x", "i", 1, 1, 2 end
+_G.GetNumSpellTabs = function() return 2 end
+_G.GetSpellTabInfo = function() return "t", "i", 0, 10 end
+_G.GetInventoryItemLink = function(_, slot) if slot <= 3 then return "item" .. slot end end
+_G.GetItemInfo = function(link) return "n", link, 4, 50, 0, "", "", 1, "", 0, 100 end
+_G.GetContainerNumSlots = function(b) return b == 0 and 2 or 0 end
+_G.GetContainerItemLink = function(b, s) return "bag" .. s end
+_G.GetContainerItemInfo = function() return nil, 3 end
+_G.GetNumQuestLogEntries = function() return 5, 3 end
+local W = S.World
+local rec3 = S.Rec()
+W.Refresh(true)
+local w3 = rec3.w
+eq(w3.repN, 2, "Ruf Anzahl"); eq(w3.repStand[8], 1, "Ruf ehrfuerchtig"); eq(w3.repTop[1][1], "Orgrimmar", "Ruf Rangfolge")
+eq(w3.skillRank["Schmiedekunst"], 150, "Fertigkeit"); eq(w3.skillRank["Berufe"], nil, "Kopfzeile ignoriert")
+eq(w3.talents, 8, "Talentpunkte"); eq(w3.spells, 20, "Zauber")
+eq(w3.eq.filled, 3, "Ausruestung belegt (Slot 4 ausgelassen)"); eq(w3.eq.epic, 3, "Ausruestung episch")
+eq(w3.bagItems, 6, "Taschen Gegenstaende"); eq(w3.bagValue, 600, "Taschenwert")
+-- Quests mit Codex
+FW.Codex = { V = function() return { quests = { [10] = { xp = 100, money = 50, lvl = 5, fixed = { 1, 2 }, turn = { m = 7 } }, [11] = { xp = 200, lvl = 9 }, [12] = { xp = 999 } } } end }
+_G.C_Map = { GetMapInfo = function(m) return { name = "Mulgore" } end }
+_G.C_QuestLog = { IsQuestFlaggedCompleted = function(id) return id == 10 or id == 11 end }
+local finished
+W.ScanQuests(function() finished = true end)
+eq(finished, true, "Abgleich fertig")
+eq(rec3.w.q.done, 2, "Quests erledigt"); eq(rec3.w.q.xp, 300, "Quest-XP"); eq(rec3.w.q.money, 50, "Quest-Gold")
+eq(rec3.w.q.items, 2, "Belohnungen"); eq(rec3.w.q.maxLvl, 9, "hoechste Stufe"); eq(rec3.w.q.zones.Mulgore, 1, "Zone der Quest"); eq(rec3.w.q.log, 3, "Questlog")
+_G.C_QuestLog = { GetAllCompletedQuestIDs = function() return { 10, 12 } end }
+W.ScanQuests()
+eq(rec3.w.q.done, 2, "Liste statt Einzelabfrage"); eq(rec3.w.q.xp, 1099, "Quest-XP aus Liste")
+local lines = W.Probe()
+eq(#lines > 10, true, "Probe liefert Zeilen")
+-- Modell und Summe mit Weltdaten
+local m3 = S.Model(rec3, { codex = { cells = 1, flights = 2 } })
+local ids3 = {}
+for _, c in ipairs(m3) do ids3[c.id] = true end
+for _, id in ipairs({ "quests", "charx", "rep", "skills", "gear", "explore" }) do eq(ids3[id], true, "Kategorie " .. id) end
+local sum2 = S.Sum({ a = rec3, b = rec3 })
+eq(sum2.w.q.done, 4, "Summe Quests"); eq(sum2.w.skillRank["Schmiedekunst"], 150, "Summe Fertigkeit Maximum"); eq(sum2.w.repN, 4, "Summe Ruf")
+S.Model(sum2, {})
 
 -- Reiter
 Load("Stats/StatsUI.lua")

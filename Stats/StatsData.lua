@@ -327,6 +327,72 @@ function Stats.Model(rec, opts)
     Row(r, L.STATS_RAID, Stats.Duration(c.raidSecs or 0))
     Row(r, L.STATS_EMOTES, Stats.Num(c.emotes))
 
+    -- Welt (Abfragen im Spiel, siehe StatsWorld.lua)
+    local w = rec.w or {}
+    local q = w.q
+    if q then
+        r = Cat("quests", "STATS_C_QUESTS")
+        Row(r, L.STATS_Q_DONE, Stats.Num(q.done))
+        if q.log then Row(r, L.STATS_Q_LOG, Stats.Num(q.log)) end
+        Row(r, L.STATS_Q_XP, Stats.Num(q.xp))
+        Row(r, L.STATS_Q_MONEY, Stats.Money(q.money))
+        Row(r, L.STATS_Q_ITEMS, Stats.Num(q.items))
+        if (q.maxLvl or 0) > 0 then Row(r, L.STATS_Q_MAXLVL, Stats.Num(q.maxLvl)) end
+        for i, e in ipairs(Top(q.zones, 6)) do Row(r, string.format("%d. %s", i, e[1]), Stats.Num(e[2])) end
+    end
+    if w.repN or w.talents or w.spells or w.achCount or w.mounts or w.mountsKnown then
+        r = Cat("charx", "STATS_C_CHARX")
+        if w.spells then Row(r, L.STATS_SPELLS_KNOWN, Stats.Num(w.spells)) end
+        if w.talents then Row(r, L.STATS_TALENTS, Stats.Num(w.talents)) end
+        for name, pts in pairs(w.tt or {}) do Row(r, "  " .. name, Stats.Num(pts)) end
+        if w.achCount then Row(r, L.STATS_ACH, Stats.Num(w.achCount)) end
+        if w.achPts then Row(r, L.STATS_ACH_PTS, Stats.Num(w.achPts)) end
+        local m = w.mountsKnown or w.mounts
+        if m then Row(r, L.STATS_MOUNTS, Stats.Num(m)) end
+        if w.critters then Row(r, L.STATS_CRITTERS, Stats.Num(w.critters)) end
+    end
+    if w.repN then
+        r = Cat("rep", "STATS_C_REP")
+        Row(r, L.STATS_REP_N, Stats.Num(w.repN))
+        local st = w.repStand or {}
+        for id = 8, 5, -1 do
+            local label = G["FACTION_STANDING_LABEL" .. id] or ("#" .. id)
+            Row(r, label, Stats.Num(st[id] or 0))
+        end
+        for i, e in ipairs(w.repTop or {}) do
+            Row(r, string.format("%d. %s", i, tostring(e[1])), string.format("%s (%s)", G["FACTION_STANDING_LABEL" .. (e[2] or 0)] or "?", Stats.Percent(e[3])))
+        end
+    end
+    if w.skillRank and next(w.skillRank) then
+        r = Cat("skills", "STATS_C_SKILLS")
+        local list = {}
+        for name, rank in pairs(w.skillRank) do list[#list + 1] = { name, rank, (w.skillMax or {})[name] or 0 } end
+        table.sort(list, function(a, b) if a[2] ~= b[2] then return a[2] > b[2] end return a[1] < b[1] end)
+        for _, e in ipairs(list) do Row(r, e[1], string.format("%s / %s", Stats.Num(e[2]), Stats.Num(e[3]))) end
+    end
+    if w.eq or w.bagItems then
+        r = Cat("gear", "STATS_C_GEAR")
+        local eq = w.eq
+        if eq then
+            Row(r, L.STATS_EQ_FILLED, Stats.Num(eq.filled))
+            Row(r, L.STATS_EQ_EPIC, Stats.Num(eq.epic))
+            Row(r, L.STATS_EQ_RARE, Stats.Num(eq.rare))
+            if eq.minI then Row(r, L.STATS_EQ_ILVL, string.format("%s - %s", Stats.Num(eq.minI), Stats.Num(eq.maxI))) end
+        end
+        if w.bagItems then
+            Row(r, L.STATS_BAG_ITEMS, Stats.Num(w.bagItems))
+            Row(r, L.STATS_BAG_GRAY, Stats.Num(w.bagGray or 0))
+            Row(r, L.STATS_BAG_VALUE, Stats.Money(w.bagValue or 0))
+        end
+    end
+    if opts.codex then
+        r = Cat("explore", "STATS_C_EXPLORE")
+        Row(r, L.STATS_ZONES_N, Stats.Num(Count(rec.z)))
+        Row(r, L.STATS_SUBZONES_N, Stats.Num(Count(rec.sz)))
+        if opts.codex.flights then Row(r, L.STATS_FLIGHTS_KNOWN, Stats.Num(opts.codex.flights)) end
+        if opts.codex.cells then Row(r, L.STATS_PATH_CELLS, Stats.Num(opts.codex.cells)) end
+    end
+
     -- Tode
     r = Cat("deaths", "STATS_C_DEATHS")
     Row(r, L.STATS_DEATHS, Stats.Num(c.deaths))
@@ -362,6 +428,32 @@ function Stats.Sum(chars)
         if not out.first or (rec.first or 0) < out.first then out.first = rec.first end
         out.last = math.max(out.last, rec.last or 0)
     end
+    -- Weltdaten: Zahlen und Zaehlertabellen summieren, Fertigkeiten je Name das Maximum
+    out.w = { q = { done = 0, xp = 0, money = 0, items = 0, maxLvl = 0, zones = {} }, repStand = {}, tt = {}, skillRank = {}, skillMax = {}, eq = { epic = 0, rare = 0, filled = 0 } }
+    local hasQ = false
+    for _, rec in pairs(chars or {}) do
+        local w = rec.w
+        if w then
+            for _, k in ipairs({ "spells", "talents", "achCount", "achPts", "mountsKnown", "mounts", "critters", "repN", "bagValue", "bagItems", "bagGray" }) do
+                if type(w[k]) == "number" then out.w[k] = (out.w[k] or 0) + w[k] end
+            end
+            for k, v in pairs(w.repStand or {}) do out.w.repStand[k] = (out.w.repStand[k] or 0) + v end
+            for k, v in pairs(w.tt or {}) do out.w.tt[k] = (out.w.tt[k] or 0) + v end
+            for k, v in pairs(w.skillRank or {}) do
+                if v > (out.w.skillRank[k] or 0) then out.w.skillRank[k], out.w.skillMax[k] = v, (w.skillMax or {})[k] end
+            end
+            if w.eq then for _, k in ipairs({ "epic", "rare", "filled" }) do out.w.eq[k] = out.w.eq[k] + (w.eq[k] or 0) end end
+            if w.q then
+                hasQ = true
+                local q = out.w.q
+                for _, k in ipairs({ "done", "xp", "money", "items" }) do q[k] = q[k] + (w.q[k] or 0) end
+                q.maxLvl = math.max(q.maxLvl, w.q.maxLvl or 0)
+                for k, v in pairs(w.q.zones or {}) do q.zones[k] = (q.zones[k] or 0) + v end
+                if w.q.log then q.log = (q.log or 0) + w.q.log end
+            end
+        end
+    end
+    if not hasQ then out.w.q = nil end
     -- maxMoney wurde oben mit Merge aufsummiert: ueberschreiben
     local best = 0
     for _, rec in pairs(chars or {}) do best = math.max(best, (rec.c or {}).maxMoney or 0) end
