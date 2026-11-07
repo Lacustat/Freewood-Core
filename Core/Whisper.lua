@@ -45,7 +45,7 @@ end
 function W.Log(dir, peer, text, res)
     local s = Store()
     if not s then return end
-    s[#s + 1] = { t = Now(), dir = dir, peer = tostring(peer or "?"), text = tostring(text or ""):sub(1, 60), res = res }
+    s[#s + 1] = { t = Now(), dir = dir, peer = tostring(peer or "?"), text = (tostring(text or ""):gsub("|", "/")):sub(1, 60), res = res }
     while #s > MAX_LOG do table.remove(s, 1) end
     FW:Fire("WHISPER_LOG")
 end
