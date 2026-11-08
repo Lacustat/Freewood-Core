@@ -48,17 +48,34 @@ local function Key3(r, g, b)
     return string.format("%d,%d,%d", math.floor((tonumber(r) or 0) * 100 + 0.5), math.floor((tonumber(g) or 0) * 100 + 0.5), math.floor((tonumber(b) or 0) * 100 + 0.5))
 end
 
+-- Messung in Forever: die globale Tabelle ChatTypeInfo ist leer (0 Eintraege). Dann gelten die Standardfarben von Blizzard.
+local FALLBACK = {
+    SAY = { 1, 1, 1 }, YELL = { 1, 0.25, 0.25 }, EMOTE = { 1, 0.5, 0.25 }, TEXT_EMOTE = { 1, 0.5, 0.25 },
+    GUILD = { 0.25, 1, 0.25 }, OFFICER = { 0.25, 0.75, 0.25 }, PARTY = { 0.67, 0.67, 1 }, PARTY_LEADER = { 0.46, 0.78, 1 },
+    RAID = { 1, 0.5, 0 }, RAID_LEADER = { 1, 0.28, 0.04 }, RAID_WARNING = { 1, 0.28, 0 },
+    WHISPER = { 1, 0.5, 1 }, WHISPER_INFORM = { 1, 0.5, 1 }, SYSTEM = { 1, 1, 0 },
+    CHANNEL = { 1, 0.75, 0.75 },
+}
+for i = 1, 10 do FALLBACK["CHANNEL" .. i] = FALLBACK.CHANNEL end
+
+local function CTColor(ct)
+    local info = G.ChatTypeInfo
+    local c = type(info) == "table" and info[ct] or nil
+    if type(c) == "table" and c.r then return c.r, c.g, c.b end
+    local f = FALLBACK[ct]
+    if f then return f[1], f[2], f[3] end
+    return nil
+end
+
 local typeIndex
 function S.TypeIndex()
     if typeIndex then return typeIndex end
     typeIndex = {}
-    local info = G.ChatTypeInfo
-    if type(info) ~= "table" then return typeIndex end
     for _, t in ipairs(S.TYPES) do
         for _, ct in ipairs(t[3]) do
-            local c = info[ct]
-            if type(c) == "table" and c.r then
-                local k = Key3(c.r, c.g, c.b)
+            local r, g, b = CTColor(ct)
+            if r then
+                local k = Key3(r, g, b)
                 if not typeIndex[k] then typeIndex[k] = t[1] end
             end
         end
@@ -68,11 +85,10 @@ end
 
 -- Standardfarbe einer Art laut Spiel
 function S.DefaultColor(typeKey)
-    local info = G.ChatTypeInfo
     for _, t in ipairs(S.TYPES) do
-        if t[1] == typeKey and type(info) == "table" then
-            local c = info[t[3][1]]
-            if type(c) == "table" and c.r then return c.r, c.g, c.b end
+        if t[1] == typeKey then
+            local r, g, b = CTColor(t[3][1])
+            if r then return r, g, b end
         end
     end
     return 1, 1, 1
@@ -233,13 +249,35 @@ local function HideUnder(cf, from)
 end
 
 -- Zeilen des Chatfensters lesen: { { top, bottom, r, g, b } } (Abstand von der Oberkante des Fensters)
+-- Messung in Forever: die Zeilen sind Textfelder im Unterrahmen cf.FontStringContainer (nicht im Chatfenster selbst);
+-- zusaetzlich gibt es cf.visibleLines und cf.fontStringPool.
+local function LineRegions(cf)
+    local list, seen = {}, {}
+    local function Take(rg)
+        if type(rg) == "table" and not seen[rg] then seen[rg] = true; list[#list + 1] = rg end
+    end
+    local box = cf.FontStringContainer
+    if type(box) == "table" and box.GetRegions then
+        local ok, regs = pcall(function() return { box:GetRegions() } end)
+        if ok then for _, rg in ipairs(regs) do Take(rg) end end
+    end
+    if #list == 0 and type(cf.visibleLines) == "table" then
+        for _, v in pairs(cf.visibleLines) do Take(v) end
+    end
+    if #list == 0 and cf.GetRegions then
+        local ok, regs = pcall(function() return { cf:GetRegions() } end)
+        if ok then for _, rg in ipairs(regs) do Take(rg) end end
+    end
+    return list
+end
+
 function S.ReadLines(cf)
     local out = {}
-    if not (cf.GetRegions and cf.GetTop and cf.GetLeft) then return out, 0 end
+    if not (cf.GetTop and cf.GetLeft) then return out, 0 end
     local cfTop, cfLeft, cfRight = cf:GetTop(), cf:GetLeft(), cf:GetRight()
     if not (cfTop and cfLeft and cfRight) then return out, 0 end
     local nFs = 0
-    local regions = { cf:GetRegions() }
+    local regions = LineRegions(cf)
     for _, rg in ipairs(regions) do
         if rg.GetObjectType and rg:GetObjectType() == "FontString" then
             nFs = nFs + 1
@@ -312,7 +350,7 @@ function S.Probe()
     if not cf then Add("ChatFrame1 nicht gefunden"); return out end
     Add("Chatfenster: Typ %s, Methoden: GetRegions=%s GetNumMessages=%s GetNumVisibleLines=%s SetSpacing=%s", tostring(cf.GetObjectType and cf:GetObjectType()),
         tostring(cf.GetRegions ~= nil), tostring(cf.GetNumMessages ~= nil), tostring(cf.GetNumVisibleLines ~= nil), tostring(cf.SetSpacing ~= nil))
-    Add("Felder: visibleLines=%s fontStringPool=%s", tostring(cf.visibleLines ~= nil), tostring(cf.fontStringPool ~= nil))
+    Add("Felder: visibleLines=%s fontStringPool=%s FontStringContainer=%s", tostring(cf.visibleLines ~= nil), tostring(cf.fontStringPool ~= nil), tostring(cf.FontStringContainer ~= nil))
     local lines, nFs = S.ReadLines(cf)
     Add("Textfelder: %d, davon mit Text sichtbar: %d", nFs or 0, #lines)
     for i, ln in ipairs(lines) do
@@ -489,6 +527,13 @@ function S.Dump()
             for ri, rg in ipairs(regs) do
                 if i > 1 and ri > 4 then Add("  ... weitere Regionen nicht ausgegeben"); break end
                 if type(rg) == "table" then Describe(rg, Add, "  R ") end
+            end
+            -- Zeilen im FontStringContainer (alle)
+            if i == 1 and type(cf.FontStringContainer) == "table" and cf.FontStringContainer.GetRegions then
+                local okC, cr = pcall(function() return { cf.FontStringContainer:GetRegions() } end)
+                cr = okC and cr or {}
+                Add("Zeilen im FontStringContainer: " .. #cr)
+                for _, rg in ipairs(cr) do if type(rg) == "table" then Describe(rg, Add, "  Z ") end end
             end
             -- Kinder
             local ok, kids = pcall(function() return { cf:GetChildren() } end)

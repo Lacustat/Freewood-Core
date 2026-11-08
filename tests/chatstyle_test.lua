@@ -93,7 +93,7 @@ local function NewTex() local t = { shown = false }
     texs[#texs + 1] = t; return t end
 local regs = { FS("Gilde: hallo", 900, 886, 0.25, 1, 0.25), FS("Sagen: hi", 886, 872, 1, 1, 1), FS("", 872, 858, 1, 1, 1), FS("versteckt", 858, 844, 1, 1, 1, false),
     { GetObjectType = function() return "Texture" end } }
-local cf2 = { GetRegions = function() return unpack(regs) end, GetTop = function() return 1000 end, GetLeft = function() return 100 end, GetRight = function() return 500 end,
+local cf2 = { FontStringContainer = { GetRegions = function() return unpack(regs) end }, GetRegions = function() return end, GetTop = function() return 1000 end, GetLeft = function() return 100 end, GetRight = function() return 500 end,
     CreateTexture = function() return NewTex() end }
 FW.settings.chatStyle = { lineBg = false }
 eq(S.UpdateUnder(cf2), nil, "Versuch aus: nichts gezeichnet")
@@ -133,6 +133,17 @@ has(joined, "SAY = 1", "Chatfarben im Protokoll"); has(joined, "Regionen: 2", "R
 has(joined, "\124\124cffff0000", "Pipe-Zeichen verdoppelt (kein Farbcode im Protokoll)")
 _G.FreewoodDB = {}
 eq(S.SaveDump() > 10, true, "Protokoll gespeichert"); eq(type(FreewoodDB.chatDump.lines), "table", "in der Datenbank")
+
+-- Forever: ChatTypeInfo ist leer -> Standardfarben von Blizzard
+_G.ChatTypeInfo = {}
+ev.UPDATE_CHAT_COLOR()
+eq(S.TypeIndex()["25,100,25"], "guild", "Gilde ohne ChatTypeInfo erkannt")
+eq(S.TypeIndex()["100,75,75"], "channel", "Kanal ohne ChatTypeInfo erkannt")
+local dr2, dg2 = S.DefaultColor("guild"); eq(dg2, 1, "Standardfarbe Gilde (Rueckfall)")
+-- Zeilen aus visibleLines, wenn kein Container da ist
+local vl = { FS("Gilde: x", 900, 886, 0.25, 1, 0.25) }
+local cf3 = { visibleLines = vl, GetTop = function() return 1000 end, GetLeft = function() return 100 end, GetRight = function() return 500 end }
+eq(#S.ReadLines(cf3), 1, "visibleLines als Rueckfall")
 
 -- Einhuellen
 local shown = {}
