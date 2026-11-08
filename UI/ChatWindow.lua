@@ -25,6 +25,7 @@ W.DEFAULTS = {
     maxW = 78,            -- groesste Breite einer Blase in Prozent des Fensters
     compact = true,       -- kompakte Blasen
     combatMirror = true,  -- Kampflog des Spiels in den Reiter spiegeln
+    classic = false,      -- Aussehen wie der Chat des Spiels: nur Zeilen, schlichter Hintergrund
 }
 
 local CAPS = { msgs = 300, lines = 300, combat = 200 }
@@ -228,7 +229,8 @@ W.seq = 0
 W.unread = {}
 W.version = 0
 W.target = nil          -- Fluesterziel nach Klick auf einen Namen
-W.sendKind = "say"      -- wohin das Eingabefeld ohne Befehl sendet (say, guild, group)
+W.sendKind = "say"      -- wohin das Eingabefeld ohne Befehl sendet (say, yell, guild, group, channel)
+W.channel = nil         -- Kanalnummer bei sendKind "channel"
 
 -- Schluessel des Chat-Protokolls -> Art, Zusatz (Kanalname / Fluesterpartner)
 function W.Classify(key)
@@ -308,7 +310,7 @@ end
 ------------------------------------------------------------------------
 
 -- Rueckgabe: Art ("say", "yell", "guild", "group", "whisper", "channel"), Ziel, Text; oder nil, Fehlertext
-function W.ParseInput(text, tabKey, target)
+function W.ParseInput(text, tabKey, target, channel)
     if type(text) ~= "string" then return nil end
     text = string.gsub(text, "^%s+", "")
     text = string.gsub(text, "%s+$", "")
@@ -332,7 +334,44 @@ function W.ParseInput(text, tabKey, target)
     if target and target ~= "" then return "whisper", target, text end
     if tabKey == "guild" then return "guild", nil, text end
     if tabKey == "group" then return "group", nil, text end
+    if tabKey == "yell" then return "yell", nil, text end
+    if tabKey == "channel" and channel then return "channel", channel, text end
     return "say", nil, text
+end
+
+-- Tippt man "/g " (Befehl mit Leerzeichen), wird das Kuerzel aus dem Feld genommen und das Ziel umgestellt.
+-- Rueckgabe: neuer Text, Aenderung { kind=, target=, channel= }; nil, wenn nichts zu tun ist
+function W.ConsumePrefix(text)
+    if type(text) ~= "string" then return nil end
+    local c1, who, rest = string.match(text, "^/(%a+)%s+(%S+)%s(.*)$")
+    if c1 then
+        c1 = string.lower(c1)
+        if c1 == "w" or c1 == "whisper" or c1 == "t" or c1 == "tell" then
+            return rest, { kind = "whisper", target = who }
+        end
+    end
+    local cmd, tail = string.match(text, "^/(%w+)%s(.*)$")
+    if not cmd then return nil end
+    cmd = string.lower(cmd)
+    if cmd == "s" or cmd == "say" then return tail, { kind = "say" } end
+    if cmd == "y" or cmd == "yell" or cmd == "sch" then return tail, { kind = "yell" } end
+    if cmd == "g" or cmd == "gilde" or cmd == "guild" then return tail, { kind = "guild" } end
+    if cmd == "p" or cmd == "party" or cmd == "gruppe" or cmd == "ra" or cmd == "raid" then return tail, { kind = "group" } end
+    local n = tonumber(cmd)
+    if n and n >= 1 and n <= 20 then return tail, { kind = "channel", channel = n } end
+    return nil
+end
+
+function W.ApplyPrefix(ch)
+    if type(ch) ~= "table" then return end
+    if ch.kind == "whisper" then
+        W.target = ch.target
+    elseif ch.kind == "channel" then
+        W.sendKind, W.channel, W.target = "channel", ch.channel, nil
+    else
+        W.sendKind, W.channel, W.target = ch.kind, nil, nil
+    end
+    if W.RefreshInput then W.RefreshInput() end
 end
 
 function W.Send(kind, target, text)
@@ -405,6 +444,22 @@ local function KindColor(kind)
         if e and type(e.bar) == "table" then return e.bar[1], e.bar[2], e.bar[3] end
     end
     return c[1], c[2], c[3]
+end
+
+local STYLE_KEY = { say = "say", yell = "yell", emote = "emote", guild = "guild", group = "party", whisper = "whisper", channel = "channel" }
+local function TextColor(kind)
+    local S = FW.ChatStyle
+    local key = STYLE_KEY[kind]
+    if S and S.Opts and key then
+        local ty = S.Opts().types
+        local e = type(ty) == "table" and ty[key] or nil
+        if e and type(e.text) == "table" then return e.text[1], e.text[2], e.text[3] end
+        if S.DefaultColor then
+            local ok, r, g, b = pcall(S.DefaultColor, key)
+            if ok and type(r) == "number" then return r, g, b end
+        end
+    end
+    return KindColor(kind)
 end
 
 function W.Dirty() dirty, dirtyAt = true, (G.GetTime and G.GetTime() or 0) end
@@ -481,6 +536,46 @@ local function PosOf(fr)
     end
 end
 
+-- Teile einer Zeile im Stil des Spiel-Chats: [Gilde] Name: Text, Name sagt: Text, An Name: Text
+-- Rueckgabe: vorher, Name (nil bei Emotes), nachher, Farbcode des Namens
+function W.ClassicParts(m, CL, L, txt)
+    local who = m.s or "?"
+    local kind = m.kind
+    local function NameColor(name)
+        local cls = CL and CL.Info and CL.Info(name)
+        local r, g, b = 0.9, 0.89, 0.84
+        if CL and CL.ClassColor then r, g, b = CL.ClassColor(cls) end
+        return Hex(r, g, b)
+    end
+    if kind == "emote" then return txt, nil, "", "" end
+    if kind == "say" then return "", who, " " .. (L.CHATWIN_SAYS or "says") .. ": " .. txt, NameColor(who) end
+    if kind == "yell" then return "", who, " " .. (L.CHATWIN_YELLS or "yells") .. ": " .. txt, NameColor(who) end
+    if kind == "whisper" then
+        if m.o then
+            local to = m.x or who
+            return (L.CHATWIN_WHISPER_TO or "To") .. " ", to, ": " .. txt, NameColor(to)
+        end
+        return "", who, " " .. (L.CHATWIN_WHISPERS or "whispers") .. ": " .. txt, NameColor(who)
+    end
+    local tag
+    if kind == "guild" then tag = L.CHATWIN_TAB_GUILD or "Guild"
+    elseif kind == "group" then tag = L.CHATWIN_TAB_GROUP or "Group"
+    else tag = m.x or "" end
+    return "[" .. tag .. "] ", who, ": " .. txt, NameColor(who)
+end
+
+-- Steht der Mauszeiger auf dem Namen in der ersten Zeile einer Zeile?
+function W.CursorInName(panel, hit)
+    if not (G.GetCursorPosition and panel.GetLeft and panel.GetTop) then return false end
+    local cx, cy = G.GetCursorPosition()
+    local l, t = panel:GetLeft(), panel:GetTop()
+    local sc = panel.GetEffectiveScale and panel:GetEffectiveScale() or 1
+    if not (cx and cy and l and t) or sc == 0 then return false end
+    local x = cx / sc - l - 8
+    local y = t - cy / sc
+    return x >= hit[1] - 2 and x <= hit[2] + 2 and y >= 0 and y <= (tonumber(W.Opts().fontSize) or 11) + 6
+end
+
 function W.Draw()
     if not built then return end
     local o = W.Opts()
@@ -499,6 +594,7 @@ function W.Draw()
     local topPad = compact and 5 or 7
     local botPad = compact and 6 or 11
     local textY = topPad + fs + 5
+    local classic = o.classic == true
     local maxBub = math.floor(areaW * (tonumber(o.maxW) or 78) / 100)
     if built.fontApplied ~= fs then UI.SetFont(built.measure, "body", fs); built.fontApplied = fs end
     local atBottom = stick or (chat.scroll:GetVerticalScroll() >= lastH - lastViewH - 8)
@@ -513,8 +609,10 @@ function W.Draw()
             UI.SetFont(b.time, "body", math.max(8, fs - 2))
             b.fs = fs
         end
-        local line = W.Style(m.kind) == "line"
+        local line = classic or W.Style(m.kind) == "line"
         local kr, kg, kb = KindColor(m.kind)
+        local tr, tg, tb = TextColor(m.kind)
+        local nameHit
         local txt = m.m or ""
         local links = ParseLinks(txt)
         local who = m.s or "?"
@@ -534,9 +632,22 @@ function W.Draw()
             pw = areaW - 16
             local stamp = Stamp(m.t)
             local prefix = stamp ~= "" and (Hex(0.55, 0.55, 0.6) .. stamp .. "\124r  ") or ""
-            b.text:SetTextColor(kr, kg, kb)
+            local full = prefix .. txt
+            if W.CHAT_KIND[m.kind] then
+                local pre, name, post, color = W.ClassicParts(m, CL, L, txt)
+                if name then
+                    full = prefix .. pre .. color .. name .. "\124r" .. post
+                    built.measure:SetText(Plain(prefix .. pre))
+                    local x0 = built.measure:GetStringWidth() or 0
+                    built.measure:SetText(name)
+                    nameHit = { x0, x0 + (built.measure:GetStringWidth() or 0), name = m.kind == "whisper" and m.o and m.x or who }
+                else
+                    full = prefix .. pre
+                end
+            end
+            b.text:SetTextColor(tr, tg, tb)
             b.text:SetWidth(pw - 14)
-            b.text:SetText(prefix .. txt)
+            b.text:SetText(full)
             b.text:SetPoint("TOPLEFT", b.panel, "TOPLEFT", 8, -2)
             local th = (b.text.GetStringHeight and b.text:GetStringHeight()) or 14
             if not th or th < 12 then th = 12 end
@@ -586,11 +697,14 @@ function W.Draw()
         end
         b.panel:SetSize(pw, ph)
         b:SetSize(areaW - 8, rowH)
-        local sender = (not line and who ~= "?" and who ~= "") and who or nil
+        local sender = (who ~= "?" and who ~= "" and (not line or W.CHAT_KIND[m.kind])) and who or nil
+        if nameHit then sender = nameHit.name end
         b.avBtn:SetScript("OnClick", function() if sender then SetTarget(sender) end end)
         b.panel:SetScript("OnClick", function(_, btn)
             if btn == "RightButton" then
                 if sender then SetTarget(sender) end
+            elseif nameHit and W.CursorInName(b.panel, nameHit) then
+                SetTarget(nameHit.name)
             elseif #links >= 1 then
                 ShowLink(links[1])
             end
@@ -709,14 +823,19 @@ end
 function W.RefreshInput()
     if not built then return end
     local L = FW.L
-    local label
+    local label, kind
     local k = W.sendKind or "say"
     if W.target then
-        label = (L.CHATWIN_TO or "To") .. ": " .. W.target .. "  (x)"
-    elseif k == "guild" then label = L.CHAT_GUILD
-    elseif k == "group" then label = L.CHAT_GROUP
-    else label = L.CHATWIN_K_SAY end
+        label = (L.CHATWIN_TO or "To") .. ": " .. W.target .. "  (x)"; kind = "whisper"
+    elseif k == "guild" then label = L.CHAT_GUILD; kind = "guild"
+    elseif k == "group" then label = L.CHAT_GROUP; kind = "group"
+    elseif k == "yell" then label = L.CHATWIN_K_YELL; kind = "yell"
+    elseif k == "channel" and W.channel then label = (L.CHATWIN_CHANNEL or "Channel") .. " " .. W.channel; kind = "channel"
+    else label = L.CHATWIN_K_SAY; kind = "say" end
     built.target:SetText(label or "")
+    local r, g, b = KindColor(kind)
+    if kind == "say" then r, g, b = UI.Color("goldLight") end
+    built.target:SetTextColor(r, g, b)
 end
 
 function W.SavePosition()
@@ -739,7 +858,14 @@ end
 function W.ApplyLook()
     if not built then return end
     local o = W.Opts()
-    built.bg:SetColorTexture(UI.Color("bgDeep", (tonumber(o.alpha) or 85) / 100))
+    local a = (tonumber(o.alpha) or 85) / 100
+    if o.classic then
+        built.bg:SetColorTexture(0, 0, 0, a)
+        if UI.SetBorderColor then UI.SetBorderColor(frame, "bronze", 0) end
+    else
+        built.bg:SetColorTexture(UI.Color("bgDeep", a))
+        if UI.SetBorderColor then UI.SetBorderColor(frame, "bronze") end
+    end
     if built.grip then if o.locked then built.grip:Hide() else built.grip:Show() end end
 end
 
@@ -849,6 +975,12 @@ function W.Build()
     input:SetScript("OnTextChanged", function(self)
         local t = self:GetText() or ""
         if t == "//" and W.openedAt and (G.GetTime and G.GetTime() or 0) - W.openedAt < 0.3 then self:SetText("/"); return end
+        local newText, change = W.ConsumePrefix(t)
+        if change then
+            W.ApplyPrefix(change)
+            self:SetText(newText)
+            return
+        end
         if t == "" then ihint:Show() else ihint:Hide() end
     end)
     input:SetScript("OnEditFocusGained", function() W.UpdateInputVisibility() end)
@@ -979,11 +1111,11 @@ function W.DoSend()
     local o = W.Opts()
     local now = G.GetTime and G.GetTime() or 0
     if txt == "" and W.openedAt and now - W.openedAt < 0.3 then return end   -- die Taste, die das Feld geoeffnet hat
-    local kind, target, msg, explicit = W.ParseInput(txt, W.sendKind, W.target)
+    local kind, target, msg, explicit = W.ParseInput(txt, W.sendKind, W.target, W.channel)
     local done = false
     if kind then
-        if explicit and (kind == "say" or kind == "guild" or kind == "group") then
-            W.sendKind = kind        -- wie im Spiel: der Befehl stellt das Ziel dauerhaft ein
+        if explicit and (kind == "say" or kind == "yell" or kind == "guild" or kind == "group") then
+            W.sendKind, W.channel, W.target = kind, nil, nil        -- wie im Spiel: der Befehl stellt das Ziel dauerhaft ein
             W.RefreshInput()
         end
         if msg == "" and explicit then done = true else done = W.Send(kind, target, msg) and true or false end
@@ -1436,6 +1568,9 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_ENABLED,
                 function() return W.Opts().enabled == true end,
                 function(v) W.SetShown(v) end), { fit = true })
+            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_CLASSIC,
+                function() return W.Opts().classic == true end,
+                function(v) W.Opts().classic = v and true or false; stick = true; W.ApplyLook(); W.Dirty() end), { fit = true })
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_LOCKED,
                 function() return W.Opts().locked == true end,
                 function(v) W.Opts().locked = v and true or false; W.ApplyLook() end), { fit = true })

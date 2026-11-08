@@ -3,7 +3,7 @@
 ## Notes: Base addon of the Freewood family: data storage, UI kit, export/import and the main window.
 ## Notes-deDE: Basis-Addon der Freewood-Familie: Datenspeicher, UI-Bausteine, Export/Import und Hauptfenster.
 ## Author: Lacustat
-## Version: 0.25.0
+## Version: 0.26.0
 ## SavedVariables: FreewoodDB
 ## SavedVariablesPerCharacter: FreewoodCharDB
 ## IconTexture: Interface\AddOns\Freewood-Core\Media\FreeWood_Logo
