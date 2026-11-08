@@ -38,6 +38,47 @@ FW.settings.chatStyle = {}
 -- geheime Werte
 secret["geheim"] = true
 eq(S.Format("geheim", 1, 1, 1), "geheim", "geheimer Text unveraendert")
+-- Doppelte Uhrzeit: Spiel setzt schon eine
+FW.settings.chatStyle = {}
+local g1 = S.Format("14:11:23 Leeny sagt: hi", 1, 1, 1)
+eq(string.find(g1, "12:34", 1, true), nil, "keine zweite Uhrzeit")
+local g2 = S.Format("\124cffaaaaaa[14:11:23]\124r Leeny sagt: hi", 1, 1, 1)
+eq(string.find(g2, "12:34", 1, true), nil, "keine zweite Uhrzeit (Klammern/Farbe)")
+has(S.Format("Leeny sagt: hi", 1, 1, 1), "12:34", "ohne Spielzeit: eigene Uhrzeit")
+-- Chat-Arten ueber die Zeilenfarbe
+_G.ChatTypeInfo = { SAY = { r = 1, g = 1, b = 1 }, GUILD = { r = 0.25, g = 1, b = 0.25 }, SYSTEM = { r = 1, g = 1, b = 0 } }
+ev.UPDATE_CHAT_COLOR()   -- Farbtabelle des Spiels neu einlesen
+FW.settings.chatStyle = { types = { guild = { bar = { 1, 0, 0 }, text = { 0, 0, 0 } } } }
+local gt, tr, tg, tb = S.Format("Gilde: hallo", 0.25, 1, 0.25)
+has(gt, "\124cffff0000", "eigene Balkenfarbe Gilde")
+eq(tr, 0, "eigene Textfarbe Gilde (r)"); eq(tb, 0, "eigene Textfarbe Gilde (b)")
+local st, sr = S.Format("Sagen: hallo", 1, 1, 1)
+has(st, "\124cffffffff", "Sagen: Spielfarbe als Balken"); eq(sr, 1, "Sagen: Textfarbe unveraendert")
+local dr, dg, db = S.DefaultColor("guild")
+eq(dg, 1, "Standardfarbe Gilde")
+-- Balkenbreite
+FW.settings.chatStyle = { barWidth = "wide" }
+has(S.Format("x", 1, 1, 1), "\226\150\136\226\150\136", "breiter Balken")
+FW.settings.chatStyle = { barWidth = "medium" }
+eq(string.find(S.Format("x", 1, 1, 1), "\226\150\136\226\150\136", 1, true), nil, "mittlerer Balken ist ein Block")
+-- Standard-Tabellen werden nicht geteilt
+FW.settings.chatStyle = {}
+local o1 = S.Opts(); o1.types.say = { bar = { 1, 0, 0 } }
+eq(S.DEFAULTS.types.say, nil, "Standardwerte unveraendert")
+-- Abstand und Hintergrund
+local calls = {}
+local cf1 = { SetSpacing = function(_, v) calls.spacing = v end }
+_G.NUM_CHAT_WINDOWS = 1; _G.ChatFrame1 = cf1
+_G.FCF_SetWindowColor = function(_, r, g, b) calls.color = { r, g, b } end
+_G.FCF_SetWindowAlpha = function(_, a) calls.alpha = a end
+FW.settings.chatStyle = { spacing = 3, bgOn = true, bgAlpha = 40, bgColor = { 0.1, 0.2, 0.3 } }
+S.ApplyLook()
+eq(calls.spacing, 3, "Zeilenabstand gesetzt"); eq(calls.alpha, 0.4, "Hintergrund-Deckkraft"); eq(calls.color[2], 0.2, "Hintergrundfarbe")
+calls = {}
+FW.settings.chatStyle = { bgOn = false }
+S.ApplyLook()
+eq(calls.alpha, nil, "Hintergrund aus: nicht angefasst")
+
 -- Einhuellen
 local shown = {}
 local cf = { AddMessage = function(self, text, r, g, b, id) shown[#shown + 1] = { text, r, id } end }
