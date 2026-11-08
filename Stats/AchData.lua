@@ -55,7 +55,7 @@ local function Played(r) return math.floor(math.max((r and r.played) or 0, ((r a
 --   scope = "acct" nur Account, sonst beides, de/en = { Name, Beschreibung mit {n} }, title = { de, en } (optional)
 ------------------------------------------------------------------------
 
-A.CATS = { "grow", "combat", "loot", "quest", "explore", "dungeon", "craft", "travel", "social", "pvp", "fun", "account" }
+A.CATS = { "grow", "combat", "loot", "quest", "explore", "dungeon", "craft", "travel", "social", "pvp", "fun", "custom", "account" }
 
 local D = {}
 local function Add(id, cat, m, t, de, en, extra)

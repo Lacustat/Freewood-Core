@@ -57,6 +57,7 @@ FW:AddLocale("enUS", {
     RV_TEXT = "A message text is missing.",
     RV_ID = "Something was not chosen from the search.",
     RV_CHOICE = "Invalid choice.",
+    RV_THRESH = "Thresholds: 1 to 4 numbers, each larger than the one before.",
     -- Reiter
     CH_SUMMARY = "Points: %d  |  active %d/%d  |  complete %d",
     CH_FILTER_ALL = "All",
@@ -172,6 +173,7 @@ FW:AddLocale("deDE", {
     RV_TEXT = "Ein Meldungstext fehlt.",
     RV_ID = "Etwas wurde nicht über die Suche gewählt.",
     RV_CHOICE = "Ungültige Auswahl.",
+    RV_THRESH = "Schwellen: 1 bis 4 Zahlen, jede größer als die davor.",
     CH_SUMMARY = "Punkte: %d  |  aktiv %d/%d  |  geschafft %d",
     CH_FILTER_ALL = "Alle",
     CH_FILTER_ACTIVE = "Aktiv",

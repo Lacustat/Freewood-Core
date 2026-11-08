@@ -25,6 +25,8 @@ function FW:NewModule(name, opts)
     return opts
 end
 local function Load(f) assert(loadfile(f))("Freewood-Core", FW) end
+Load("Stats/StatsData.lua")
+Load("Stats/AchData.lua")
 Load("Core/RulesLocales.lua")
 Load("Core/RulesData.lua")
 Load("Core/Rules.lua")
@@ -178,6 +180,34 @@ eq(okl, false, "Regel schon verletzt"); eq(whyl, "CH_BROKEN_levelbelow", "Grund"
 local seen = false
 for _, e in ipairs(fired) do if e == "FW_CHALLENGE_DONE" then seen = true end end
 eq(seen, true, "Ereignis DONE gefeuert")
+
+-- Eigene Erfolge
+local A = FW.Ach
+local baseCount = #A.CATALOG
+eq(select(2, R.ValidateAch({ name = "", key = "jumps", t = { 1 } })), "RV_NAME", "Erfolg ohne Name")
+eq(select(2, R.ValidateAch({ name = "X", key = "nope", t = { 1 } })), "RV_CHOICE", "Erfolg unbekannter Zaehler")
+eq(select(2, R.ValidateAch({ name = "X", key = "jumps", t = {} })), "RV_THRESH", "keine Schwellen")
+eq(select(2, R.ValidateAch({ name = "X", key = "jumps", t = { 5, 5 } })), "RV_THRESH", "Schwellen muessen steigen")
+eq(select(2, R.ValidateAch({ name = "X", key = "jumps", t = { 1, 2, 3, 4, 5 } })), "RV_THRESH", "hoechstens 4 Schwellen")
+local aid = R.SaveAch({ name = "Huepfer\124", desc = "Springe {n} mal.", key = "jumps", t = { 10, 100, 1000 }, title = "der Springer" })
+eq(aid, "A1", "erste Erfolgskennung")
+eq(#A.CATALOG, baseCount + 1, "Erfolg im Katalog")
+local ce = A.BY_ID["u_A1"]
+eq(ce ~= nil and ce.cat, "custom", "Kategorie Eigene")
+eq(A.Name(ce), "Huepfer", "Name bereinigt")
+eq(ce.m({ c = { jumps = 55 } }), 55, "Messfunktion Zaehler")
+eq(A.LevelFor(ce, 150), 2, "Stufe Silber")
+eq(A.TitleOf(ce), "der Springer", "Titel")
+eq(R.Import and R.ImportAch({ name = "Fremd", key = "kills", t = { 1 } }, "B9", "board"), "B9", "Erfolg importieren")
+eq(#R.ListAch(), 2, "zwei eigene Erfolge")
+eq(R.ListAch()[1].src, "mine", "eigene zuerst")
+eq(R.ImportAch({ name = "Fremd", key = "kills", t = { 1 } }, "A1", "board"), nil, "eigene nicht ueberschreibbar")
+eq(R.DeleteAch("A1"), true, "Erfolg geloescht")
+eq(A.BY_ID["u_A1"], nil, "aus dem Katalog entfernt")
+eq(#A.CATALOG, baseCount + 1, "nur der importierte bleibt")
+local hasCat = false
+for _, c in ipairs(A.CATS) do if c == "custom" then hasCat = true end end
+eq(hasCat, true, "Kategorie vorhanden")
 
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

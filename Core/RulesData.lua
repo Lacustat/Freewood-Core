@@ -273,6 +273,32 @@ function R.Validate(def)
 end
 
 ------------------------------------------------------------------------
+-- 3b. Eigene Erfolge (reine Daten): ein Zaehler aus der Statistik mit 1 bis 4 Schwellen (Bronze bis Platin)
+------------------------------------------------------------------------
+
+-- { name, desc (mit {n}), key = Zaehler, t = { Schwellen }, title = Text (ab Gold) } -> saubere Kopie oder nil, Fehlerschluessel
+function R.ValidateAch(def)
+    if type(def) ~= "table" then return nil, "RV_DEF" end
+    local out = { v = 1 }
+    out.name = Str(def.name, 40)
+    if out.name == "" then return nil, "RV_NAME" end
+    out.desc = Str(def.desc, 200)
+    if out.desc == "" then out.desc = out.name .. " {n}" end
+    if not R.CounterEntry(def.key) then return nil, "RV_CHOICE" end
+    out.key = def.key
+    if type(def.t) ~= "table" or #def.t < 1 or #def.t > 4 then return nil, "RV_THRESH" end
+    out.t = {}
+    for i, v in ipairs(def.t) do
+        local n = Int(v, 1, 10000000)
+        if not n or (i > 1 and n <= out.t[i - 1]) then return nil, "RV_THRESH" end
+        out.t[i] = n
+    end
+    out.title = Str(def.title, 30)
+    out.author = Str(def.author, 40)
+    return out
+end
+
+------------------------------------------------------------------------
 -- 4. Klartext
 ------------------------------------------------------------------------
 

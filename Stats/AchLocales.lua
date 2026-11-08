@@ -37,6 +37,7 @@ FW:AddLocale("enUS", {
     ACH_C_social = "Social",
     ACH_C_pvp = "PvP",
     ACH_C_fun = "Just for fun",
+    ACH_C_custom = "My own",
     ACH_C_account = "Account only",
 })
 
@@ -74,5 +75,6 @@ FW:AddLocale("deDE", {
     ACH_C_social = "Gesellig",
     ACH_C_pvp = "PvP",
     ACH_C_fun = "Nur zum Spaß",
+    ACH_C_custom = "Eigene",
     ACH_C_account = "Nur Account",
 })

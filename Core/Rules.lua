@@ -14,6 +14,7 @@
 --   2. Welt und Auswertung
 --   3. Ereignisse
 --   4. Titel und Punkte
+--   5. Eigene Erfolge
 -- UNGEPRUEFT im Spiel (Forever).
 
 local ADDON, FW = ...
@@ -28,7 +29,7 @@ local G = _G
 ------------------------------------------------------------------------
 
 if FW.NewModule then
-    R.module = FW:NewModule("Rules", { defaults = { defs = {}, seq = 0, done = {}, titles = {} } })
+    R.module = FW:NewModule("Rules", { defaults = { defs = {}, seq = 0, done = {}, titles = {}, ach = {}, aseq = 0 } })
 end
 
 function R.Db() return R.module and R.module.db or nil end
@@ -422,6 +423,7 @@ end
 if R.module then
     function R.module:OnEnable()
         local function On(ev, fn) FW:RegisterEvent(ev, fn, owner) end
+        R.SyncAch()
         On("PLAYER_LEVEL_UP", function() R.Step() end)
         On("ZONE_CHANGED_NEW_AREA", function() R.Step() end)
         On("ZONE_CHANGED", function() R.Step() end)
@@ -464,4 +466,103 @@ function R.Points()
         pts = pts + (def and def.reward and def.reward.points or 0)
     end
     return pts, n
+end
+
+------------------------------------------------------------------------
+-- 5. Eigene Erfolge
+--   Gespeichert im Account (db.ach[id]); in den Katalog der Erfolge (Kategorie "Eigene") eingehaengt. Zaehler kommen aus der Statistik.
+------------------------------------------------------------------------
+
+local function AchDb()
+    local db = R.Db()
+    if not db then return nil end
+    db.ach = db.ach or {}
+    return db
+end
+
+-- Katalog neu aufbauen: alle eigenen Eintraege entfernen, aus den Definitionen neu anlegen
+function R.SyncAch()
+    local A, db = FW.Ach, AchDb()
+    if not A or not A.CATALOG or not db then return end
+    local D = A.CATALOG
+    for i = #D, 1, -1 do
+        if D[i].custom then table.remove(D, i) end
+    end
+    local ids = {}
+    for id in pairs(db.ach) do ids[#ids + 1] = id end
+    table.sort(ids)
+    for _, id in ipairs(ids) do
+        local d = db.ach[id]
+        local key = d.key
+        local e = {
+            id = "u_" .. id, cat = "custom", custom = true,
+            m = function(r) return tonumber(((r and r.c) or {})[key]) or 0 end,
+            t = d.t, de = { d.name, d.desc }, en = { d.name, d.desc },
+            title = (d.title and d.title ~= "") and { d.title, d.title } or nil,
+            src = d.src, author = d.author,
+        }
+        D[#D + 1] = e
+    end
+    A.BY_ID = {}
+    for i, e in ipairs(D) do e.idx = i; A.BY_ID[e.id] = e end
+end
+
+function R.GetAch(id)
+    local db = AchDb()
+    return db and db.ach[id] or nil
+end
+
+function R.ListAch()
+    local db, out = AchDb(), {}
+    for id, d in pairs((db and db.ach) or {}) do out[#out + 1] = d end
+    table.sort(out, function(a, b)
+        if (a.src == "mine") ~= (b.src == "mine") then return a.src == "mine" end
+        if a.name ~= b.name then return a.name < b.name end
+        return tostring(a.id) < tostring(b.id)
+    end)
+    return out
+end
+
+local function AfterAchChange(id)
+    R.SyncAch()
+    if FW.Ach and FW.Ach.Check then pcall(FW.Ach.Check, true) end
+    FW:Fire("FW_CHALLENGES_CHANGED", id)
+end
+
+function R.SaveAch(def, id)
+    local db = AchDb()
+    if not db then return nil, "RV_DEF" end
+    local clean, err = R.ValidateAch(def)
+    if not clean then return nil, err end
+    if id and db.ach[id] and db.ach[id].src ~= "mine" then id = nil end
+    if not id then
+        db.aseq = (db.aseq or 0) + 1
+        id = "A" .. db.aseq
+    end
+    clean.id, clean.src = id, "mine"
+    if clean.author == "" then clean.author = (FW.Stats and FW.Stats.Key and FW.Stats.Key() or ""):gsub("%-.*$", "") end
+    db.ach[id] = clean
+    AfterAchChange(id)
+    return id
+end
+
+function R.ImportAch(def, id, src)
+    local db = AchDb()
+    if not db then return nil, "RV_DEF" end
+    if type(id) ~= "string" or id == "" or #id > 60 then return nil, "RV_DEF" end
+    local clean, err = R.ValidateAch(def)
+    if not clean then return nil, err end
+    if db.ach[id] and db.ach[id].src == "mine" then return nil, "RV_DEF" end
+    clean.id, clean.src = id, src or "import"
+    db.ach[id] = clean
+    AfterAchChange(id)
+    return id
+end
+
+function R.DeleteAch(id)
+    local db = AchDb()
+    if not db or not db.ach[id] then return false end
+    db.ach[id] = nil
+    AfterAchChange(id)
+    return true
 end
