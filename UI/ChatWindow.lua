@@ -104,10 +104,13 @@ end
 
 local function Now() return (G.time and G.time()) or 0 end
 
+local IsMe
+
 function W.Add(kind, sender, text, out, extra)
     if not kind or type(text) ~= "string" or text == "" or Secret(text) then return end
     if type(sender) ~= "string" or Secret(sender) then sender = "?" end
     if not W.KindEnabled(kind) then return end
+    if not out and kind ~= "system" and kind ~= "emote" and IsMe and IsMe(sender) then out = true end
     local list = W.msgs
     list[#list + 1] = { t = Now(), s = sender, m = text, kind = kind, o = out and true or nil, x = extra }
     if #list > MAX_MSGS + 40 then
@@ -191,13 +194,19 @@ end
 -- Sagen, Rufen, Emotes aus den Chat-Ereignissen
 ------------------------------------------------------------------------
 
-local function IsMe(sender)
-    if type(sender) ~= "string" then return false end
+function IsMe(sender)
+    if type(sender) ~= "string" or sender == "" or Secret(sender) then return false end
+    local short = string.match(sender, "^([^%-]+)") or sender
     local n = G.UnitName and G.UnitName("player")
-    if type(n) == "string" and not Secret(n) and sender == n then return true end
+    if type(n) == "string" and not Secret(n) and (sender == n or short == n) then return true end
     local Wh = FW.Whisper
     local full = Wh and Wh.SelfName and Wh.SelfName()
-    return type(full) == "string" and sender == full
+    if type(full) == "string" and not Secret(full) then
+        if sender == full or short == full then return true end
+        local fshort = string.match(full, "^([^%-]+)")
+        if fshort and (sender == fshort or short == fshort) then return true end
+    end
+    return false
 end
 
 local function OnSpeech(kind, text, sender, textEmote)
@@ -601,7 +610,9 @@ function W.Build()
     input:SetScript("OnEnterPressed", function() W.DoSend() end)
     input:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
     input:SetScript("OnTextChanged", function(self)
-        if (self:GetText() or "") == "" then ihint:Show() else ihint:Hide() end
+        local t = self:GetText() or ""
+        if t == "//" and W.openedAt and (G.GetTime and G.GetTime() or 0) - W.openedAt < 0.3 then self:SetText("/"); return end
+        if t == "" then ihint:Show() else ihint:Hide() end
     end)
     input:SetScript("OnEditFocusGained", function() W.UpdateInputVisibility() end)
     input:SetScript("OnEditFocusLost", function() W.UpdateInputVisibility() end)
@@ -659,9 +670,16 @@ function W.Detached() return W.Opts().detach == true end
 function W.UpdateInputVisibility(force)
     if not (built and built.inputFrame) then return end
     local f, o = built.inputFrame, W.Opts()
-    if not W.Detached() then f:Show(); built.moveHint:Hide(); built.input:EnableMouse(true); return end
     local now = G.GetTime and G.GetTime() or 0
     local testing = W.inputTestUntil and now < W.inputTestUntil
+    if W.UseBlizz() then
+        -- unser Rahmen ist nur Anker und Ziehgriff, getippt wird im Feld des Spiels
+        if o.moveInput or testing or force then f:Show() else f:Hide() end
+        if o.moveInput then built.moveHint:Show() else built.moveHint:Hide() end
+        built.input:EnableMouse(not o.moveInput)
+        return
+    end
+    if not W.Detached() then f:Show(); built.moveHint:Hide(); built.input:EnableMouse(true); return end
     local focus = built.input:HasFocus()
     if force or o.moveInput or testing or focus then f:Show() else f:Hide() end
     if o.moveInput then built.moveHint:Show() else built.moveHint:Hide() end
@@ -721,6 +739,8 @@ function W.DoSend()
     local input = built.input
     local txt = input:GetText() or ""
     local o = W.Opts()
+    local now = G.GetTime and G.GetTime() or 0
+    if txt == "" and W.openedAt and now - W.openedAt < 0.3 then return end   -- die Taste, die das Feld geoeffnet hat
     local kind, target, msg = W.ParseInput(txt, o.tab, W.target)
     local done = false
     if kind then
@@ -742,6 +762,7 @@ function W.OpenInput(text)
     if not (built and built.input) then return false end
     W.UpdateInputVisibility(true)
     built.input:SetText(type(text) == "string" and text or "")
+    W.openedAt = G.GetTime and G.GetTime() or 0
     built.input:SetFocus()
     return true
 end
@@ -830,7 +851,7 @@ end
 -- Das Spiel will sein Eingabefeld oeffnen (Enter, "/", Antworten): bei uns oeffnen
 function W.OnBlizzActivate(eb, shift)
     W.redirected = false
-    if W.bypass or shift or not W.MainActive() then return false end
+    if W.bypass or shift or W.UseBlizz() or not W.MainActive() then return false end
     local text, ct, tt = "", nil, nil
     if type(eb) == "table" then
         if eb.GetText then
@@ -905,6 +926,7 @@ function W.InstallHooks()
     if not hs then return end
     local n = 0
     if G.ChatEdit_ActivateChat and pcall(hs, "ChatEdit_ActivateChat", function(eb)
+        if W.UseBlizz() then pcall(W.StyleBlizzEdit, true) end
         W.OnBlizzActivate(eb, G.IsShiftKeyDown and G.IsShiftKeyDown() or false)
     end) then n = n + 1; W.hookActivate = true end
     if G.ChatFrame_OpenChat and pcall(hs, "ChatFrame_OpenChat", function(text) W.OnBlizzOpenChat(text) end) then n = n + 1 end
@@ -935,16 +957,135 @@ function W.ApplyBindings(on)
     bindPending = false
     bindOwner = bindOwner or CreateFrame("Frame", nil, G.UIParent)
     pcall(G.ClearOverrideBindings, bindOwner)
-    if not on then return end
+    if not on or W.UseBlizz() then return end
     MakeButton("FreewoodChatBlizzButton", function() W.OpenBlizzard("") end)
     pcall(G.SetOverrideBindingClick, bindOwner, true, "SHIFT-ENTER", "FreewoodChatBlizzButton")
-    if not W.hookActivate then
-        MakeButton("FreewoodChatEnterButton", function() W.OpenInput("") end)
-        MakeButton("FreewoodChatSlashButton", function() W.OpenInput("/") end)
-        pcall(G.SetOverrideBindingClick, bindOwner, true, "ENTER", "FreewoodChatEnterButton")
-        pcall(G.SetOverrideBindingClick, bindOwner, true, "NUMPADENTER", "FreewoodChatEnterButton")
-        pcall(G.SetOverrideBindingClick, bindOwner, true, "/", "FreewoodChatSlashButton")
+    MakeButton("FreewoodChatEnterButton", function() W.OpenInput("") end)
+    MakeButton("FreewoodChatSlashButton", function() W.OpenInput("/") end)
+    for _, k in ipairs(W.BindingKeys("OPENCHAT", { "ENTER", "NUMPADENTER" })) do
+        pcall(G.SetOverrideBindingClick, bindOwner, true, k, "FreewoodChatEnterButton")
     end
+    for _, k in ipairs(W.BindingKeys("OPENCHATSLASH", { "/" })) do
+        pcall(G.SetOverrideBindingClick, bindOwner, true, k, "FreewoodChatSlashButton")
+    end
+end
+
+-- Tasten, die im Spiel fuer eine Belegung eingestellt sind (plus Standardtasten)
+function W.BindingKeys(action, defaults)
+    local out, seen = {}, {}
+    local function Add(k) if type(k) == "string" and k ~= "" and not seen[k] then seen[k] = true; out[#out + 1] = k end end
+    if G.GetBindingKey then
+        local ok, k1, k2 = pcall(G.GetBindingKey, action)
+        if ok then Add(k1); Add(k2) end
+    end
+    for _, k in ipairs(defaults or {}) do Add(k) end
+    return out
+end
+
+-- Tastenabfrage ohne Bindungen und Haken: ein Rahmen hoert mit und gibt alle anderen Tasten weiter
+local keyFrame
+local function KeyCombo(key)
+    local mod = ""
+    if G.IsAltKeyDown and G.IsAltKeyDown() then mod = mod .. "ALT-" end
+    if G.IsControlKeyDown and G.IsControlKeyDown() then mod = mod .. "CTRL-" end
+    if G.IsShiftKeyDown and G.IsShiftKeyDown() then mod = mod .. "SHIFT-" end
+    return mod .. tostring(key)
+end
+
+function W.HandleKey(key)
+    if W.bypass or W.UseBlizz() or not W.MainActive() then return false end
+    if built and built.input and built.input:HasFocus() then return false end
+    local combo = KeyCombo(key)
+    if combo == "SHIFT-ENTER" or combo == "SHIFT-NUMPADENTER" then
+        return W.OpenBlizzard("") and true or false
+    end
+    for _, k in ipairs(W.BindingKeys("OPENCHAT", { "ENTER", "NUMPADENTER" })) do
+        if k == combo then return W.OpenInput("") end
+    end
+    for _, k in ipairs(W.BindingKeys("OPENCHATSLASH", { "/" })) do
+        if k == combo then return W.OpenInput("/") end
+    end
+    return false
+end
+
+function W.ApplyKeyListener(on)
+    if on and not keyFrame then
+        keyFrame = CreateFrame("Frame", nil, G.UIParent)
+        keyFrame:SetScript("OnKeyDown", function(self, key)
+            local handled = false
+            local ok, res = pcall(W.HandleKey, key)
+            if ok and res then handled = true end
+            if self.SetPropagateKeyboardInput then pcall(self.SetPropagateKeyboardInput, self, not handled) end
+        end)
+    end
+    if keyFrame then
+        pcall(keyFrame.EnableKeyboard, keyFrame, on and true or false)
+        if on and keyFrame.SetPropagateKeyboardInput then pcall(keyFrame.SetPropagateKeyboardInput, keyFrame, true) end
+    end
+end
+
+-- Eingabefeld des Spiels im Freewood-Design (Weg B): an unseren Rahmen anhaengen, Aussehen umstellen
+local styled = {}
+
+local function EditBoxes()
+    local list = {}
+    for i = 1, tonumber(G.NUM_CHAT_WINDOWS) or 10 do
+        local e = G["ChatFrame" .. i .. "EditBox"]
+        if e then list[#list + 1] = e end
+    end
+    return list
+end
+
+function W.UseBlizz()
+    local o = W.Opts()
+    return o.main == true and o.useBlizz == true
+end
+
+local function StyleOne(eb, on)
+    local st = styled[eb]
+    if on then
+        if not st then
+            st = { alphas = {}, points = {} }
+            local okp, par = pcall(eb.GetParent, eb)
+            st.parent = okp and par or nil
+            if eb.GetNumPoints and eb.GetPoint then
+                for i = 1, eb:GetNumPoints() do st.points[i] = { eb:GetPoint(i) } end
+            end
+            st.h = eb.GetHeight and eb:GetHeight() or nil
+            if eb.GetRegions then
+                for _, r in ipairs({ eb:GetRegions() }) do
+                    if r.GetObjectType and r:GetObjectType() == "Texture" and r.GetAlpha then
+                        st.alphas[r] = r:GetAlpha()
+                        r:SetAlpha(0)
+                    end
+                end
+            end
+            st.skin = UI.CreatePanel(eb, "bgDeep", "bronze")
+            st.skin:SetAllPoints(eb)
+            st.skin:SetFrameLevel(math.max(0, (eb:GetFrameLevel() or 1) - 1))
+            styled[eb] = st
+        end
+        st.skin:Show()
+        eb:SetParent(G.UIParent)
+        eb:SetFrameStrata("DIALOG")
+        eb:ClearAllPoints()
+        eb:SetPoint("BOTTOMLEFT", built.inputFrame, "BOTTOMLEFT", 0, 0)
+        eb:SetPoint("BOTTOMRIGHT", built.inputFrame, "BOTTOMRIGHT", 0, 0)
+        eb:SetHeight(28)
+    elseif st then
+        for r, a in pairs(st.alphas) do pcall(r.SetAlpha, r, a) end
+        st.skin:Hide()
+        if st.parent then pcall(eb.SetParent, eb, st.parent) end
+        pcall(eb.ClearAllPoints, eb)
+        for _, pt in ipairs(st.points) do pcall(eb.SetPoint, eb, unpack(pt)) end
+        if st.h then pcall(eb.SetHeight, eb, st.h) end
+        styled[eb] = nil
+    end
+end
+
+function W.StyleBlizzEdit(on)
+    if on and not (built and built.inputFrame) then on = false end
+    for _, eb in ipairs(EditBoxes()) do pcall(StyleOne, eb, on) end
 end
 
 FW:RegisterEvent("PLAYER_REGEN_ENABLED", function()
@@ -953,14 +1094,22 @@ end)
 
 function W.ApplyMain()
     local o = W.Opts()
-    if o.main and built and frame and frame:IsShown() then
+    local active = o.main and built and frame and frame:IsShown() and true or false
+    if active then
         W.InstallHooks()
         W.HideBlizzard()
         W.HookPrints()
-        if not W.bindingsOn then W.bindingsOn = true; W.ApplyBindings(true) end
     else
+        W.StyleBlizzEdit(false)
         W.ShowBlizzard()
-        if W.bindingsOn then W.bindingsOn = false; W.ApplyBindings(false) end
+    end
+    local blizz = active and W.UseBlizz()
+    if blizz then W.StyleBlizzEdit(true) elseif active then W.StyleBlizzEdit(false) end
+    W.ApplyKeyListener(active and not blizz)
+    local mode = (active and "main" or "off") .. (blizz and "B" or "A")
+    if W.bindMode ~= mode then
+        W.bindMode = mode
+        W.ApplyBindings(active)
     end
     W.UpdateInputVisibility()
 end
@@ -992,6 +1141,8 @@ function W.Probe()
         local ok, k1, k2 = pcall(G.GetBindingKey, "OPENCHAT")
         lines[#lines + 1] = "Taste OPENCHAT: " .. tostring(ok and k1 or "?") .. " " .. tostring(ok and k2 or "")
     end
+    lines[#lines + 1] = "Eingabe: " .. (W.UseBlizz() and "Feld des Spiels im Freewood-Design (Weg B)" or "eigenes Feld (Weg A)")
+        .. ", Tastenabfrage: " .. ((G.SetOverrideBindingClick and "Bindungen ja") or "Bindungen nein")
     for _, l in ipairs(lines) do if FW.Print then FW:Print(l) end end
     return lines
 end
@@ -1030,7 +1181,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-window", {
         category = "chat",
         order = 5,
-        height = 760,
+        height = 800,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CHATWIN_TITLE)
@@ -1045,6 +1196,9 @@ if UI.RegisterSettingsSection then
                 function() return W.Opts().main == true end,
                 function(v) W.SetMain(v) end), { fit = true })
             stack:Add(UI.CreateLabel(f, L.CHATWIN_MAIN_HINT, { size = 11, color = "textDim" }), { height = 62, gap = 2 })
+            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_USE_BLIZZ,
+                function() return W.Opts().useBlizz == true end,
+                function(v) W.Opts().useBlizz = v and true or false; W.ApplyMain(); W.LayoutInput() end), { fit = true })
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_DETACH,
                 function() return W.Opts().detach == true end,
                 function(v) W.Opts().detach = v and true or false; W.LayoutInput() end), { fit = true })

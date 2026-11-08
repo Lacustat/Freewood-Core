@@ -129,5 +129,33 @@ _G.DEFAULT_CHAT_FRAME = { editBox = feb }
 eq(W.Forward("/roll 100"), true, "Weiterreichen"); eq(sentT, "/roll 100", "Text beim Spiel angekommen")
 _G.ChatEdit_SendText = nil
 eq(W.Forward("/roll"), false, "ohne Spiel-Funktion false")
+
+-- eigene Nachrichten erkennen (auch ohne Kennzeichen vom Chat-Protokoll)
+W.Push("guild", "Pinky", "ich in der Gilde", false); eq(W.msgs[#W.msgs].o, true, "eigene Gildennachricht rechts")
+W.Push("guild", "Pinky-Realm", "mit Realm", false); eq(W.msgs[#W.msgs].o, true, "eigener Name mit Realm")
+W.Push("guild", "Anna", "fremd", false); eq(W.msgs[#W.msgs].o, nil, "fremde Nachricht links")
+W.Push("group", "Pinky Freewood", "voller Name", false); eq(W.msgs[#W.msgs].o, true, "voller eigener Name")
+
+-- Tasten: Bindungen und Abfrage
+_G.GetBindingKey = function(a) if a == "OPENCHAT" then return "ENTER", "F5" end end
+local keys = W.BindingKeys("OPENCHAT", { "ENTER", "NUMPADENTER" })
+eq(#keys, 3, "Tasten ohne Doppelte"); eq(keys[2], "F5", "zweite Taste aus dem Spiel")
+local opened2
+W.OpenInput = function(t) opened2 = t; return true end
+_G.IsShiftKeyDown = function() return false end
+W.MainActive = function() return true end
+eq(W.HandleKey("ENTER"), true, "Enter oeffnet"); eq(opened2, "", "leer geoeffnet")
+eq(W.HandleKey("F5"), true, "zweite Taste oeffnet")
+eq(W.HandleKey("A"), false, "andere Taste wird weitergegeben")
+_G.IsShiftKeyDown = function() return true end
+_G.GetBindingKey = function(a) if a == "OPENCHATSLASH" then return "SHIFT-7" end end
+eq(W.HandleKey("7"), true, "Schraegstrich auf deutscher Tastatur (Umschalt+7)"); eq(opened2, "/", "mit Schraegstrich geoeffnet")
+_G.IsShiftKeyDown = function() return false end
+FW.settings.chatWin.useBlizz = true
+eq(W.UseBlizz(), true, "Feld des Spiels aktiv (Haupt-Chat an)")
+eq(W.HandleKey("ENTER"), false, "Spiel-Feld-Modus: keine eigene Tastenabfrage")
+eq(W.OnBlizzActivate({}, false), false, "Spiel-Feld-Modus: nichts umleiten")
+FW.settings.chatWin.main = false
+eq(W.UseBlizz(), false, "Spiel-Feld-Modus nur bei Haupt-Chat")
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)
