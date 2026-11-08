@@ -1331,8 +1331,10 @@ end
 -- Haupt-Chat-Modus: Spiel-Chat unsichtbar, Enter und "/" oeffnen unser Eingabefeld
 ------------------------------------------------------------------------
 
+local ebFree, ebParent
 local hiddenParent
 local parked = {}
+local styled = {}  -- Eingabefelder im Freewood-Design (Weg B), siehe StyleOne
 
 local function Park(f)
     if not (f and f.SetParent and f.GetParent) then return end
@@ -1355,6 +1357,12 @@ function W.HideBlizzard()
         Park(G["ChatFrame" .. i .. "ButtonFrame"])
     end
     for _, name in ipairs(EXTRA_FRAMES) do Park(G[name]) end
+    -- Eingabefelder des Spiels (stehen oft dauerhaft sichtbar am Bildschirm): ausser Weg B
+    -- (dort sind sie unser Eingabefeld) und waehrend der Notausgang sie offen hat
+    for i = 1, tonumber(G.NUM_CHAT_WINDOWS) or 10 do
+        local eb = G["ChatFrame" .. i .. "EditBox"]
+        if eb and not styled[eb] and not (ebFree and ebFree == eb) then Park(eb) end
+    end
 end
 
 function W.ShowBlizzard()
@@ -1413,7 +1421,6 @@ function W.BlizzEditBox()
     return (dc and dc.editBox) or G.ChatFrame1EditBox
 end
 
-local ebFree, ebParent
 
 -- Notausgang (Umschalt+Enter): das normale Eingabefeld des Spiels sichtbar oeffnen
 function W.OpenBlizzard(text)
@@ -1545,7 +1552,6 @@ function W.ApplyKeyListener(on)
 end
 
 -- Eingabefeld des Spiels im Freewood-Design (Weg B): an unseren Rahmen anhaengen, Aussehen umstellen
-local styled = {}
 
 local function EditBoxes()
     local list = {}
@@ -1624,7 +1630,7 @@ function W.ApplyMain()
         W.ShowBlizzard()
     end
     local blizz = active and W.UseBlizz()
-    if blizz then W.StyleBlizzEdit(true) elseif active then W.StyleBlizzEdit(false) end
+    if blizz then W.StyleBlizzEdit(true) elseif active then W.StyleBlizzEdit(false); W.HideBlizzard() end
     W.ApplyKeyListener(active and not blizz)
     local mode = (active and "main" or "off") .. (blizz and "B" or "A")
     if W.bindMode ~= mode then

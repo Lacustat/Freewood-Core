@@ -233,5 +233,23 @@ eq(string.find(W.Visible("trade")[1].m, "000001", 1, true), nil, "Markierung ent
 local chatList = W.Visible("chat")
 eq(#chatList, 2, "Gilde aus dem Verlauf plus Live"); eq(chatList[1].raw, true, "Verlauf steht vorn"); eq(chatList[2].kind, "say", "Live danach")
 W.imported = nil; W.ImportHistory(); eq(#W.Visible("msgs"), 4, "zweiter Aufruf nach Zuruecksetzen (nur zur Kontrolle)")
+
+-- Eingabefeld des Spiels wird im Haupt-Chat-Modus versteckt (umgehaengt) und zurueckgegeben
+do
+    local orig = {}
+    local eb = { parent = orig }
+    function eb:GetParent() return self.parent end
+    function eb:SetParent(p) self.parent = p end
+    _G.ChatFrame1EditBox = eb
+    _G.NUM_CHAT_WINDOWS = 1
+    W.HideBlizzard()
+    eq(eb.parent ~= orig, true, "Eingabefeld umgehaengt")
+    local hidden = eb.parent
+    W.HideBlizzard()
+    eq(eb.parent, hidden, "zweiter Aufruf aendert nichts")
+    W.ShowBlizzard()
+    eq(eb.parent, orig, "Eingabefeld zurueck am alten Platz")
+    _G.ChatFrame1EditBox = nil
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)
