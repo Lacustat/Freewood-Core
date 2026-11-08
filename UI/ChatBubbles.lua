@@ -16,6 +16,9 @@ B.DEFAULTS = {
     enabled = true,
     guild = true,
     group = true,
+    say = true,
+    yell = true,
+    emote = false,
     whisper = false,
     channels = false,
     own = true,
@@ -36,6 +39,9 @@ local COLORS = {
     group = { 0.67, 0.67, 1 },
     whisper = { 1, 0.5, 1 },
     channels = { 0.9, 0.85, 0.7 },
+    say = { 1, 1, 1 },
+    yell = { 1, 0.25, 0.25 },
+    emote = { 1, 0.5, 0.25 },
 }
 
 local function Opts()
@@ -53,7 +59,7 @@ B.Opts = Opts
 local DIRS = { UP = { 0, 1 }, DOWN = { 0, -1 }, LEFT = { -1, 0 }, RIGHT = { 1, 0 } }
 
 local function Source(key)
-    if key == "guild" or key == "group" then return key end
+    if key == "guild" or key == "group" or key == "say" or key == "yell" or key == "emote" then return key end
     if type(key) ~= "string" then return nil end
     if string.sub(key, 1, 2) == "w:" then return "whisper" end
     if string.sub(key, 1, 2) == "c:" then return "channels" end
@@ -168,7 +174,7 @@ function B.Push(key, sender, text, out)
     if not o.enabled then return end
     local src = Source(key)
     if not src or not o[src] then return end
-    if out and not o.own then return end
+    if out and not o.own and out ~= "text" then return end
     if type(text) ~= "string" or text == "" then return end
     if type(sender) ~= "string" then sender = "?" end
     EnsureAnchor()
@@ -188,7 +194,11 @@ function B.Push(key, sender, text, out)
     if tok and CL.ClassColor then nr, ng, nb = CL.ClassColor(tok) end
     local c = COLORS[src] or COLORS.channels
     if #text > MAX_CHARS then text = string.sub(text, 1, MAX_CHARS) .. "..." end
-    f.text:SetText(Hex(nr, ng, nb) .. sender .. "|r: " .. text)
+    if src == "emote" then
+        f.text:SetText(out == "text" and text or (Hex(nr, ng, nb) .. sender .. "|r " .. text))
+    else
+        f.text:SetText(Hex(nr, ng, nb) .. sender .. "|r: " .. text)
+    end
     f.text:SetTextColor(c[1], c[2], c[3])
     local h = (f.text:GetStringHeight() or 14) + 10
     f:SetHeight(h)
@@ -283,14 +293,44 @@ end
 FW:RegisterEvent("PLAYER_ENTERING_WORLD", function() B.ApplyAnchor() end)
 
 ------------------------------------------------------------------------
+-- Sagen, Rufen, Emotes (direkt aus den Chat-Ereignissen, nicht im Chat-Protokoll gespeichert)
+------------------------------------------------------------------------
+
+local function Secret(v)
+    return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) or false
+end
+
+local function IsMe(sender)
+    if type(sender) ~= "string" then return false end
+    local n = G.UnitName and G.UnitName("player")
+    if type(n) == "string" and not Secret(n) and sender == n then return true end
+    local W = FW.Whisper
+    local full = W and W.SelfName and W.SelfName()
+    return type(full) == "string" and sender == full
+end
+
+function B.OnChat(key, text, sender, textEmote)
+    if type(text) ~= "string" or Secret(text) or text == "" then return end
+    if type(sender) ~= "string" or Secret(sender) or sender == "" then return end
+    local out = IsMe(sender)
+    if textEmote then out = "text" end
+    pcall(B.Push, key, sender, text, out)
+end
+
+FW:RegisterEvent("CHAT_MSG_SAY", function(text, sender) B.OnChat("say", text, sender) end)
+FW:RegisterEvent("CHAT_MSG_YELL", function(text, sender) B.OnChat("yell", text, sender) end)
+FW:RegisterEvent("CHAT_MSG_EMOTE", function(text, sender) B.OnChat("emote", text, sender) end)
+FW:RegisterEvent("CHAT_MSG_TEXT_EMOTE", function(text, sender) B.OnChat("emote", text, sender, true) end)
+
+------------------------------------------------------------------------
 -- Einstellungen
 ------------------------------------------------------------------------
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-bubbles", {
-        category = "general",
-        order = 50,
-        height = 330,
+        category = "chat",
+        order = 10,
+        height = 440,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.BUBBLE_TITLE)
@@ -300,6 +340,9 @@ if UI.RegisterSettingsSection then
                     function(v) Opts()[key] = v and true or false end), { fit = true })
             end
             Box(L.BUBBLE_ENABLED, "enabled")
+            Box(L.BUBBLE_SAY, "say")
+            Box(L.BUBBLE_YELL, "yell")
+            Box(L.BUBBLE_EMOTE, "emote")
             Box(L.BUBBLE_GUILD, "guild")
             Box(L.BUBBLE_GROUP, "group")
             Box(L.BUBBLE_WHISPER, "whisper")

@@ -255,9 +255,9 @@ local settingsFrame, settingsBody, settingsScroll, settingsLeft
 local vlines = {}
 local catBar, catButtons = nil, {}
 local currentCat
-local CATS = { "general", "database", "tooltips", "interface", "design", "quest", "modules" }
+local CATS = { "general", "database", "tooltips", "interface", "design", "chat", "quest", "modules" }
 local CAT_LABEL = {
-    general = "SETTINGS_CAT_GENERAL", database = "SETTINGS_CAT_DATABASE", tooltips = "SETTINGS_CAT_TOOLTIPS", interface = "SETTINGS_CAT_INTERFACE", design = "SETTINGS_CAT_DESIGN",
+    general = "SETTINGS_CAT_GENERAL", database = "SETTINGS_CAT_DATABASE", tooltips = "SETTINGS_CAT_TOOLTIPS", interface = "SETTINGS_CAT_INTERFACE", design = "SETTINGS_CAT_DESIGN", chat = "SETTINGS_CAT_CHAT",
     quest = "SETTINGS_CAT_QUEST", modules = "SETTINGS_CAT_MODULES",
 }
 local function CatOf(def)
@@ -473,7 +473,7 @@ local function BuildSettings(content)
     catButtons = {}
     for _, cat in ipairs(CATS) do
         local cat = cat                  -- Schleifenvariable fuer die Closure sichern
-        local b = UI.CreateButton(catBar, L[CAT_LABEL[cat]], 160, 26, function() SelectCategory(cat) end)
+        local b = UI.CreateButton(catBar, L[CAT_LABEL[cat]], 140, 26, function() SelectCategory(cat) end)
         b.cat = cat
         catButtons[#catButtons + 1] = b
     end
