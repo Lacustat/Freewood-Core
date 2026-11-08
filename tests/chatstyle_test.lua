@@ -145,6 +145,25 @@ local vl = { FS("Gilde: x", 900, 886, 0.25, 1, 0.25) }
 local cf3 = { visibleLines = vl, GetTop = function() return 1000 end, GetLeft = function() return 100 end, GetRight = function() return 500 end }
 eq(#S.ReadLines(cf3), 1, "visibleLines als Rueckfall")
 
+-- Bloecke: mehrzeilige Nachricht als eine Flaeche
+local MK = "\124cff000001\124r"
+local regs4 = { FS(MK .. "Gilde: erste Zeile", 900, 884, 0.25, 1, 0.25), FS("zweite Zeile derselben Nachricht", 882, 866, 0.25, 1, 0.25),
+    FS(MK .. "Sagen: hi", 864, 848, 1, 1, 1) }
+local texs4 = {}
+local cf4 = { FontStringContainer = { GetRegions = function() return unpack(regs4) end }, GetTop = function() return 1000 end, GetLeft = function() return 100 end, GetRight = function() return 500 end,
+    CreateTexture = function() local t = { }
+        t.ClearAllPoints = function() end; t.SetPoint = function(_, _, _, _, _, y) t.y = y end; t.SetHeight = function(_, h) t.h = h end
+        t.SetColorTexture = function() end; t.Show = function() end; t.Hide = function() end
+        texs4[#texs4 + 1] = t; return t end }
+FW.settings.chatStyle = { lineBg = true, lineBlocks = true }
+eq(S.UpdateUnder(cf4), 2, "Bloecke: zwei Nachrichten, drei Zeilen")
+eq(texs4[1].h, 34, "Block 1 umfasst beide Zeilen (900 bis 866)")
+eq(texs4[2].h, 16, "Block 2 ist eine Zeile")
+texs4 = {}
+FW.settings.chatStyle = { lineBg = true, lineBlocks = false }
+cf4.FontStringContainer.GetRegions = function() return unpack(regs4) end
+eq(S.UpdateUnder(cf4), 3, "ohne Bloecke: drei Zeilen")
+
 -- Einhuellen
 local shown = {}
 local cf = { AddMessage = function(self, text, r, g, b, id) shown[#shown + 1] = { text, r, id } end }

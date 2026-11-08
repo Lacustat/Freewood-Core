@@ -25,6 +25,7 @@ S.DEFAULTS = {
     bgColor = { 0, 0, 0 },
     lineBg = false,        -- Versuch: Flaeche hinter jeder Zeile (Textfelder des Chatfensters werden ausgelesen)
     lineBgAlpha = 35,      -- Deckkraft in Prozent
+    lineBlocks = true,     -- mehrzeilige Nachrichten als eine durchgehende Flaeche, Abstand zwischen den Nachrichten
     types = {},            -- [Art] = { bar = {r,g,b}, text = {r,g,b} }
 }
 
@@ -287,7 +288,10 @@ function S.ReadLines(cf)
                 if type(txt) == "string" and not Secret(txt) and txt ~= "" and top and bottom then
                     local r, g, b
                     if rg.GetTextColor then r, g, b = rg:GetTextColor() end
-                    out[#out + 1] = { top = cfTop - top, bottom = cfTop - bottom, r = r, g = g, b = b, left = cfLeft, right = cfRight }
+                    -- Beginn einer Nachricht: unsere Marke steht vorn; Folgezeilen beginnen nicht damit (und evtl. mit Leerraum)
+                    local hasMark = string.find(txt, MARK, 1, true) ~= nil
+                    local isStart = hasMark or not string.find(txt, "^%s")
+                    out[#out + 1] = { mark = hasMark, top = cfTop - top, bottom = cfTop - bottom, r = r, g = g, b = b, left = cfLeft, right = cfRight, start = isStart }
                 end
             end
         end
@@ -299,25 +303,42 @@ function S.UpdateUnder(cf)
     local o = S.Opts()
     if not (o.enabled and o.lineBg) then return HideUnder(cf, 1) end
     local lines = S.ReadLines(cf)
+    table.sort(lines, function(a, b) return a.top < b.top end)
     local u = Pool(cf)
     local alpha = (tonumber(o.lineBgAlpha) or 35) / 100
-    local pad = (tonumber(o.spacing) or 0) / 2 + 1
-    local n = 0
-    local cfTop = cf:GetTop()
+    local spacing = tonumber(o.spacing) or 0
+    -- Flaechen: je Zeile, oder je Nachricht (Folgezeilen werden angehaengt)
+    local blocks = {}
+    -- Arbeitet unser Einhuellen, beginnt jede Nachricht mit der Marke; nur dann zaehlen Zeilen ohne Marke als Folgezeilen
+    local anyMark = false
+    for _, ln in ipairs(lines) do if ln.mark then anyMark = true; break end end
     for _, ln in ipairs(lines) do
         if ln.r and ln.g and ln.b and not Secret(ln.r) then
-            local key = LineType(ln.r, ln.g, ln.b)
-            local r, g, b = BgColor(key, ln.r, ln.g, ln.b)
-            n = n + 1
-            local t = Tex(cf, u, n)
-            if not t then n = n - 1; break end
-            t:ClearAllPoints()
-            t:SetPoint("TOPLEFT", cf, "TOPLEFT", 0, -(ln.top - pad))
-            t:SetPoint("TOPRIGHT", cf, "TOPRIGHT", 0, -(ln.top - pad))
-            t:SetHeight(math.max(1, ln.bottom - ln.top + pad * 2))
-            t:SetColorTexture(r, g, b, alpha)
-            t:Show()
+            local last = blocks[#blocks]
+            local isStart = ln.start
+            if anyMark then isStart = ln.mark end
+            if o.lineBlocks and last and not isStart then
+                last.bottom = math.max(last.bottom, ln.bottom)
+            else
+                blocks[#blocks + 1] = { top = ln.top, bottom = ln.bottom, r = ln.r, g = ln.g, b = ln.b }
+            end
         end
+    end
+    -- einzeln gezeichnet: die Zeilen fuellen ihren Zeilenabstand mit; als Bloecke bleibt der Abstand zwischen den Nachrichten frei
+    local pad = o.lineBlocks and 0 or (spacing / 2 + 1)
+    local n = 0
+    for _, bl in ipairs(blocks) do
+        local key = LineType(bl.r, bl.g, bl.b)
+        local r, g, b = BgColor(key, bl.r, bl.g, bl.b)
+        n = n + 1
+        local t = Tex(cf, u, n)
+        if not t then n = n - 1; break end
+        t:ClearAllPoints()
+        t:SetPoint("TOPLEFT", cf, "TOPLEFT", 0, -(bl.top - pad))
+        t:SetPoint("TOPRIGHT", cf, "TOPRIGHT", 0, -(bl.top - pad))
+        t:SetHeight(math.max(1, bl.bottom - bl.top + pad * 2))
+        t:SetColorTexture(r, g, b, alpha)
+        t:Show()
     end
     HideUnder(cf, n + 1)
     u.used = n
@@ -660,7 +681,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-style", {
         category = "chat",
         order = 20,
-        height = 600,
+        height = 630,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CHATSTYLE_TITLE)
@@ -713,6 +734,7 @@ if UI.RegisterSettingsSection then
             stack:Add(bgAlpha, { height = 20, gap = 2 })
 
             Box(L.CHATSTYLE_LINEBG, "lineBg")
+            Box(L.CHATSTYLE_LINEBLOCKS, "lineBlocks")
             local lbLabel = UI.CreateLabel(f, "", { size = 12 })
             stack:Add(lbLabel, { height = 16, gap = 6 })
             local lbAlpha = UI.CreateSlider(f, 240, { min = 5, max = 100, step = 5,
