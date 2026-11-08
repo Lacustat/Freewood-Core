@@ -164,6 +164,21 @@ FW.settings.chatStyle = { lineBg = true, lineBlocks = false }
 cf4.FontStringContainer.GetRegions = function() return unpack(regs4) end
 eq(S.UpdateUnder(cf4), 3, "ohne Bloecke: drei Zeilen")
 
+-- Scrollen: Zeilen ausserhalb des Fensters zaehlen nicht, angeschnittene werden zugeschnitten
+local regs5 = { FS(MK .. "Gilde: oben raus", 1100, 1084, 0.25, 1, 0.25), FS(MK .. "Gilde: angeschnitten", 1010, 994, 0.25, 1, 0.25),
+    FS(MK .. "Sagen: drin", 900, 884, 1, 1, 1), FS(MK .. "Sagen: unten raus", 690, 674, 1, 1, 1) }
+local texs5 = {}
+local cf5 = { FontStringContainer = { GetRegions = function() return unpack(regs5) end }, GetTop = function() return 1000 end, GetBottom = function() return 700 end,
+    GetLeft = function() return 100 end, GetRight = function() return 500 end,
+    CreateTexture = function() local t = { }
+        t.ClearAllPoints = function() end; t.SetPoint = function(_, _, _, _, _, y) t.y = y end; t.SetHeight = function(_, h) t.h = h end
+        t.SetColorTexture = function() end; t.Show = function() end; t.Hide = function() end
+        texs5[#texs5 + 1] = t; return t end }
+FW.settings.chatStyle = { lineBg = true, lineBlocks = true }
+eq(S.UpdateUnder(cf5), 2, "nur Zeilen im Fenster gezeichnet")
+eq(texs5[1].h, 6, "angeschnittene Zeile zugeschnitten (Hoehe 6)")
+eq(texs5[1].y, 0, "beginnt an der Fensteroberkante")
+
 -- Einhuellen
 local shown = {}
 local cf = { AddMessage = function(self, text, r, g, b, id) shown[#shown + 1] = { text, r, id } end }

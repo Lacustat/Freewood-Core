@@ -277,6 +277,8 @@ function S.ReadLines(cf)
     if not (cf.GetTop and cf.GetLeft) then return out, 0 end
     local cfTop, cfLeft, cfRight = cf:GetTop(), cf:GetLeft(), cf:GetRight()
     if not (cfTop and cfLeft and cfRight) then return out, 0 end
+    local cfBottom = cf.GetBottom and cf:GetBottom()
+    local cfHeight = (cfBottom and (cfTop - cfBottom)) or (cf.GetHeight and cf:GetHeight()) or nil
     local nFs = 0
     local regions = LineRegions(cf)
     for _, rg in ipairs(regions) do
@@ -285,7 +287,13 @@ function S.ReadLines(cf)
             if rg:IsShown() then
                 local txt = rg.GetText and rg:GetText()
                 local top, bottom = rg:GetTop(), rg:GetBottom()
-                if type(txt) == "string" and not Secret(txt) and txt ~= "" and top and bottom then
+                -- Beim Scrollen bleiben Textfelder ausserhalb des Fensters "sichtbar"; sie zaehlen nicht
+                local inside = true
+                if top and bottom and cfHeight then
+                    local relTop, relBottom = cfTop - top, cfTop - bottom
+                    if relBottom <= 0 or relTop >= cfHeight then inside = false end
+                end
+                if inside and type(txt) == "string" and not Secret(txt) and txt ~= "" and top and bottom then
                     local r, g, b
                     if rg.GetTextColor then r, g, b = rg:GetTextColor() end
                     -- Beginn einer Nachricht: unsere Marke steht vorn; Folgezeilen beginnen nicht damit (und evtl. mit Leerraum)
@@ -327,18 +335,28 @@ function S.UpdateUnder(cf)
     -- einzeln gezeichnet: die Zeilen fuellen ihren Zeilenabstand mit; als Bloecke bleibt der Abstand zwischen den Nachrichten frei
     local pad = o.lineBlocks and 0 or (spacing / 2 + 1)
     local n = 0
+    local cfBottom = cf.GetBottom and cf:GetBottom()
+    local cfTopAbs = cf:GetTop()
+    local maxH = (cfBottom and cfTopAbs) and (cfTopAbs - cfBottom) or (cf.GetHeight and cf:GetHeight()) or nil
     for _, bl in ipairs(blocks) do
-        local key = LineType(bl.r, bl.g, bl.b)
-        local r, g, b = BgColor(key, bl.r, bl.g, bl.b)
-        n = n + 1
-        local t = Tex(cf, u, n)
-        if not t then n = n - 1; break end
-        t:ClearAllPoints()
-        t:SetPoint("TOPLEFT", cf, "TOPLEFT", 0, -(bl.top - pad))
-        t:SetPoint("TOPRIGHT", cf, "TOPRIGHT", 0, -(bl.top - pad))
-        t:SetHeight(math.max(1, bl.bottom - bl.top + pad * 2))
-        t:SetColorTexture(r, g, b, alpha)
-        t:Show()
+        -- auf den sichtbaren Bereich des Chatfensters zuschneiden (Zeilen sind beim Scrollen teilweise abgeschnitten)
+        if maxH then
+            bl.top = math.max(bl.top, 0)
+            bl.bottom = math.min(bl.bottom, maxH)
+        end
+        if bl.bottom - bl.top >= 1 then
+            local key = LineType(bl.r, bl.g, bl.b)
+            local r, g, b = BgColor(key, bl.r, bl.g, bl.b)
+            n = n + 1
+            local t = Tex(cf, u, n)
+            if not t then n = n - 1; break end
+            t:ClearAllPoints()
+            t:SetPoint("TOPLEFT", cf, "TOPLEFT", 0, -(bl.top - pad))
+            t:SetPoint("TOPRIGHT", cf, "TOPRIGHT", 0, -(bl.top - pad))
+            t:SetHeight(math.max(1, bl.bottom - bl.top + pad * 2))
+            t:SetColorTexture(r, g, b, alpha)
+            t:Show()
+        end
     end
     HideUnder(cf, n + 1)
     u.used = n
