@@ -251,5 +251,26 @@ do
     eq(eb.parent, orig, "Eingabefeld zurueck am alten Platz")
     _G.ChatFrame1EditBox = nil
 end
+-- Links (Umschalt+Klick) in das eigene Eingabefeld
+do
+    local ib = {}
+    W.SetInputForTest(ib)
+    eq(W.InputBox(), ib, "Eingabefeld gesetzt")
+    if ib then
+        local got, focus = {}, false
+        ib.HasFocus = function() return focus end
+        ib.Insert = function(_, t) got[#got + 1] = t end
+        local link = "|cffffffff|Hitem:6948::::::::60:::::|h[Hearthstone]|h|r"
+        eq(W.InsertLink(link), false, "ohne Fokus nichts")
+        focus = true
+        eq(W.InsertLink(link), true, "mit Fokus eingefuegt"); eq(got[1], link, "Link im Feld")
+        W.InsertLink(link)
+        eq(#got, 1, "doppelter Aufruf im selben Moment zaehlt einmal")
+        eq(W.InsertLink(42), false, "kein Text"); eq(W.InsertLink(""), false, "leerer Text")
+        _G.GetTime = function() return 50 end
+        W.InsertLink(link)
+        eq(#got, 2, "spaeter wieder erlaubt")
+    end
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

@@ -1447,6 +1447,21 @@ local function ReleaseBlizzBox(eb)
     end
 end
 
+function W.InputBox() return built and built.input end
+-- nur fuer Tests: eine Attrappe als Eingabefeld einsetzen
+function W.SetInputForTest(box) built = built or {}; built.input = box end
+
+-- Link in das eigene Eingabefeld setzen, wenn es gerade offen ist. Rueckgabe: true, wenn eingefuegt.
+function W.InsertLink(link)
+    if not (built and built.input and type(link) == "string" and not Secret(link) and link ~= "") then return false end
+    if not built.input:HasFocus() then return false end
+    local now = G.GetTime and G.GetTime() or 0
+    if W.lastLink == link and now - (W.lastLinkAt or -10) < 0.2 then return true end
+    W.lastLink, W.lastLinkAt = link, now
+    built.input:Insert(link)
+    return true
+end
+
 function W.InstallHooks()
     if W.hooksDone then return end
     W.hooksDone = true
@@ -1459,11 +1474,11 @@ function W.InstallHooks()
     end) then n = n + 1; W.hookActivate = true end
     if G.ChatFrame_OpenChat and pcall(hs, "ChatFrame_OpenChat", function(text) W.OnBlizzOpenChat(text) end) then n = n + 1 end
     if G.ChatEdit_DeactivateChat and pcall(hs, "ChatEdit_DeactivateChat", function(eb) ReleaseBlizzBox(eb) end) then n = n + 1 end
-    if G.ChatEdit_InsertLink and pcall(hs, "ChatEdit_InsertLink", function(link)
-        if built and built.input and type(link) == "string" and not Secret(link) and built.input:HasFocus() then
-            built.input:Insert(link)
-        end
-    end) then n = n + 1 end
+    -- Umschalt+Klick auf Gegenstand, Zauber, Quest usw. Je nach Spielstand laufen die Links ueber ChatEdit_InsertLink (alt) oder
+    -- ChatFrameUtil.InsertLink (neu); beide werden abgefangen, W.InsertLink schuetzt vor doppeltem Einfuegen.
+    if G.ChatEdit_InsertLink and pcall(hs, "ChatEdit_InsertLink", function(link) W.InsertLink(link) end) then n = n + 1 end
+    if type(G.ChatFrameUtil) == "table" and G.ChatFrameUtil.InsertLink and pcall(hs, G.ChatFrameUtil, "InsertLink", function(link) W.InsertLink(link) end) then n = n + 1 end
+    if G.ChatFrame_InsertLink and pcall(hs, "ChatFrame_InsertLink", function(link) W.InsertLink(link) end) then n = n + 1 end
     W.hookCount = n
 end
 
@@ -1658,7 +1673,9 @@ function W.Probe()
     local lines = {
         "ChatEdit_ActivateChat: " .. Has("ChatEdit_ActivateChat") .. ", ChatFrame_OpenChat: " .. Has("ChatFrame_OpenChat")
             .. ", ChatEdit_DeactivateChat: " .. Has("ChatEdit_DeactivateChat") .. ", ChatEdit_SendText: " .. Has("ChatEdit_SendText")
-            .. ", ChatEdit_InsertLink: " .. Has("ChatEdit_InsertLink"),
+            .. ", ChatEdit_InsertLink: " .. Has("ChatEdit_InsertLink") .. ", ChatFrameUtil.InsertLink: "
+            .. ((type(G.ChatFrameUtil) == "table" and G.ChatFrameUtil.InsertLink) and "ja" or "nein")
+            .. ", ChatFrame_InsertLink: " .. Has("ChatFrame_InsertLink"),
         "DEFAULT_CHAT_FRAME: " .. Has("DEFAULT_CHAT_FRAME") .. ", editBox: " .. ((dc and dc.editBox) and "ja" or "nein")
             .. ", ChatFrame1EditBox: " .. Has("ChatFrame1EditBox") .. ", SetOverrideBindingClick: " .. Has("SetOverrideBindingClick"),
         "Haken gesetzt: " .. tostring(W.hookCount or 0) .. ", Aktivierung abgefangen: " .. tostring(W.hookActivate == true)
