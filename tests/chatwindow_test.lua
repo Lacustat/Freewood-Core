@@ -87,7 +87,9 @@ W.Send("guild", nil, "c"); eq(sent[3], "guild:c", "Gilde ueber ChatLog")
 kind, target = W.ParseInput("/r hallo", "all", nil); eq(kind, nil, "/r wird weitergereicht"); eq(target, "unknown", "/r unbekannt")
 kind = W.ParseInput("/ra hallo", "all", nil); eq(kind, "group", "/ra")
 
--- System-Meldungen
+-- System-Meldungen (vorerst nur mit sysOn)
+ev.CHAT_MSG_SYSTEM("zu frueh"); eq(#W.Visible("system"), 0, "System standardmaessig aus")
+FW.settings.chatWin.sysOn = true
 ev.CHAT_MSG_SYSTEM("Bogadin ist jetzt offline.")
 ev.CHAT_MSG_SYSTEM("Bogadin ist jetzt offline.")
 FW.settings.chatWin.main = false

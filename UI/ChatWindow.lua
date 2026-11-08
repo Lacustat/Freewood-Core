@@ -561,12 +561,12 @@ function W.Build()
     head:SetScript("OnDragStart", function() if not W.Opts().locked then frame:StartMoving() end end)
     head:SetScript("OnDragStop", function() frame:StopMovingOrSizing(); W.SavePosition() end)
     local x = 4
-    for _, def in ipairs(W.TABS) do
+    for _, def in ipairs(W.TABS) do if def[1] ~= "system" then
         local btn = UI.CreateButton(head, TabText(def), 68, 22, function() W.SelectTab(def[1]) end, "default")
         btn:SetPoint("LEFT", head, "LEFT", x, 0)
         x = x + 70
         built.tabs[#built.tabs + 1] = { def = def, btn = btn }
-    end
+    end end
     local close = UI.CreateButton(head, "x", 22, 22, function() W.SetShown(false) end, "default")
     close:SetPoint("RIGHT", head, "RIGHT", -4, 0)
 
@@ -780,6 +780,7 @@ local SYSTEM_EVENTS = {
 local recentSys, recentN = {}, 0
 
 function W.AddSystem(text)
+    if W.Opts().sysOn ~= true then return end   -- vorerst aus: der Reiter wurde zu voll
     if type(text) ~= "string" or text == "" or Secret(text) then return end
     local plain = string.gsub(string.gsub(string.gsub(text, "\124H.-\124h(.-)\124h", "%1"), "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
     local now = G.GetTime and G.GetTime() or 0
@@ -1185,7 +1186,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CHATWIN_TITLE)
-            stack:Add(UI.CreateLabel(f, L.CHATWIN_HINT, { size = 11, color = "textDim" }), { height = 44, gap = 4 })
+            stack:Add(UI.CreateLabel(f, L.CHATWIN_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 4 })
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_ENABLED,
                 function() return W.Opts().enabled == true end,
                 function(v) W.SetShown(v) end), { fit = true })
@@ -1195,7 +1196,7 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_MAIN,
                 function() return W.Opts().main == true end,
                 function(v) W.SetMain(v) end), { fit = true })
-            stack:Add(UI.CreateLabel(f, L.CHATWIN_MAIN_HINT, { size = 11, color = "textDim" }), { height = 62, gap = 2 })
+            stack:Add(UI.CreateLabel(f, L.CHATWIN_MAIN_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 2 })
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_USE_BLIZZ,
                 function() return W.Opts().useBlizz == true end,
                 function(v) W.Opts().useBlizz = v and true or false; W.ApplyMain(); W.LayoutInput() end), { fit = true })

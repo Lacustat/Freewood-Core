@@ -761,7 +761,7 @@ if UI.RegisterSettingsSection then
             lbAlpha.onText = function(v) lbLabel:SetText(string.format(L.CHATSTYLE_LINEBGALPHA, v)) end
             lbAlpha:Refresh()
             stack:Add(lbAlpha, { height = 20, gap = 2 })
-            stack:Add(UI.CreateLabel(f, L.CHATSTYLE_HINT, { size = 11, color = "textDim" }), { height = 30, gap = 8 })
+            stack:Add(UI.CreateLabel(f, L.CHATSTYLE_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 8 })
             return f
         end,
     })
@@ -773,7 +773,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CHATSTYLE_COLORS)
-            stack:Add(UI.CreateLabel(f, L.CHATSTYLE_COLORS_HINT, { size = 11, color = "textDim" }), { height = 44, gap = 4 })
+            stack:Add(UI.CreateLabel(f, L.CHATSTYLE_COLORS_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 4 })
             local head = CreateFrame("Frame", nil, f)
             head:SetSize(400, 18)
             local h1 = UI.CreateLabel(head, L.CHATSTYLE_COL_BAR, { size = 11, color = "textDim" }); h1:SetPoint("LEFT", head, "LEFT", 130, 0)
