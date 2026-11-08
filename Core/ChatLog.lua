@@ -382,6 +382,8 @@ function CL.Add(key, sender, text, out)
     CL.version = CL.version + 1
     local bub = FW.ChatBubbles
     if bub and bub.Push then pcall(bub.Push, key, sender, text, out) end
+    local cw = FW.ChatWindow
+    if cw and cw.Push then pcall(cw.Push, key, sender, text, out) end
 end
 
 function CL.Prune()
