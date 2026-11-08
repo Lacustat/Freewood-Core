@@ -325,14 +325,217 @@ function S.Probe()
     return out
 end
 
+------------------------------------------------------------------------
+-- Vollstaendiges Protokoll des Chatfensters (/fwchat dump)
+------------------------------------------------------------------------
+
+local DUMP_MAX = 900
+
+local function Safe(fn, ...)
+    local ok, a, b, c, d, e, f = pcall(fn, ...)
+    if ok then return a, b, c, d, e, f end
+    return nil
+end
+
+local function Short(v)
+    if v == nil then return "nil" end
+    if type(v) == "string" then
+        if Secret(v) then return "<geheim>" end
+        v = string.gsub(v, "\124", "\124\124")
+        if #v > 70 then v = string.sub(v, 1, 70) .. "..." end
+        return "'" .. v .. "'"
+    end
+    if type(v) == "number" then
+        if Secret(v) then return "<geheim>" end
+        return (v == math.floor(v)) and string.format("%d", v) or string.format("%.2f", v)
+    end
+    return tostring(v)
+end
+
+local function Num(v) if type(v) == "number" and not Secret(v) then return v end return nil end
+
+local function Points(o)
+    if not o.GetNumPoints then return "?" end
+    local n = Num(Safe(o.GetNumPoints, o)) or 0
+    local out = {}
+    for i = 1, n do
+        local pt, rel, rp, x, y = Safe(o.GetPoint, o, i)
+        local relName = rel and (rel.GetName and Safe(rel.GetName, rel)) or (rel and "?") or "-"
+        out[#out + 1] = string.format("%s->%s:%s(%s,%s)", Short(pt), tostring(relName), Short(rp), Short(x), Short(y))
+    end
+    return table.concat(out, " ")
+end
+
+local function Describe(o, add, indent)
+    local typ = o.GetObjectType and Safe(o.GetObjectType, o) or "?"
+    local name = o.GetName and Safe(o.GetName, o) or nil
+    local w, h = o.GetWidth and Safe(o.GetWidth, o), o.GetHeight and Safe(o.GetHeight, o)
+    local shown = o.IsShown and Safe(o.IsShown, o)
+    local line = string.format("%s%s %s shown=%s size=%sx%s punkte=[%s]", indent, tostring(typ), Short(name), tostring(shown), Short(w), Short(h), Points(o))
+    if o.GetDrawLayer then
+        local layer, sub = Safe(o.GetDrawLayer, o)
+        line = line .. string.format(" layer=%s/%s", tostring(layer), Short(sub))
+    end
+    if typ == "FontString" then
+        local txt = o.GetText and Safe(o.GetText, o)
+        local r, g, b, a = nil, nil, nil, nil
+        if o.GetTextColor then r, g, b, a = Safe(o.GetTextColor, o) end
+        local font, size, flags = nil, nil, nil
+        if o.GetFont then font, size, flags = Safe(o.GetFont, o) end
+        line = line .. string.format(" text=%s farbe=%s/%s/%s/%s schrift=%s %s %s textbreite=%s hoehe=%s ausr=%s",
+            Short(txt), Short(r), Short(g), Short(b), Short(a), Short(font), Short(size), Short(flags),
+            Short(o.GetStringWidth and Safe(o.GetStringWidth, o)), Short(o.GetStringHeight and Safe(o.GetStringHeight, o)),
+            Short(o.GetJustifyH and Safe(o.GetJustifyH, o)))
+    elseif typ == "Texture" then
+        local tex = o.GetTexture and Safe(o.GetTexture, o)
+        local atlas = o.GetAtlas and Safe(o.GetAtlas, o)
+        local r, g, b, a = nil, nil, nil, nil
+        if o.GetVertexColor then r, g, b, a = Safe(o.GetVertexColor, o) end
+        line = line .. string.format(" textur=%s atlas=%s farbe=%s/%s/%s/%s alpha=%s", Short(tex), Short(atlas), Short(r), Short(g), Short(b), Short(a), Short(o.GetAlpha and Safe(o.GetAlpha, o)))
+    end
+    add(line)
+end
+
+local METHODS = { "GetNumMessages", "GetMessageInfo", "GetNumVisibleLines", "GetScrollOffset", "GetMaxLines", "SetSpacing", "GetSpacing",
+    "GetFading", "SetFading", "GetFadeDuration", "GetTimeVisible", "GetIndentedWordWrap", "SetIndentedWordWrap", "AddMessage", "RefreshDisplay",
+    "ScrollUp", "ScrollDown", "ScrollToBottom", "AtBottom", "GetInsertMode", "GetFont", "SetFont", "GetNumRegions", "GetNumChildren",
+    "SetOnDisplayRefreshedCallback", "GetTextCopyable", "SetHyperlinksEnabled", "GetHyperlinksEnabled", "SetClampRectInsets", "GetBackgroundColor",
+    "SetBackdrop", "GetFontObject", "Clear", "GetNumLines", "GetLineInfo", "ForEachVisibleLine", "EnumerateVisibleLineFontStrings" }
+
+local function FieldList(o)
+    local t = {}
+    local ok = pcall(function()
+        for k, v in pairs(o) do t[#t + 1] = tostring(k) .. ":" .. type(v) end
+    end)
+    table.sort(t)
+    return t
+end
+
+local function MethodTable(o)
+    local out = {}
+    pcall(function()
+        local mt = getmetatable(o)
+        local idx = mt and mt.__index
+        if type(idx) == "table" then
+            for k, v in pairs(idx) do if type(v) == "function" then out[#out + 1] = tostring(k) end end
+        end
+    end)
+    table.sort(out)
+    return out
+end
+
+function S.Dump()
+    local lines = {}
+    local function Add(l)
+        if #lines < DUMP_MAX then lines[#lines + 1] = l
+        elseif #lines == DUMP_MAX then lines[#lines + 1] = "... Protokoll gekuerzt" end
+    end
+    local ver, build, bdate, toc = nil, nil, nil, nil
+    if G.GetBuildInfo then ver, build, bdate, toc = Safe(G.GetBuildInfo) end
+    Add(string.format("Kopf: Freewood-Core ChatStyle, Spielversion %s Build %s Datum %s Interface %s, Zeit %s", Short(ver), Short(build), Short(bdate), Short(toc), G.date and G.date("%Y-%m-%d %H:%M:%S") or "?"))
+    Add(string.format("Chatfenster: NUM_CHAT_WINDOWS=%s, CHAT_FRAMES=%s, CVar showTimestamps=%s", Short(G.NUM_CHAT_WINDOWS), type(G.CHAT_FRAMES) == "table" and tostring(#G.CHAT_FRAMES) or "?",
+        Short(G.GetCVar and Safe(G.GetCVar, "showTimestamps"))))
+    -- Chatfarben
+    local names = {}
+    if type(G.ChatTypeInfo) == "table" then for k in pairs(G.ChatTypeInfo) do names[#names + 1] = k end end
+    table.sort(names)
+    Add("ChatTypeInfo: " .. #names .. " Eintraege")
+    for _, k in ipairs(names) do
+        local c = G.ChatTypeInfo[k]
+        if type(c) == "table" and c.r then Add(string.format("  %s = %s/%s/%s", k, Short(c.r), Short(c.g), Short(c.b))) end
+    end
+    local n = tonumber(G.NUM_CHAT_WINDOWS) or 10
+    for i = 1, n do
+        local cf = G["ChatFrame" .. i]
+        if cf then
+            Add("")
+            Add("=== ChatFrame" .. i .. " ===")
+            Describe(cf, Add, "")
+            if G.GetChatWindowInfo then
+                local nm, fs, r, g, b, a, shown, locked, docked = Safe(G.GetChatWindowInfo, i)
+                Add(string.format("GetChatWindowInfo: name=%s schriftgroesse=%s farbe=%s/%s/%s alpha=%s sichtbar=%s gesperrt=%s angedockt=%s", Short(nm), Short(fs), Short(r), Short(g), Short(b), Short(a), Short(shown), Short(locked), Short(docked)))
+            end
+            Add(string.format("Skala=%s, wirksame Skala=%s, Strata=%s, Ebene=%s", Short(cf.GetScale and Safe(cf.GetScale, cf)), Short(cf.GetEffectiveScale and Safe(cf.GetEffectiveScale, cf)),
+                Short(cf.GetFrameStrata and Safe(cf.GetFrameStrata, cf)), Short(cf.GetFrameLevel and Safe(cf.GetFrameLevel, cf))))
+            Add(string.format("Lage: links=%s rechts=%s oben=%s unten=%s", Short(cf.GetLeft and Safe(cf.GetLeft, cf)), Short(cf.GetRight and Safe(cf.GetRight, cf)), Short(cf.GetTop and Safe(cf.GetTop, cf)), Short(cf.GetBottom and Safe(cf.GetBottom, cf))))
+            local avail = {}
+            for _, m in ipairs(METHODS) do avail[#avail + 1] = m .. "=" .. ((cf[m] ~= nil) and "ja" or "nein") end
+            Add("Methoden (Auswahl): " .. table.concat(avail, " "))
+            if i == 1 then
+                local ms = MethodTable(cf)
+                Add("Methoden der Klasse (" .. #ms .. "): " .. table.concat(ms, ","))
+                local fl = FieldList(cf)
+                Add("Felder des Objekts (" .. #fl .. "): " .. table.concat(fl, ","))
+            end
+            -- Zahlen
+            if cf.GetNumMessages then Add("Nachrichten gespeichert: " .. Short(Safe(cf.GetNumMessages, cf))) end
+            if cf.GetNumVisibleLines then Add("sichtbare Zeilen: " .. Short(Safe(cf.GetNumVisibleLines, cf))) end
+            if cf.GetScrollOffset then Add("Scroll-Versatz: " .. Short(Safe(cf.GetScrollOffset, cf))) end
+            if cf.GetMaxLines then Add("Maximale Zeilen: " .. Short(Safe(cf.GetMaxLines, cf))) end
+            if cf.GetSpacing then Add("Zeilenabstand: " .. Short(Safe(cf.GetSpacing, cf))) end
+            -- letzte Nachrichten
+            if cf.GetNumMessages and cf.GetMessageInfo then
+                local total = Num(Safe(cf.GetNumMessages, cf)) or 0
+                for idx = math.max(1, total - 5), total do
+                    local text, r, g, b, id = Safe(cf.GetMessageInfo, cf, idx)
+                    Add(string.format("  Nachricht %d: text=%s farbe=%s/%s/%s id=%s", idx, Short(text), Short(r), Short(g), Short(b), Short(id)))
+                end
+            end
+            -- Regionen
+            local okR, allR = pcall(function() return { cf:GetRegions() } end)
+            local regs = okR and allR or {}
+            Add("Regionen: " .. #regs)
+            -- Hauptfenster vollstaendig, die uebrigen nur kurz (Platz im Protokoll)
+            for ri, rg in ipairs(regs) do
+                if i > 1 and ri > 4 then Add("  ... weitere Regionen nicht ausgegeben"); break end
+                if type(rg) == "table" then Describe(rg, Add, "  R ") end
+            end
+            -- Kinder
+            local ok, kids = pcall(function() return { cf:GetChildren() } end)
+            kids = ok and kids or {}
+            Add("Kinder: " .. #kids)
+            for _, k in ipairs(kids) do
+                if type(k) == "table" and i <= 2 then
+                    Describe(k, Add, "  K ")
+                    local okr, kr = pcall(function() return { k:GetRegions() } end)
+                    if okr then
+                        for ri, rg in ipairs(kr) do
+                            if ri > 6 then Add("    ... weitere Regionen"); break end
+                            if type(rg) == "table" then Describe(rg, Add, "    KR ") end
+                        end
+                    end
+                end
+            end
+            -- bekannte Teile
+            for _, part in ipairs({ "Background", "EditBox", "ButtonFrame", "ResizeButton", "Tab", "ScrollBar", "ScrollToBottomButton", "FontStringContainer" }) do
+                local o = cf[part] or G["ChatFrame" .. i .. part]
+                if type(o) == "table" then Describe(o, Add, "  Teil " .. part .. ": ") end
+            end
+        end
+    end
+    return lines
+end
+
+function S.SaveDump()
+    local lines = S.Dump()
+    local db = G.FreewoodDB
+    if type(db) == "table" then
+        db.chatDump = { at = G.date and G.date("%Y-%m-%d %H:%M:%S") or "", lines = lines }
+    end
+    return #lines
+end
+
 SLASH_FREEWOODCHATSTYLE1 = "/fwchat"
 SlashCmdList = SlashCmdList or {}
 SlashCmdList["FREEWOODCHATSTYLE"] = function(msg)
     msg = string.lower((string.gsub(msg or "", "^%s+", "")))
     if msg == "probe" then
         for _, l in ipairs(S.Probe()) do FW:Print(l) end
+    elseif msg == "dump" then
+        local n = S.SaveDump()
+        FW:Print(string.format("Chatfenster-Protokoll: %d Zeilen gespeichert. Mit /reload in die Datei schreiben: WTF\\Account\\<KONTO>\\SavedVariables\\Freewood-Core.lua, Eintrag chatDump.", n))
     else
-        FW:Print("/fwchat probe")
+        FW:Print("/fwchat probe, /fwchat dump")
     end
 end
 

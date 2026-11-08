@@ -115,6 +115,25 @@ eq(texs[1].c[2], 0.9, "Flaeche ueber eigene Textfarbe gefunden")
 local pr = S.Probe()
 eq(#pr >= 3, true, "Messzeilen")
 
+-- Protokoll
+_G.NUM_CHAT_WINDOWS = 1
+local fsx = FS("Hallo \124cffff0000rot\124r", 900, 886, 1, 1, 1)
+fsx.GetName = function() return "ChatFrame1Line1" end
+local cfd = { GetRegions = function() return fsx, regs[5] end, GetChildren = function() return end, GetObjectType = function() return "ScrollingMessageFrame" end,
+    GetName = function() return "ChatFrame1" end, GetTop = function() return 1000 end, GetLeft = function() return 100 end, IsShown = function() return true end,
+    GetNumMessages = function() return 2 end, GetMessageInfo = function(_, i) return "Nachricht " .. i, 1, 1, 0, i end }
+_G.ChatFrame1 = cfd
+_G.ChatTypeInfo = { SAY = { r = 1, g = 1, b = 1 } }
+_G.GetBuildInfo = function() return "1.0", "123", "Jan 1 2026", 16001 end
+local dump = S.Dump()
+eq(#dump > 10, true, "Protokoll hat Zeilen")
+local joined = table.concat(dump, "\n")
+has(joined, "ScrollingMessageFrame", "Typ im Protokoll"); has(joined, "Nachricht 2", "Nachrichten im Protokoll")
+has(joined, "SAY = 1", "Chatfarben im Protokoll"); has(joined, "Regionen: 2", "Regionen gezaehlt")
+has(joined, "\124\124cffff0000", "Pipe-Zeichen verdoppelt (kein Farbcode im Protokoll)")
+_G.FreewoodDB = {}
+eq(S.SaveDump() > 10, true, "Protokoll gespeichert"); eq(type(FreewoodDB.chatDump.lines), "table", "in der Datenbank")
+
 -- Einhuellen
 local shown = {}
 local cf = { AddMessage = function(self, text, r, g, b, id) shown[#shown + 1] = { text, r, id } end }
