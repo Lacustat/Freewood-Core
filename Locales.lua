@@ -531,7 +531,15 @@ FW:AddLocale("enUS", {
     CHATWIN_K_YELL = "Yell",
     CHATWIN_K_EMOTE = "Emote",
     CHATWIN_TO = "To",
-    CHATWIN_UNKNOWN_CMD = "Freewood chat window: unknown command. Supported: /s /y /g /p /r /w name text /1 /2 ...",
+    CHATWIN_TAB_SYSTEM = "System",
+    CHATWIN_MAIN = "Freewood chat as main chat (game chat hidden)",
+    CHATWIN_MAIN_HINT = "The game chat is hidden; Enter and / open the Freewood chat input. Game messages (loot, rolls, addons) appear in the System tab; the combat log is not included. Escape hatch: Shift+Enter opens the game's normal input box. Commands like /cast or macros are only safe through the normal box.",
+    CHATWIN_DETACH = "Input box separate from the window (visible only while typing)",
+    CHATWIN_MOVE_INPUT = "Move input box (drag with the mouse)",
+    CHATWIN_MOVE_HINT = "Drag to move",
+    CHATWIN_INPUT_W = "Input box width: %d",
+    CHATWIN_TEST_INPUT = "Show input box briefly",
+    CHATWIN_UNKNOWN_CMD = "Freewood chat window: unknown command. Supported: /s /y /g /p /ra /w name text /1 /2 ...",
 })
 
 FW:AddLocale("deDE", {
@@ -608,5 +616,13 @@ FW:AddLocale("deDE", {
     CHATWIN_K_YELL = "Rufen",
     CHATWIN_K_EMOTE = "Emote",
     CHATWIN_TO = "An",
-    CHATWIN_UNKNOWN_CMD = "Freewood-Chatfenster: unbekannter Befehl. Möglich: /s /y /g /p /r /w Name Text /1 /2 ...",
+    CHATWIN_TAB_SYSTEM = "System",
+    CHATWIN_MAIN = "Freewood-Chat als Haupt-Chat (Spiel-Chat unsichtbar)",
+    CHATWIN_MAIN_HINT = "Der Spiel-Chat wird versteckt, Enter und / öffnen das Eingabefeld des Freewood-Chats. Meldungen des Spiels (Beute, Würfeln, Addons) stehen im Reiter System; der Kampflog ist nicht enthalten. Notausgang: Umschalt+Enter öffnet das normale Eingabefeld des Spiels. Befehle wie /cast oder Makros gehen nur über das normale Feld sicher.",
+    CHATWIN_DETACH = "Eingabefeld getrennt vom Fenster (nur beim Tippen sichtbar)",
+    CHATWIN_MOVE_INPUT = "Eingabefeld verschieben (mit der Maus ziehen)",
+    CHATWIN_MOVE_HINT = "Ziehen zum Verschieben",
+    CHATWIN_INPUT_W = "Breite des Eingabefelds: %d",
+    CHATWIN_TEST_INPUT = "Eingabefeld kurz zeigen",
+    CHATWIN_UNKNOWN_CMD = "Freewood-Chatfenster: unbekannter Befehl. Möglich: /s /y /g /p /ra /w Name Text /1 /2 ...",
 })

@@ -82,5 +82,52 @@ W.Send("say", nil, "a"); W.Send("yell", nil, "b")
 eq(sent[1], "SAY:a", "senden sagen"); eq(sent[2], "YELL:b", "senden rufen")
 FW.ChatLog = { Send = function(kd, tg, tx) sent[#sent + 1] = kd .. ":" .. tx end }
 W.Send("guild", nil, "c"); eq(sent[3], "guild:c", "Gilde ueber ChatLog")
+
+-- /r (Antworten) und andere unbekannte Befehle werden weitergereicht, /ra ist Schlachtzug
+kind, target = W.ParseInput("/r hallo", "all", nil); eq(kind, nil, "/r wird weitergereicht"); eq(target, "unknown", "/r unbekannt")
+kind = W.ParseInput("/ra hallo", "all", nil); eq(kind, "group", "/ra")
+
+-- System-Meldungen
+ev.CHAT_MSG_SYSTEM("Bogadin ist jetzt offline.")
+ev.CHAT_MSG_SYSTEM("Bogadin ist jetzt offline.")
+FW.settings.chatWin.main = false
+eq(#W.Visible("system"), 1, "System-Reiter, doppelte Meldung zusammengefasst")
+local nAll = #W.Visible("all")
+FW.settings.chatWin.main = true
+eq(#W.Visible("all"), nAll + 1, "System in Alle nur im Haupt-Chat-Modus")
+ev.CHAT_MSG_LOOT("Du erhaeltst Beute: [Stein].")
+eq(#W.Visible("system"), 2, "Beute als System")
+secret["geheim2"] = true
+ev.CHAT_MSG_SYSTEM("geheim2")
+eq(#W.Visible("system"), 2, "geheime Systemmeldung uebersprungen")
+
+-- Spiel-Eingabefeld umleiten
+local opened
+W.OpenInput = function(t) opened = t; return true end
+W.MainActive = function() return true end
+local closed = 0
+local eb = { GetText = function() return "" end, ClearFocus = function() closed = closed + 1 end, Hide = function() closed = closed + 1 end,
+    GetAttribute = function(_, k) if k == "chatType" then return "WHISPER" elseif k == "tellTarget" then return "Anna" end end }
+eq(W.OnBlizzActivate(eb, false), true, "Aktivierung umgeleitet")
+eq(opened, "", "Eingabe geoeffnet"); eq(closed >= 1, true, "Spiel-Feld geschlossen"); eq(W.target, "Anna", "Fluesterziel vom Antworten")
+W.target = nil
+opened = nil
+eq(W.OnBlizzActivate(eb, true), false, "Umschalt: Spiel-Feld bleibt (Notausgang)"); eq(opened, nil, "nicht geoeffnet")
+W.bypass = true; eq(W.OnBlizzActivate(eb, false), false, "Bypass"); W.bypass = false
+W.MainActive = function() return false end
+eq(W.OnBlizzActivate(eb, false), false, "Haupt-Chat aus: nichts umleiten")
+W.MainActive = function() return true end
+W.redirected = true
+W.OnBlizzOpenChat("/")
+eq(W.redirected, false, "Nachtragen setzt Marke zurueck")
+
+-- Weiterreichen
+local sentT
+_G.ChatEdit_SendText = function(e) sentT = e.text end
+local feb = { SetText = function(self, t) self.text = t end }
+_G.DEFAULT_CHAT_FRAME = { editBox = feb }
+eq(W.Forward("/roll 100"), true, "Weiterreichen"); eq(sentT, "/roll 100", "Text beim Spiel angekommen")
+_G.ChatEdit_SendText = nil
+eq(W.Forward("/roll"), false, "ohne Spiel-Funktion false")
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

@@ -19,11 +19,15 @@ W.DEFAULTS = {
     say = true,           -- Sagen und Rufen
     emote = false,
     tab = "all",
+    main = false,         -- Freewood-Chat ersetzt den Spiel-Chat (Spiel-Chat unsichtbar, Enter oeffnet unser Eingabefeld)
+    detach = false,       -- Eingabefeld getrennt vom Fenster, nur beim Tippen sichtbar
+    moveInput = false,    -- Eingabefeld zum Verschieben dauerhaft zeigen
+    inX = 34, inY = 300, inW = 460,
 }
 
 local MAX_MSGS = 300
 local MAX_BUBBLES = 40
-local MIN_W, MIN_H = 360, 200
+local MIN_W, MIN_H = 520, 200
 local QMARK = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local CLASS_ICONS = {
@@ -39,7 +43,7 @@ local CLASS_ICONS = {
 }
 
 -- Arten und Reiter
-W.KINDS = { "say", "yell", "emote", "guild", "group", "whisper", "channel" }
+W.KINDS = { "say", "yell", "emote", "guild", "group", "whisper", "channel", "system" }
 W.TABS = {
     { "all", "CHATWIN_TAB_ALL", nil },
     { "say", "CHATWIN_TAB_SAY", { say = true, yell = true, emote = true } },
@@ -47,13 +51,14 @@ W.TABS = {
     { "group", "CHATWIN_TAB_GROUP", { group = true } },
     { "whisper", "CHATWIN_TAB_WHISPER", { whisper = true } },
     { "channel", "CHATWIN_TAB_CHANNEL", { channel = true } },
+    { "system", "CHATWIN_TAB_SYSTEM", { system = true } },
 }
 local KIND_COLOR = {
     say = { 1, 1, 1 }, yell = { 1, 0.25, 0.25 }, emote = { 1, 0.5, 0.25 }, guild = { 0.25, 1, 0.25 },
-    group = { 0.67, 0.67, 1 }, whisper = { 1, 0.5, 1 }, channel = { 1, 0.75, 0.75 },
+    group = { 0.67, 0.67, 1 }, whisper = { 1, 0.5, 1 }, channel = { 1, 0.75, 0.75 }, system = { 1, 1, 0.3 },
 }
 local KIND_LABEL = { say = "CHATWIN_K_SAY", yell = "CHATWIN_K_YELL", emote = "CHATWIN_K_EMOTE", guild = "CHAT_GUILD", group = "CHAT_GROUP",
-    whisper = "CHAN_WHISPER", channel = nil }
+    whisper = "CHAN_WHISPER", channel = nil, system = nil }
 
 local function Secret(v)
     return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) or false
@@ -133,7 +138,9 @@ function W.Visible(tabKey)
     local set = def and def[3] or nil
     local out = {}
     for _, m in ipairs(W.msgs) do
-        if (not set or set[m.kind]) and W.KindEnabled(m.kind) then out[#out + 1] = m end
+        if (not set or set[m.kind]) and W.KindEnabled(m.kind) and (m.kind ~= "system" or tabKey == "system" or W.Opts().main == true) then
+            out[#out + 1] = m
+        end
     end
     return out
 end
@@ -154,7 +161,7 @@ function W.ParseInput(text, tabKey, target)
         if cmd == "s" or cmd == "say" then return "say", nil, rest end
         if cmd == "y" or cmd == "yell" or cmd == "sch" then return "yell", nil, rest end
         if cmd == "g" or cmd == "gilde" or cmd == "guild" then return "guild", nil, rest end
-        if cmd == "p" or cmd == "party" or cmd == "gruppe" or cmd == "r" or cmd == "raid" then return "group", nil, rest end
+        if cmd == "p" or cmd == "party" or cmd == "gruppe" or cmd == "ra" or cmd == "raid" then return "group", nil, rest end
         if cmd == "w" or cmd == "whisper" or cmd == "t" or cmd == "tell" then
             local who, msg = string.match(rest, "^(%S+)%s+(.+)$")
             if who then return "whisper", who, msg end
@@ -300,6 +307,16 @@ end
 
 local lastH, lastViewH, stick = 0, 0, true
 
+-- Position (links unten) eines Rahmens in Einheiten von UIParent
+local function PosOf(fr)
+    local left, bottom = fr:GetLeft(), fr:GetBottom()
+    local ui = G.UIParent and G.UIParent.GetEffectiveScale and G.UIParent:GetEffectiveScale() or 1
+    local me = fr.GetEffectiveScale and fr:GetEffectiveScale() or ui
+    if left and bottom and ui > 0 then
+        return math.floor(left * me / ui + 0.5), math.floor(bottom * me / ui + 0.5)
+    end
+end
+
 function W.Draw()
     if not built then return end
     local o = W.Opts()
@@ -334,27 +351,36 @@ function W.Draw()
         elseif KIND_LABEL[m.kind] then tag = "  [" .. (L[KIND_LABEL[m.kind]] or m.kind) .. "]" end
         local kr, kg, kb = KindColor(m.kind)
         b.name:SetText(who .. (tag ~= "" and (Hex(kr, kg, kb) .. tag .. "\124r") or ""))
-        b.time:SetText(Stamp(m.t))
+        local sys = m.kind == "system"
+        b.time:SetText(sys and "" or Stamp(m.t))
+        if sys then b.name:SetText("") end
+        if sys then b.avBtn:Hide() else b.avBtn:Show() end
+        if sys then b.lvl:SetText("") end
         local txt = m.m or ""
         built.measure:SetText(Plain(txt))
         local tw = built.measure:GetStringWidth() or 0
         if tw <= 0 then tw = maxBub end
         local nameW = (b.name:GetStringWidth() or 60) + (b.time:GetStringWidth() or 40) + 40
         local pw = math.floor(math.max(math.min(math.max(tw, nameW) + 22, maxBub), 110))
+        if sys then pw = math.floor(math.max(math.min(tw + 22, areaW - 24), 110)) end
         b.text:SetWidth(pw - 20)
         b.text:SetText(txt)
+        b.text:ClearAllPoints()
+        b.text:SetPoint("TOPLEFT", b.panel, "TOPLEFT", 10, sys and -7 or -24)
         local th = (b.text.GetStringHeight and b.text:GetStringHeight()) or 14
         if not th or th < 14 then th = 14 end
-        local ph = math.floor(th + 38)
+        local ph = math.floor(th + (sys and 16 or 38))
         b.panel:SetSize(pw, ph)
         if own then b.bg:SetColorTexture(0.13, 0.27, 0.46, 0.95) else b.bg:SetColorTexture(UI.Color("card", 0.95)) end
         b.bar:SetColorTexture(kr, kg, kb, 1)
-        local rowH = math.max(ph, 56)
+        local rowH = sys and ph or math.max(ph, 56)
         b:SetSize(areaW - 8, rowH)
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", chat.child, "TOPLEFT", 0, -y)
         b.avBtn:ClearAllPoints(); b.lvl:ClearAllPoints(); b.panel:ClearAllPoints()
-        if own then
+        if sys then
+            b.panel:SetPoint("TOPLEFT", b, "TOPLEFT", 6, 0)
+        elseif own then
             b.avBtn:SetPoint("TOPRIGHT", b, "TOPRIGHT", -6, 0)
             b.lvl:SetPoint("TOP", b.avBtn, "BOTTOM", 0, -1)
             b.panel:SetPoint("TOPRIGHT", b.avBtn, "TOPLEFT", -8, 0)
@@ -445,12 +471,8 @@ end
 function W.SavePosition()
     if not frame then return end
     local o = W.Opts()
-    local left, bottom = frame:GetLeft(), frame:GetBottom()
-    local ui = G.UIParent and G.UIParent.GetEffectiveScale and G.UIParent:GetEffectiveScale() or 1
-    local me = frame.GetEffectiveScale and frame:GetEffectiveScale() or ui
-    if left and bottom and ui > 0 then
-        o.point, o.x, o.y = "BOTTOMLEFT", math.floor(left * me / ui + 0.5), math.floor(bottom * me / ui + 0.5)
-    end
+    local px, py = PosOf(frame)
+    if px then o.point, o.x, o.y = "BOTTOMLEFT", px, py end
     local w, h = frame:GetWidth(), frame:GetHeight()
     if w and h then o.w, o.h = math.floor(w + 0.5), math.floor(h + 0.5) end
 end
@@ -500,6 +522,8 @@ function W.SetShown(on)
     o.enabled = on and true or false
     if on then W.Build() end
     if frame then if o.enabled then frame:Show(); stick = true; W.Dirty() else frame:Hide() end end
+    -- ohne Fenster darf der Spiel-Chat nicht versteckt bleiben
+    if not o.enabled and o.main then W.SetMain(false) end
 end
 
 function W.Build()
@@ -529,19 +553,35 @@ function W.Build()
     head:SetScript("OnDragStop", function() frame:StopMovingOrSizing(); W.SavePosition() end)
     local x = 4
     for _, def in ipairs(W.TABS) do
-        local btn = UI.CreateButton(head, TabText(def), 74, 22, function() W.SelectTab(def[1]) end, "default")
+        local btn = UI.CreateButton(head, TabText(def), 68, 22, function() W.SelectTab(def[1]) end, "default")
         btn:SetPoint("LEFT", head, "LEFT", x, 0)
-        x = x + 76
+        x = x + 70
         built.tabs[#built.tabs + 1] = { def = def, btn = btn }
     end
     local close = UI.CreateButton(head, "x", 22, 22, function() W.SetShown(false) end, "default")
     close:SetPoint("RIGHT", head, "RIGHT", -4, 0)
 
-    -- Eingabe
+    -- Eingabe (eigener Rahmen: unten im Fenster oder getrennt, siehe W.LayoutInput)
     local ibox = UI.CreatePanel(frame, "bgDeep", "bronze")
+    built.inputFrame = ibox
     ibox:SetHeight(28)
-    ibox:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 6, 6)
-    ibox:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -100, 6)
+    ibox:EnableMouse(true)
+    ibox:SetMovable(true)
+    ibox:RegisterForDrag("LeftButton")
+    ibox:SetScript("OnDragStart", function(self)
+        if W.Detached() and W.Opts().moveInput then self:StartMoving() end
+    end)
+    ibox:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local px, py = PosOf(self)
+        if px then local o = W.Opts(); o.inX, o.inY = px, py end
+        W.LayoutInput()
+    end)
+    built.moveHint = UI.CreateLabel(ibox, L.CHATWIN_MOVE_HINT or "", { size = 10, color = "goldLight", justify = "RIGHT" })
+    built.moveHint:SetPoint("BOTTOMRIGHT", ibox, "TOPRIGHT", 0, 2)
+    built.moveHint:Hide()
+    local sendBtn = UI.CreateButton(ibox, L.CHAT_SEND, 72, 22, function() W.DoSend() end)
+    sendBtn:SetPoint("RIGHT", ibox, "RIGHT", -3, 0)
     local tgt = CreateFrame("Button", nil, ibox)
     tgt:SetPoint("LEFT", ibox, "LEFT", 6, 0)
     tgt:SetHeight(22)
@@ -552,34 +592,26 @@ function W.Build()
     local input = CreateFrame("EditBox", nil, ibox)
     input:SetAutoFocus(false)
     input:SetPoint("TOPLEFT", ibox, "TOPLEFT", 106, -3)
-    input:SetPoint("BOTTOMRIGHT", ibox, "BOTTOMRIGHT", -8, 3)
+    input:SetPoint("BOTTOMRIGHT", ibox, "BOTTOMRIGHT", -80, 3)
     input:SetMaxLetters(255)
     UI.SetFont(input, "body", 12)
     input:SetTextColor(UI.Color("text"))
     local ihint = UI.CreateLabel(ibox, L.CHAT_INPUT, { size = 12, color = "textDim" })
     ihint:SetPoint("LEFT", ibox, "LEFT", 110, 0)
-    local function DoSend()
-        local txt = input:GetText() or ""
-        local kind, target, msg = W.ParseInput(txt, W.Opts().tab, W.target)
-        if not kind then
-            if target == "unknown" and FW.Print then FW:Print(L.CHATWIN_UNKNOWN_CMD or "Unknown command") end
-            return
-        end
-        if W.Send(kind, target, msg) then input:SetText("") end
-    end
-    input:SetScript("OnEnterPressed", function() DoSend(); input:SetFocus() end)
-    input:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    input:SetScript("OnEnterPressed", function() W.DoSend() end)
+    input:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
     input:SetScript("OnTextChanged", function(self)
         if (self:GetText() or "") == "" then ihint:Show() else ihint:Hide() end
     end)
-    local sendBtn = UI.CreateButton(frame, L.CHAT_SEND, 88, 28, DoSend)
-    sendBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 6)
+    input:SetScript("OnEditFocusGained", function() W.UpdateInputVisibility() end)
+    input:SetScript("OnEditFocusLost", function() W.UpdateInputVisibility() end)
     built.input = input
 
     -- Chatbereich
     built.chat = UI.CreateScrollFrame(frame)
     built.chat:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -34)
     built.chat:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 40)
+    frame.fwChat = built.chat
     built.measure = frame:CreateFontString(nil, "OVERLAY")
     UI.SetFont(built.measure, "body", 12)
     built.measure:Hide()
@@ -597,20 +629,371 @@ function W.Build()
     built.grip = grip
     frame:SetScript("OnSizeChanged", function() W.Dirty() end)
 
+    local lastCheck = 0
     frame:SetScript("OnUpdate", function()
-        if dirty then
-            local now = G.GetTime and G.GetTime() or 0
-            if now - dirtyAt >= 0.15 then pcall(W.Draw); RefreshTabs() end
+        local now = G.GetTime and G.GetTime() or 0
+        if dirty and now - dirtyAt >= 0.15 then pcall(W.Draw); RefreshTabs() end
+        if now - lastCheck >= 2 then
+            lastCheck = now
+            if W.Opts().main then pcall(W.ApplyMain) end
+            if W.inputTestUntil and now >= W.inputTestUntil then W.inputTestUntil = nil; W.UpdateInputVisibility() end
         end
     end)
 
     W.ApplyPosition()
+    W.LayoutInput()
     W.ApplyLook()
     RefreshTabs()
     W.RefreshInput()
     if o.enabled then frame:Show() else frame:Hide() end
     W.Dirty()
     return true
+end
+
+------------------------------------------------------------------------
+-- Eingabefeld: Senden, Platzierung, Sichtbarkeit
+------------------------------------------------------------------------
+
+function W.Detached() return W.Opts().detach == true end
+
+function W.UpdateInputVisibility(force)
+    if not (built and built.inputFrame) then return end
+    local f, o = built.inputFrame, W.Opts()
+    if not W.Detached() then f:Show(); built.moveHint:Hide(); built.input:EnableMouse(true); return end
+    local now = G.GetTime and G.GetTime() or 0
+    local testing = W.inputTestUntil and now < W.inputTestUntil
+    local focus = built.input:HasFocus()
+    if force or o.moveInput or testing or focus then f:Show() else f:Hide() end
+    if o.moveInput then built.moveHint:Show() else built.moveHint:Hide() end
+    built.input:EnableMouse(not o.moveInput)
+end
+
+function W.LayoutInput()
+    if not (built and built.inputFrame and frame) then return end
+    local f, o = built.inputFrame, W.Opts()
+    f:ClearAllPoints()
+    local bottom
+    if W.Detached() then
+        f:SetParent(G.UIParent)
+        f:SetFrameStrata("DIALOG")
+        f:SetSize(math.max(200, tonumber(o.inW) or 460), 28)
+        f:SetPoint("BOTTOMLEFT", G.UIParent, "BOTTOMLEFT", o.inX or 34, o.inY or 300)
+        bottom = 6
+    else
+        f:SetParent(frame)
+        f:SetFrameStrata("MEDIUM")
+        f:SetFrameLevel(frame:GetFrameLevel() + 5)
+        f:SetHeight(28)
+        f:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 6, 6)
+        f:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -16, 6)
+        bottom = 40
+    end
+    built.chat:ClearAllPoints()
+    built.chat:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -34)
+    built.chat:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, bottom)
+    W.UpdateInputVisibility()
+    stick = true
+    W.Dirty()
+end
+
+function W.TestInput()
+    if not built then return end
+    W.inputTestUntil = (G.GetTime and G.GetTime() or 0) + 5
+    W.UpdateInputVisibility(true)
+end
+
+-- Befehl an das Chatsystem des Spiels weiterreichen (alles, was wir nicht selbst kennen)
+function W.Forward(text)
+    local dc = G.DEFAULT_CHAT_FRAME
+    local eb = (dc and dc.editBox) or G.ChatFrame1EditBox
+    if not (eb and eb.SetText and G.ChatEdit_SendText) then return false end
+    local ok = pcall(function()
+        eb:SetText(text)
+        G.ChatEdit_SendText(eb, 1)
+    end)
+    pcall(eb.SetText, eb, "")
+    return ok
+end
+
+function W.DoSend()
+    if not built then return end
+    local L = FW.L
+    local input = built.input
+    local txt = input:GetText() or ""
+    local o = W.Opts()
+    local kind, target, msg = W.ParseInput(txt, o.tab, W.target)
+    local done = false
+    if kind then
+        done = W.Send(kind, target, msg) and true or false
+    elseif target == "unknown" or target == "usage" then
+        done = W.Forward(txt)
+        if not done and FW.Print then FW:Print(L.CHATWIN_UNKNOWN_CMD or "Unknown command") end
+    else
+        done = txt == "" or string.find(txt, "^%s*$") ~= nil
+    end
+    if done then
+        input:SetText("")
+        if W.Detached() or o.main then input:ClearFocus() else input:SetFocus() end
+    end
+end
+
+-- Eingabe von aussen oeffnen (Enter, "/", Antworten ...)
+function W.OpenInput(text)
+    if not (built and built.input) then return false end
+    W.UpdateInputVisibility(true)
+    built.input:SetText(type(text) == "string" and text or "")
+    built.input:SetFocus()
+    return true
+end
+
+------------------------------------------------------------------------
+-- System-Meldungen (Beute, Erfahrung, Wuerfeln, "ist jetzt offline", Addon-Ausgaben)
+------------------------------------------------------------------------
+
+local SYSTEM_EVENTS = {
+    "CHAT_MSG_SYSTEM", "CHAT_MSG_LOOT", "CHAT_MSG_MONEY", "CHAT_MSG_SKILL", "CHAT_MSG_COMBAT_XP_GAIN",
+    "CHAT_MSG_COMBAT_FACTION_CHANGE", "CHAT_MSG_COMBAT_HONOR_GAIN", "CHAT_MSG_TRADESKILLS", "CHAT_MSG_CURRENCY",
+    "CHAT_MSG_PET_INFO", "CHAT_MSG_COMBAT_MISC_INFO", "CHAT_MSG_BG_SYSTEM_NEUTRAL", "CHAT_MSG_BG_SYSTEM_ALLIANCE",
+    "CHAT_MSG_BG_SYSTEM_HORDE", "CHAT_MSG_TARGETICONS", "CHAT_MSG_ACHIEVEMENT", "CHAT_MSG_RAID_BOSS_EMOTE",
+}
+local recentSys, recentN = {}, 0
+
+function W.AddSystem(text)
+    if type(text) ~= "string" or text == "" or Secret(text) then return end
+    local plain = string.gsub(string.gsub(string.gsub(text, "\124H.-\124h(.-)\124h", "%1"), "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
+    local now = G.GetTime and G.GetTime() or 0
+    local last = recentSys[plain]
+    if last and now - last < 1 then return end
+    recentN = recentN + 1
+    if recentN > 60 then recentSys, recentN = {}, 0 end
+    recentSys[plain] = now
+    W.Add("system", "", text, false)
+end
+
+for _, e in ipairs(SYSTEM_EVENTS) do
+    FW:RegisterEvent(e, function(text) W.AddSystem(text) end)
+end
+
+-- Ausgaben anderer Addons (print) gehen ohne Farbangabe an den Spiel-Chat
+function W.HookPrints()
+    if W.printHooked then return end
+    local cf = G.DEFAULT_CHAT_FRAME or G.ChatFrame1
+    if not (cf and G.hooksecurefunc and cf.AddMessage) then return end
+    W.printHooked = true
+    pcall(G.hooksecurefunc, cf, "AddMessage", function(_, text, r)
+        if r ~= nil or W.Opts().main ~= true then return end
+        W.AddSystem(text)
+    end)
+end
+
+------------------------------------------------------------------------
+-- Haupt-Chat-Modus: Spiel-Chat unsichtbar, Enter und "/" oeffnen unser Eingabefeld
+------------------------------------------------------------------------
+
+local hiddenParent
+local parked = {}
+
+local function Park(f)
+    if not (f and f.SetParent and f.GetParent) then return end
+    local ok, par = pcall(f.GetParent, f)
+    if not ok or not par or par == hiddenParent then return end
+    if pcall(f.SetParent, f, hiddenParent) then parked[f] = parked[f] or par end
+end
+
+local EXTRA_FRAMES = { "GeneralDockManager", "ChatFrameMenuButton", "ChatFrameChannelButton",
+    "ChatFrameToggleVoiceDeafenButton", "ChatFrameToggleVoiceMuteButton" }
+
+function W.HideBlizzard()
+    if not hiddenParent then
+        hiddenParent = CreateFrame("Frame", nil, G.UIParent)
+        hiddenParent:Hide()
+    end
+    for i = 1, tonumber(G.NUM_CHAT_WINDOWS) or 10 do
+        Park(G["ChatFrame" .. i])
+        Park(G["ChatFrame" .. i .. "Tab"])
+        Park(G["ChatFrame" .. i .. "ButtonFrame"])
+    end
+    for _, name in ipairs(EXTRA_FRAMES) do Park(G[name]) end
+end
+
+function W.ShowBlizzard()
+    for f, par in pairs(parked) do
+        pcall(f.SetParent, f, par)
+        parked[f] = nil
+    end
+end
+
+function W.MainActive()
+    return W.Opts().main == true and built ~= nil and frame ~= nil and frame:IsShown() == true
+end
+
+-- Das Spiel will sein Eingabefeld oeffnen (Enter, "/", Antworten): bei uns oeffnen
+function W.OnBlizzActivate(eb, shift)
+    W.redirected = false
+    if W.bypass or shift or not W.MainActive() then return false end
+    local text, ct, tt = "", nil, nil
+    if type(eb) == "table" then
+        if eb.GetText then
+            local ok, v = pcall(eb.GetText, eb)
+            if ok and type(v) == "string" and not Secret(v) then text = v end
+        end
+        if eb.GetAttribute then
+            local ok, a = pcall(eb.GetAttribute, eb, "chatType")
+            if ok then ct = a end
+            ok, a = pcall(eb.GetAttribute, eb, "tellTarget")
+            if ok then tt = a end
+        end
+        if G.ChatEdit_DeactivateChat then
+            pcall(G.ChatEdit_DeactivateChat, eb)
+        else
+            pcall(function() if eb.ClearFocus then eb:ClearFocus() end; if eb.Hide then eb:Hide() end end)
+        end
+    end
+    if ct == "WHISPER" and type(tt) == "string" and tt ~= "" and not Secret(tt) then
+        W.target = tt
+        if W.RefreshInput then W.RefreshInput() end
+    end
+    W.redirected = true
+    W.OpenInput(text)
+    return true
+end
+
+-- ChatFrame_OpenChat(text) setzt den Text erst nach dem Oeffnen: nachtragen
+function W.OnBlizzOpenChat(text)
+    if not W.redirected then return end
+    W.redirected = false
+    if type(text) == "string" and text ~= "" and not Secret(text) and built and built.input then
+        built.input:SetText(text)
+    end
+end
+
+function W.BlizzEditBox()
+    local dc = G.DEFAULT_CHAT_FRAME
+    return (dc and dc.editBox) or G.ChatFrame1EditBox
+end
+
+local ebFree, ebParent
+
+-- Notausgang (Umschalt+Enter): das normale Eingabefeld des Spiels sichtbar oeffnen
+function W.OpenBlizzard(text)
+    if not G.ChatFrame_OpenChat then return false end
+    local eb = W.BlizzEditBox()
+    W.bypass = true
+    if eb and eb.SetParent and eb.GetParent then
+        local ok, par = pcall(eb.GetParent, eb)
+        if ok and par and par ~= G.UIParent then
+            ebFree, ebParent = eb, par
+            pcall(eb.SetParent, eb, G.UIParent)
+        end
+    end
+    local ok = pcall(G.ChatFrame_OpenChat, text or "")
+    W.bypass = false
+    return ok
+end
+
+local function ReleaseBlizzBox(eb)
+    if ebFree and eb == ebFree and ebParent then
+        pcall(ebFree.SetParent, ebFree, ebParent)
+        ebFree, ebParent = nil, nil
+    end
+end
+
+function W.InstallHooks()
+    if W.hooksDone then return end
+    W.hooksDone = true
+    local hs = G.hooksecurefunc
+    if not hs then return end
+    local n = 0
+    if G.ChatEdit_ActivateChat and pcall(hs, "ChatEdit_ActivateChat", function(eb)
+        W.OnBlizzActivate(eb, G.IsShiftKeyDown and G.IsShiftKeyDown() or false)
+    end) then n = n + 1; W.hookActivate = true end
+    if G.ChatFrame_OpenChat and pcall(hs, "ChatFrame_OpenChat", function(text) W.OnBlizzOpenChat(text) end) then n = n + 1 end
+    if G.ChatEdit_DeactivateChat and pcall(hs, "ChatEdit_DeactivateChat", function(eb) ReleaseBlizzBox(eb) end) then n = n + 1 end
+    if G.ChatEdit_InsertLink and pcall(hs, "ChatEdit_InsertLink", function(link)
+        if built and built.input and type(link) == "string" and not Secret(link) and built.input:HasFocus() then
+            built.input:Insert(link)
+        end
+    end) then n = n + 1 end
+    W.hookCount = n
+end
+
+-- Tastenbelegung ueber Ueberschreibungen: Umschalt+Enter = Notausgang immer; Enter und "/" nur, wenn die Hooks fehlen
+local bindOwner, bindPending
+local function MakeButton(name, fn)
+    local b = G[name]
+    if not b then
+        b = CreateFrame("Button", name, G.UIParent)
+        b:SetSize(1, 1)
+        b:SetScript("OnClick", function() fn() end)
+    end
+    return b
+end
+
+function W.ApplyBindings(on)
+    if not (G.SetOverrideBindingClick and G.ClearOverrideBindings) then return end
+    if G.InCombatLockdown and G.InCombatLockdown() then bindPending = true; return end
+    bindPending = false
+    bindOwner = bindOwner or CreateFrame("Frame", nil, G.UIParent)
+    pcall(G.ClearOverrideBindings, bindOwner)
+    if not on then return end
+    MakeButton("FreewoodChatBlizzButton", function() W.OpenBlizzard("") end)
+    pcall(G.SetOverrideBindingClick, bindOwner, true, "SHIFT-ENTER", "FreewoodChatBlizzButton")
+    if not W.hookActivate then
+        MakeButton("FreewoodChatEnterButton", function() W.OpenInput("") end)
+        MakeButton("FreewoodChatSlashButton", function() W.OpenInput("/") end)
+        pcall(G.SetOverrideBindingClick, bindOwner, true, "ENTER", "FreewoodChatEnterButton")
+        pcall(G.SetOverrideBindingClick, bindOwner, true, "NUMPADENTER", "FreewoodChatEnterButton")
+        pcall(G.SetOverrideBindingClick, bindOwner, true, "/", "FreewoodChatSlashButton")
+    end
+end
+
+FW:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+    if bindPending then W.ApplyBindings(W.Opts().main == true and built ~= nil) end
+end)
+
+function W.ApplyMain()
+    local o = W.Opts()
+    if o.main and built and frame and frame:IsShown() then
+        W.InstallHooks()
+        W.HideBlizzard()
+        W.HookPrints()
+        if not W.bindingsOn then W.bindingsOn = true; W.ApplyBindings(true) end
+    else
+        W.ShowBlizzard()
+        if W.bindingsOn then W.bindingsOn = false; W.ApplyBindings(false) end
+    end
+    W.UpdateInputVisibility()
+end
+
+function W.SetMain(on)
+    local o = W.Opts()
+    o.main = on and true or false
+    if o.main then
+        o.enabled = true
+        W.Build()
+        if not built then o.main = false else frame:Show(); stick = true; W.Dirty() end
+    end
+    W.ApplyMain()
+end
+
+function W.Probe()
+    local function Has(n) return G[n] ~= nil and "ja" or "nein" end
+    local dc = G.DEFAULT_CHAT_FRAME
+    local lines = {
+        "ChatEdit_ActivateChat: " .. Has("ChatEdit_ActivateChat") .. ", ChatFrame_OpenChat: " .. Has("ChatFrame_OpenChat")
+            .. ", ChatEdit_DeactivateChat: " .. Has("ChatEdit_DeactivateChat") .. ", ChatEdit_SendText: " .. Has("ChatEdit_SendText")
+            .. ", ChatEdit_InsertLink: " .. Has("ChatEdit_InsertLink"),
+        "DEFAULT_CHAT_FRAME: " .. Has("DEFAULT_CHAT_FRAME") .. ", editBox: " .. ((dc and dc.editBox) and "ja" or "nein")
+            .. ", ChatFrame1EditBox: " .. Has("ChatFrame1EditBox") .. ", SetOverrideBindingClick: " .. Has("SetOverrideBindingClick"),
+        "Haken gesetzt: " .. tostring(W.hookCount or 0) .. ", Aktivierung abgefangen: " .. tostring(W.hookActivate == true)
+            .. ", Haupt-Chat: " .. tostring(W.Opts().main == true),
+    }
+    if G.GetBindingKey then
+        local ok, k1, k2 = pcall(G.GetBindingKey, "OPENCHAT")
+        lines[#lines + 1] = "Taste OPENCHAT: " .. tostring(ok and k1 or "?") .. " " .. tostring(ok and k2 or "")
+    end
+    for _, l in ipairs(lines) do if FW.Print then FW:Print(l) end end
+    return lines
 end
 
 function W.Test()
@@ -624,11 +1007,18 @@ FW:On("FW_DB_READY", function()
 end)
 FW:RegisterEvent("PLAYER_ENTERING_WORLD", function()
     if W.Opts().enabled then pcall(W.Build) end
+    pcall(W.InstallHooks)
+    pcall(W.ApplyMain)
+end)
+FW:RegisterEvent("UPDATE_CHAT_WINDOWS", function()
+    if W.Opts().main then pcall(W.ApplyMain) end
 end)
 
 SLASH_FREEWOODCHATWIN1 = "/fwchatwin"
 SlashCmdList = SlashCmdList or {}
-SlashCmdList["FREEWOODCHATWIN"] = function()
+SlashCmdList["FREEWOODCHATWIN"] = function(arg)
+    arg = string.lower(string.gsub(arg or "", "%s+", ""))
+    if arg == "probe" then W.Probe(); return end
     W.SetShown(not (W.Opts().enabled))
 end
 
@@ -640,7 +1030,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-window", {
         category = "chat",
         order = 5,
-        height = 400,
+        height = 760,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CHATWIN_TITLE)
@@ -651,6 +1041,25 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_LOCKED,
                 function() return W.Opts().locked == true end,
                 function(v) W.Opts().locked = v and true or false; W.ApplyLook() end), { fit = true })
+            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_MAIN,
+                function() return W.Opts().main == true end,
+                function(v) W.SetMain(v) end), { fit = true })
+            stack:Add(UI.CreateLabel(f, L.CHATWIN_MAIN_HINT, { size = 11, color = "textDim" }), { height = 62, gap = 2 })
+            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_DETACH,
+                function() return W.Opts().detach == true end,
+                function(v) W.Opts().detach = v and true or false; W.LayoutInput() end), { fit = true })
+            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_MOVE_INPUT,
+                function() return W.Opts().moveInput == true end,
+                function(v) W.Opts().moveInput = v and true or false; W.UpdateInputVisibility() end), { fit = true })
+            local wLabel = UI.CreateLabel(f, "", { size = 12 })
+            stack:Add(wLabel, { height = 16, gap = 8 })
+            local wSlider = UI.CreateSlider(f, 240, { min = 200, max = 900, step = 10,
+                get = function() return tonumber(W.Opts().inW) or 460 end,
+                set = function(v) W.Opts().inW = v; W.LayoutInput() end })
+            wSlider.onText = function(v) wLabel:SetText(string.format(L.CHATWIN_INPUT_W, v)) end
+            wSlider:Refresh()
+            stack:Add(wSlider, { height = 20, gap = 2 })
+            stack:Add(UI.CreateButton(f, L.CHATWIN_TEST_INPUT, 260, 24, function() W.Build(); W.TestInput() end), { height = 24, gap = 8 })
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_SAY,
                 function() return W.Opts().say ~= false end,
                 function(v) W.Opts().say = v and true or false; W.Dirty() end), { fit = true })
