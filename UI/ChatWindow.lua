@@ -609,7 +609,7 @@ function W.Draw()
             UI.SetFont(b.time, "body", math.max(8, fs - 2))
             b.fs = fs
         end
-        local line = classic or W.Style(m.kind) == "line"
+        local line = classic or m.raw == true or W.Style(m.kind) == "line"
         local kr, kg, kb = KindColor(m.kind)
         local tr, tg, tb = TextColor(m.kind)
         local nameHit
@@ -633,7 +633,7 @@ function W.Draw()
             local stamp = Stamp(m.t)
             local prefix = stamp ~= "" and (Hex(0.55, 0.55, 0.6) .. stamp .. "\124r  ") or ""
             local full = prefix .. txt
-            if W.CHAT_KIND[m.kind] then
+            if W.CHAT_KIND[m.kind] and not m.raw then
                 local pre, name, post, color = W.ClassicParts(m, CL, L, txt)
                 if name then
                     full = prefix .. pre .. color .. name .. "\124r" .. post
@@ -748,6 +748,41 @@ end
 
 local tabBtns = {}
 
+-- Aussehen eines Reiter-Knopfs: Freewood (Gold) oder Spiel-Chat (klein, flach, dunkel)
+local function StyleTab(b)
+    local classic = W.Opts().classic == true
+    local active = b.fwActive
+    b:SetHeight(classic and 18 or 22)
+    if classic then
+        b.bg:SetColorTexture(0, 0, 0, active and 0.7 or (b.fwHover and 0.6 or 0.4))
+        UI.SetBorderColor(b, "bronze", active and 0.9 or 0.2)
+        if active then b.label:SetTextColor(1, 0.82, 0) else b.label:SetTextColor(0.62, 0.62, 0.62) end
+    else
+        b.bg:SetColorTexture(UI.Color(active and "gold" or (b.fwHover and "hover" or "card")))
+        UI.SetBorderColor(b, active and "goldLight" or (b.fwHover and "gold" or "bronze"))
+        if active then b.label:SetTextColor(UI.Color("bgDeep")) else b.label:SetTextColor(UI.Color("text")) end
+    end
+end
+
+local function MakeTabButton(head)
+    local b = CreateFrame("Button", nil, head)
+    b:SetSize(60, 22)
+    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.bg:SetAllPoints()
+    UI.AddBorder(b, "bronze")
+    b.label = UI.CreateLabel(b, "", { size = 12, justify = "CENTER" })
+    b.label:SetPoint("CENTER", 0, 0)
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    b:RegisterForDrag("LeftButton")
+    b:SetScript("OnClick", function(self, mouse) W.TabClick(self.fwTabId, mouse) end)
+    b:SetScript("OnDragStart", function() if not W.Opts().locked and frame then frame:StartMoving() end end)
+    b:SetScript("OnDragStop", function() if frame then frame:StopMovingOrSizing(); W.SavePosition() end end)
+    b:SetScript("OnEnter", function(self) self.fwHover = true; StyleTab(self) end)
+    b:SetScript("OnLeave", function(self) self.fwHover = false; StyleTab(self) end)
+    function b:SetLabel(text) self.label:SetText(text or "") end
+    return b
+end
+
 function W.TabClick(id, mouse)
     if mouse == "RightButton" then
         if W.OpenTabEditor then W.OpenTabEditor(id) end
@@ -767,8 +802,7 @@ function W.LayoutTabs()
     for i, t in ipairs(tabs) do
         local btn = tabBtns[i]
         if not btn then
-            btn = UI.CreateButton(head, "", 60, 22, function(self, mouse) W.TabClick(self.fwTabId, mouse) end, "default")
-            btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            btn = MakeTabButton(head)
             tabBtns[i] = btn
         end
         btn.fwTabId = t.id
@@ -785,12 +819,14 @@ function W.LayoutTabs()
         btn:SetWidth(w)
         btn:ClearAllPoints()
         btn:SetPoint("LEFT", head, "LEFT", x, 0)
-        btn:SetStyle(t.id == cur and "primary" or "default")
+        btn.fwActive = (t.id == cur)
+        StyleTab(btn)
         btn:Show()
         x = x + w + 2
     end
     for i = #tabs + 1, #tabBtns do tabBtns[i]:Hide() end
     if built.plus then
+        built.plus:SetHeight(W.Opts().classic and 18 or 22)
         built.plus:ClearAllPoints()
         built.plus:SetPoint("LEFT", head, "LEFT", x + 2, 0)
     end
@@ -855,18 +891,62 @@ function W.ApplyPosition()
     frame:SetSize(math.max(MIN_W, o.w or 560), math.max(MIN_H, o.h or 300))
 end
 
+function W.LayoutHead()
+    if not (built and built.head and frame) then return end
+    local head, classic = built.head, W.Opts().classic == true
+    head:ClearAllPoints()
+    if classic then
+        -- wie im Spiel: Reiter klein ueber dem Fenster, keine Kopfleiste
+        head:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 0, 1)
+        head:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", 0, 1)
+        head:SetHeight(19)
+        built.close:Hide()
+    else
+        head:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+        head:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+        head:SetHeight(30)
+        built.close:Show()
+    end
+    if frame.SetClampRectInsets then pcall(frame.SetClampRectInsets, frame, 0, 0, classic and -20 or 0, 0) end
+end
+
 function W.ApplyLook()
     if not built then return end
     local o = W.Opts()
+    local classic = o.classic == true
     local a = (tonumber(o.alpha) or 85) / 100
-    if o.classic then
-        built.bg:SetColorTexture(0, 0, 0, a)
+    if classic then
+        local r, g, b = 0, 0, 0
+        local S = FW.ChatStyle
+        local so = S and S.Opts and S.Opts() or nil
+        if so and so.bgOn then
+            local c = so.bgColor or { 0, 0, 0 }
+            r, g, b = c[1] or 0, c[2] or 0, c[3] or 0
+            a = (tonumber(so.bgAlpha) or 60) / 100
+        end
+        built.bg:SetColorTexture(r, g, b, a)
         if UI.SetBorderColor then UI.SetBorderColor(frame, "bronze", 0) end
+        built.inputFrame.bg:SetColorTexture(0, 0, 0, 0.6)
+        UI.SetBorderColor(built.inputFrame, "bronze", 0.35)
     else
         built.bg:SetColorTexture(UI.Color("bgDeep", a))
         if UI.SetBorderColor then UI.SetBorderColor(frame, "bronze") end
+        built.inputFrame.bg:SetColorTexture(UI.Color("bgDeep"))
+        UI.SetBorderColor(built.inputFrame, "bronze")
+    end
+    if built.sendBtn then if classic then built.sendBtn:Hide() else built.sendBtn:Show() end end
+    if built.input and built.inputFrame then
+        built.input:ClearAllPoints()
+        built.input:SetPoint("TOPLEFT", built.inputFrame, "TOPLEFT", 106, -3)
+        built.input:SetPoint("BOTTOMRIGHT", built.inputFrame, "BOTTOMRIGHT", classic and -8 or -80, 3)
     end
     if built.grip then if o.locked then built.grip:Hide() else built.grip:Show() end end
+    if built.classicApplied ~= classic then
+        built.classicApplied = classic
+        W.LayoutHead()
+        W.LayoutInput()
+        W.RefreshTabs()
+    end
 end
 
 -- Auf den Platz des Spiel-Chats setzen
@@ -929,9 +1009,11 @@ function W.Build()
     head:SetScript("OnDragStart", function() if not W.Opts().locked then frame:StartMoving() end end)
     head:SetScript("OnDragStop", function() frame:StopMovingOrSizing(); W.SavePosition() end)
     built.head = head
+    head:SetFrameLevel(frame:GetFrameLevel() + 3)
     built.plus = UI.CreateButton(head, "+", 22, 22, function() if W.NewTab then W.NewTab() end end, "default")
     local close = UI.CreateButton(head, "x", 22, 22, function() W.SetShown(false) end, "default")
     close:SetPoint("RIGHT", head, "RIGHT", -4, 0)
+    built.close = close
 
     -- Eingabe (eigener Rahmen: unten im Fenster oder getrennt, siehe W.LayoutInput)
     local ibox = UI.CreatePanel(frame, "bgDeep", "bronze")
@@ -953,6 +1035,7 @@ function W.Build()
     built.moveHint:SetPoint("BOTTOMRIGHT", ibox, "TOPRIGHT", 0, 2)
     built.moveHint:Hide()
     local sendBtn = UI.CreateButton(ibox, L.CHAT_SEND, 72, 22, function() W.DoSend() end)
+    built.sendBtn = sendBtn
     sendBtn:SetPoint("RIGHT", ibox, "RIGHT", -3, 0)
     local tgt = CreateFrame("Button", nil, ibox)
     tgt:SetPoint("LEFT", ibox, "LEFT", 6, 0)
@@ -1012,6 +1095,9 @@ function W.Build()
     local lastCheck = 0
     frame:SetScript("OnUpdate", function()
         local now = G.GetTime and G.GetTime() or 0
+        if W.importAt and not W.imported and now >= W.importAt then
+            if not pcall(W.ImportHistory) or not W.imported then W.importAt = now + 2 end
+        end
         if dirty and now - dirtyAt >= 0.15 then pcall(W.Draw); pcall(RefreshTabs); tabsDirty = false
         elseif tabsDirty then tabsDirty = false; pcall(RefreshTabs) end
         if now - lastCheck >= 2 then
@@ -1076,9 +1162,10 @@ function W.LayoutInput()
         f:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -16, 6)
         bottom = 40
     end
+    local classic = o.classic == true
     built.chat:ClearAllPoints()
-    built.chat:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -34)
-    built.chat:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, bottom)
+    built.chat:SetPoint("TOPLEFT", frame, "TOPLEFT", classic and 4 or 6, classic and -4 or -34)
+    built.chat:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", classic and -4 or -6, bottom)
     W.UpdateInputVisibility()
     stick = true
     W.Dirty()
@@ -1154,6 +1241,61 @@ local EVENT_KIND = {
     CHAT_MSG_TRADESKILLS = "tradeskill",
 }
 local recentSys, recentN = {}, 0
+
+-- Farbe einer Zeile des Spiel-Chats einer Art zuordnen (fuer den uebernommenen Verlauf)
+local HISTORY_COLORS = {
+    { "guild", 0.25, 1, 0.25 }, { "group", 0.67, 0.67, 1 }, { "whisper", 1, 0.5, 1 }, { "yell", 1, 0.25, 0.25 },
+    { "channel", 1, 0.75, 0.75 }, { "system", 1, 1, 0 },
+}
+function W.KindFromColor(r, g, b, text)
+    if type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then return "addon" end
+    for _, c in ipairs(HISTORY_COLORS) do
+        if math.abs(r - c[2]) < 0.12 and math.abs(g - c[3]) < 0.12 and math.abs(b - c[4]) < 0.12 then return c[1] end
+    end
+    if r > 0.9 and g > 0.9 and b > 0.9 then
+        local says = FW.L and FW.L.CHATWIN_SAYS
+        if says and type(text) == "string" and string.find(text, " " .. says .. ":", 1, true) then return "say" end
+        return "addon"
+    end
+    return "system"
+end
+
+-- letzte Zeilen des Spiel-Chats uebernehmen (einmal nach dem Anmelden), damit das Fenster nicht leer startet
+function W.ImportHistory()
+    if W.imported then return true end
+    local cf = G.DEFAULT_CHAT_FRAME or G.ChatFrame1
+    if not (cf and cf.GetNumMessages and cf.GetMessageInfo) then W.imported = true; return true end
+    local okn, total = pcall(cf.GetNumMessages, cf)
+    if not okn or type(total) ~= "number" or total <= 0 then return false end
+    W.imported = true
+    local add = { msgs = {}, lines = {} }
+    local n = 0
+    for i = math.max(1, total - 99), total do
+        local ok, text, r, g, b = pcall(cf.GetMessageInfo, cf, i)
+        if ok and type(text) == "string" and text ~= "" and not Secret(text) then
+            text = string.gsub(text, "\124cff000001\124r", "")
+            n = n + 1
+            local kind = W.KindFromColor(r, g, b, text)
+            local m = { s = "", m = text, kind = kind, raw = true, q = -1000 + n }
+            if kind == "channel" then
+                local plain = string.gsub(string.gsub(text, "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
+                m.x = string.match(plain, "%[(%d+%.%s*[^%]]-)%]")
+            end
+            local list = add[ListName(kind)]
+            if list then list[#list + 1] = m end
+        end
+    end
+    for _, name in ipairs({ "msgs", "lines" }) do
+        local items = add[name]
+        if #items > 0 then
+            for _, m in ipairs(W[name]) do items[#items + 1] = m end
+            W[name] = items
+        end
+    end
+    W.version = W.version + 1
+    if W.Dirty then W.Dirty() end
+    return true
+end
 
 function W.AddSystem(text, kind)
     if type(text) ~= "string" or text == "" or Secret(text) then return end
@@ -1538,6 +1680,7 @@ FW:RegisterEvent("PLAYER_ENTERING_WORLD", function()
     if W.Opts().enabled then pcall(W.Build) end
     pcall(W.InstallHooks)
     pcall(W.HookPrints)
+    if not W.imported and not W.importAt then W.importAt = (G.GetTime and G.GetTime() or 0) + 1.5 end
     pcall(W.ApplyMain)
 end)
 FW:RegisterEvent("UPDATE_CHAT_WINDOWS", function()

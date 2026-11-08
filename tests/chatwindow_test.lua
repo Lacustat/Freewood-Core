@@ -214,5 +214,24 @@ pre, name, post = W.ClassicParts({ kind = "whisper", s = "Pinky", x = "Cid", o =
 pre, name, post = W.ClassicParts({ kind = "whisper", s = "Cid", x = "Cid" }, nil, Lc, "psst"); eq(name, "Cid", "Absender"); eq(post, " CHATWIN_WHISPERS: psst", "fluestert")
 pre, name = W.ClassicParts({ kind = "emote", s = "Gus" }, nil, Lc, "Gus tanzt."); eq(pre, "Gus tanzt.", "Emote unveraendert"); eq(name, nil, "Emote ohne Name")
 pre, name = W.ClassicParts({ kind = "channel", s = "Dora", x = "3. Handel - Stadt" }, nil, Lc, "WTS"); eq(pre, "[3. Handel - Stadt] ", "Kanalkennung")
+
+-- Verlauf aus dem Spiel-Chat uebernehmen
+eq(W.KindFromColor(0.25, 1, 0.25, "x"), "guild", "Gildenfarbe"); eq(W.KindFromColor(1, 1, 0, "x"), "system", "Gelb ist System")
+eq(W.KindFromColor(nil), "addon", "ohne Farbe Addon"); eq(W.KindFromColor(1, 1, 1, "Anna CHATWIN_SAYS: hi"), "say", "weiss mit sagt")
+eq(W.KindFromColor(1, 1, 1, "Adventure Binder: Ready"), "addon", "weiss sonst Addon")
+W.msgs, W.lines, W.combat, W.imported = {}, {}, {}, nil
+W.Add("say", "Live", "nach dem Anmelden", false)
+local hist = {
+    { "15:39 [Gilde] Anna: hallo", 0.25, 1, 0.25 }, { "Willkommen bei Musician", 1, 1, 0 },
+    { "Adventure Binder: Ready", 1, 1, 1 }, { "\124cff000001\124r[3. Handel - Stadt] Dora: WTS", 1, 0.75, 0.75 },
+}
+_G.DEFAULT_CHAT_FRAME = { GetNumMessages = function() return #hist end, GetMessageInfo = function(_, i) local h = hist[i]; return h[1], h[2], h[3], h[4] end }
+eq(W.ImportHistory(), true, "Verlauf uebernommen"); eq(W.imported, true, "nur einmal")
+eq(#W.Visible("msgs"), 2, "System und Addon aus dem Verlauf")
+eq(#W.Visible("trade"), 1, "Kanalzeile im Handel-Reiter"); eq(W.Visible("trade")[1].raw, true, "uebernommene Zeile roh")
+eq(string.find(W.Visible("trade")[1].m, "000001", 1, true), nil, "Markierung entfernt")
+local chatList = W.Visible("chat")
+eq(#chatList, 2, "Gilde aus dem Verlauf plus Live"); eq(chatList[1].raw, true, "Verlauf steht vorn"); eq(chatList[2].kind, "say", "Live danach")
+W.imported = nil; W.ImportHistory(); eq(#W.Visible("msgs"), 4, "zweiter Aufruf nach Zuruecksetzen (nur zur Kontrolle)")
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)
