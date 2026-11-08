@@ -458,6 +458,13 @@ FW:AddLocale("deDE", {
 })
 
 FW:AddLocale("enUS", {
+    CHATSTYLE_TITLE = "Game chat look",
+    CHATSTYLE_ENABLED = "Prettify the game chat window",
+    CHATSTYLE_TIME = "Show the time before each line",
+    CHATSTYLE_BAR = "Coloured bar in the channel colour",
+    CHATSTYLE_CLASS = "Player names in class colour",
+    CHATSTYLE_BRACKETS = "Keep the brackets around names",
+    CHATSTYLE_HINT = "Applies to new lines. Messages the game marks as secret stay unchanged.",
     BUBBLE_TITLE = "Chat bubbles",
     BUBBLE_ENABLED = "Show chat bubbles",
     BUBBLE_SAY = "Say",
@@ -481,6 +488,13 @@ FW:AddLocale("enUS", {
 })
 
 FW:AddLocale("deDE", {
+    CHATSTYLE_TITLE = "Aussehen des Spiel-Chats",
+    CHATSTYLE_ENABLED = "Chatfenster des Spiels verschönern",
+    CHATSTYLE_TIME = "Uhrzeit vor jeder Zeile",
+    CHATSTYLE_BAR = "Farbiger Balken in der Kanalfarbe",
+    CHATSTYLE_CLASS = "Spielernamen in Klassenfarbe",
+    CHATSTYLE_BRACKETS = "Klammern um Namen behalten",
+    CHATSTYLE_HINT = "Gilt für neue Zeilen. Nachrichten, die das Spiel als geheim markiert, bleiben unverändert.",
     BUBBLE_TITLE = "Chat-Blasen",
     BUBBLE_ENABLED = "Chat-Blasen anzeigen",
     BUBBLE_SAY = "Sagen",
