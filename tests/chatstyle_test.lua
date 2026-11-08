@@ -79,6 +79,42 @@ FW.settings.chatStyle = { bgOn = false }
 S.ApplyLook()
 eq(calls.alpha, nil, "Hintergrund aus: nicht angefasst")
 
+-- Versuch: Flaeche hinter den Zeilen
+local function FS(text, top, bottom, r, g, b, shown)
+    return { GetObjectType = function() return "FontString" end, IsShown = function() return shown ~= false end,
+        GetText = function() return text end, GetTop = function() return top end, GetBottom = function() return bottom end,
+        GetTextColor = function() return r, g, b, 1 end }
+end
+local texs = {}
+local function NewTex() local t = { shown = false }
+    t.ClearAllPoints = function() end; t.SetPoint = function() end; t.SetHeight = function(_, h) t.h = h end
+    t.SetColorTexture = function(_, r, g, b, a) t.c = { r, g, b, a } end
+    t.Show = function() t.shown = true end; t.Hide = function() t.shown = false end
+    texs[#texs + 1] = t; return t end
+local regs = { FS("Gilde: hallo", 900, 886, 0.25, 1, 0.25), FS("Sagen: hi", 886, 872, 1, 1, 1), FS("", 872, 858, 1, 1, 1), FS("versteckt", 858, 844, 1, 1, 1, false),
+    { GetObjectType = function() return "Texture" end } }
+local cf2 = { GetRegions = function() return unpack(regs) end, GetTop = function() return 1000 end, GetLeft = function() return 100 end, GetRight = function() return 500 end,
+    CreateTexture = function() return NewTex() end }
+FW.settings.chatStyle = { lineBg = false }
+eq(S.UpdateUnder(cf2), nil, "Versuch aus: nichts gezeichnet")
+FW.settings.chatStyle = { lineBg = true, lineBgAlpha = 50, types = { guild = { bg = { 0, 0.5, 0 } } } }
+eq(S.UpdateUnder(cf2), 2, "zwei Zeilen mit Text gezeichnet")
+eq(texs[1].shown, true, "Flaeche 1 sichtbar")
+eq(texs[1].c[2], 0.5, "eigene Flaechenfarbe Gilde"); eq(texs[1].c[4], 0.5, "Deckkraft")
+eq(texs[2].c[1], 1, "Sagen: Spielfarbe")
+-- Zeile verschwindet: Flaeche wird versteckt
+regs[2] = FS("", 886, 872, 1, 1, 1)
+eq(S.UpdateUnder(cf2), 1, "nur noch eine Zeile")
+eq(texs[2].shown, false, "uebrige Flaeche versteckt")
+-- eigene Textfarbe wird der Art zugeordnet
+regs[1] = FS("Gilde: hallo", 900, 886, 0, 0, 0)
+FW.settings.chatStyle = { lineBg = true, types = { guild = { text = { 0, 0, 0 }, bg = { 0.2, 0.9, 0.2 } } } }
+S.UpdateUnder(cf2)
+eq(texs[1].c[2], 0.9, "Flaeche ueber eigene Textfarbe gefunden")
+-- Messung
+local pr = S.Probe()
+eq(#pr >= 3, true, "Messzeilen")
+
 -- Einhuellen
 local shown = {}
 local cf = { AddMessage = function(self, text, r, g, b, id) shown[#shown + 1] = { text, r, id } end }
