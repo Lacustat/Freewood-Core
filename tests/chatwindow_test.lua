@@ -272,5 +272,49 @@ do
         eq(#got, 2, "spaeter wieder erlaubt")
     end
 end
+-- Eingabe-Verlauf
+do
+    W.Opts().hist = {}
+    W.HistReset()
+    eq(W.HistNav(-1, "x"), nil, "leerer Verlauf: nichts")
+    W.HistPush("eins"); W.HistPush("zwei"); W.HistPush("zwei"); W.HistPush("   "); W.HistPush("")
+    eq(#W.Opts().hist, 2, "doppelte und leere werden nicht gemerkt")
+    eq(W.HistNav(1, "x"), nil, "runter ohne vorher hoch: nichts")
+    eq(W.HistNav(-1, "halb"), "zwei", "hoch: letzte Eingabe")
+    eq(W.HistNav(-1, "zwei"), "eins", "hoch: davor")
+    eq(W.HistNav(-1, "eins"), nil, "hoch am Anfang: nichts")
+    eq(W.HistNav(1, "eins"), "zwei", "runter: neuere")
+    eq(W.HistNav(1, "zwei"), "halb", "ganz unten: angefangener Text zurueck")
+    eq(W.HistNav(1, "halb"), nil, "unten: nichts")
+    for i = 1, 60 do W.HistPush("t" .. i) end
+    eq(#W.Opts().hist, 50, "hoechstens 50"); eq(W.Opts().hist[50], "t60", "neueste zuletzt")
+    -- Taste
+    local ib = { text = "abc", GetText = function(self) return self.text end, SetText = function(self, t) self.text = t end, SetCursorPosition = function(self, n) self.cur = n end }
+    W.HistReset()
+    _G.GetTime = function() return 100 end
+    W.HistKey(ib, "UP")
+    eq(ib.text, "t60", "Pfeil hoch setzt Text"); eq(ib.cur, 3, "Cursor ans Ende")
+    W.HistKey(ib, "UP")
+    eq(ib.text, "t60", "gleiche Taste im selben Moment zaehlt einmal")
+    _G.GetTime = function() return 101 end
+    W.HistKey(ib, "UP"); eq(ib.text, "t59", "naechster Druck: aeltere")
+    _G.GetTime = function() return 102 end
+    W.HistKey(ib, "DOWN"); eq(ib.text, "t60", "Pfeil runter")
+    W.HistKey(ib, "LEFT"); eq(ib.text, "t60", "andere Tasten ignoriert")
+end
+-- Stufe in Zeilen
+do
+    local CLs = { Info = function(n) if n == "Anna" then return "MAGE", 42 end return nil end, ClassColor = function() return 1, 1, 1 end }
+    local Ls = {}
+    W.Opts().showLevel = true
+    local pre, name, post = W.ClassicParts({ kind = "guild", s = "Anna" }, CLs, Ls, "hi")
+    eq(name, "Anna", "Name bleibt allein"); eq(post:find("%[42%]") ~= nil, true, "Stufe hinter dem Namen"); eq(post:find(": hi", 1, true) ~= nil, true, "Text danach")
+    local _, _, post2 = W.ClassicParts({ kind = "say", s = "Bert" }, CLs, Ls, "x")
+    eq(post2:find("%[") , nil, "unbekannte Stufe: nichts")
+    W.Opts().showLevel = false
+    local _, _, post3 = W.ClassicParts({ kind = "guild", s = "Anna" }, CLs, Ls, "hi")
+    eq(post3, ": hi", "abgeschaltet")
+    W.Opts().showLevel = true
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

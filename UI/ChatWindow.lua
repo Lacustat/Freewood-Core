@@ -18,6 +18,7 @@ W.DEFAULTS = {
     alpha = 85,           -- Deckkraft des Fensterhintergrunds in Prozent
     tab = "chat",         -- Kennung des offenen Reiters
     main = false,         -- Freewood-Chat ersetzt den Spiel-Chat (Spiel-Chat unsichtbar, Enter oeffnet unser Eingabefeld)
+    showLevel = true,     -- Zeilen-Ansicht: Stufe hinter dem Namen, wenn bekannt
     detach = false,       -- Eingabefeld getrennt vom Fenster, nur beim Tippen sichtbar
     moveInput = false,    -- Eingabefeld zum Verschieben dauerhaft zeigen
     inX = 34, inY = 300, inW = 460,
@@ -547,21 +548,29 @@ function W.ClassicParts(m, CL, L, txt)
         if CL and CL.ClassColor then r, g, b = CL.ClassColor(cls) end
         return Hex(r, g, b)
     end
+    -- Stufe hinter dem Namen (grau), wenn bekannt und nicht abgeschaltet; ein Hinweis auf einen Spieler ohne Stufe bleibt leer
+    local function Lv(name)
+        if not (W.Opts().showLevel and CL and CL.Info) then return "" end
+        local _, lv = CL.Info(name)
+        lv = tonumber(lv)
+        if not lv or lv < 1 then return "" end
+        return " " .. Hex(0.6, 0.6, 0.65) .. "[" .. math.floor(lv) .. "]\124r"
+    end
     if kind == "emote" then return txt, nil, "", "" end
-    if kind == "say" then return "", who, " " .. (L.CHATWIN_SAYS or "says") .. ": " .. txt, NameColor(who) end
-    if kind == "yell" then return "", who, " " .. (L.CHATWIN_YELLS or "yells") .. ": " .. txt, NameColor(who) end
+    if kind == "say" then return "", who, Lv(who) .. " " .. (L.CHATWIN_SAYS or "says") .. ": " .. txt, NameColor(who) end
+    if kind == "yell" then return "", who, Lv(who) .. " " .. (L.CHATWIN_YELLS or "yells") .. ": " .. txt, NameColor(who) end
     if kind == "whisper" then
         if m.o then
             local to = m.x or who
-            return (L.CHATWIN_WHISPER_TO or "To") .. " ", to, ": " .. txt, NameColor(to)
+            return (L.CHATWIN_WHISPER_TO or "To") .. " ", to, Lv(to) .. ": " .. txt, NameColor(to)
         end
-        return "", who, " " .. (L.CHATWIN_WHISPERS or "whispers") .. ": " .. txt, NameColor(who)
+        return "", who, Lv(who) .. " " .. (L.CHATWIN_WHISPERS or "whispers") .. ": " .. txt, NameColor(who)
     end
     local tag
     if kind == "guild" then tag = L.CHATWIN_TAB_GUILD or "Guild"
     elseif kind == "group" then tag = L.CHATWIN_TAB_GROUP or "Group"
     else tag = m.x or "" end
-    return "[" .. tag .. "] ", who, ": " .. txt, NameColor(who)
+    return "[" .. tag .. "] ", who, Lv(who) .. ": " .. txt, NameColor(who)
 end
 
 -- Steht der Mauszeiger auf dem Namen in der ersten Zeile einer Zeile?
@@ -1056,7 +1065,8 @@ function W.Build()
     ihint:SetPoint("LEFT", ibox, "LEFT", 110, 0)
     input:SetScript("OnEnterPressed", function() W.DoSend() end)
     input:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
-    input:SetScript("OnTextChanged", function(self)
+    input:SetScript("OnTextChanged", function(self, user)
+        if user and not W.hSetting then W.HistReset() end
         local t = self:GetText() or ""
         if t == "//" and W.openedAt and (G.GetTime and G.GetTime() or 0) - W.openedAt < 0.3 then self:SetText("/"); return end
         local newText, change = W.ConsumePrefix(t)
@@ -1067,6 +1077,9 @@ function W.Build()
         end
         if t == "" then ihint:Show() else ihint:Hide() end
     end)
+    if input.SetAltArrowKeyMode then pcall(input.SetAltArrowKeyMode, input, false) end   -- Pfeiltasten ohne Alt
+    input:SetScript("OnArrowPressed", HistKey)
+    input:SetScript("OnKeyDown", HistKey)
     input:SetScript("OnEditFocusGained", function() W.UpdateInputVisibility() end)
     input:SetScript("OnEditFocusLost", function() W.UpdateInputVisibility() end)
     built.input = input
@@ -1191,6 +1204,64 @@ function W.Forward(text)
     return ok
 end
 
+------------------------------------------------------------------------
+-- Eingabe-Verlauf (wie im Terminal): Pfeil hoch = vorherige Eingabe, Pfeil runter = naechste, ganz unten wieder der angefangene Text
+------------------------------------------------------------------------
+
+local HIST_MAX = 50
+
+local function Hist()
+    local o = W.Opts()
+    if type(o.hist) ~= "table" then o.hist = {} end
+    return o.hist
+end
+
+function W.HistReset() W.hIdx, W.hDraft = 0, nil end
+
+function W.HistPush(text)
+    if type(text) ~= "string" or Secret(text) or text == "" or string.find(text, "^%s*$") then return end
+    local h = Hist()
+    if h[#h] ~= text then
+        h[#h + 1] = text
+        while #h > HIST_MAX do table.remove(h, 1) end
+    end
+    W.HistReset()
+end
+
+-- dir = -1 (hoch, aeltere) oder 1 (runter, neuere); current = aktueller Text. Rueckgabe: neuer Text oder nil (nichts zu tun)
+function W.HistNav(dir, current)
+    local h = Hist()
+    local idx = W.hIdx or 0
+    if dir < 0 then
+        if idx >= #h then return nil end
+        if idx == 0 then W.hDraft = current or "" end
+        idx = idx + 1
+        W.hIdx = idx
+        return h[#h - idx + 1]
+    else
+        if idx <= 0 then return nil end
+        idx = idx - 1
+        W.hIdx = idx
+        if idx == 0 then local d = W.hDraft or ""; W.hDraft = nil; return d end
+        return h[#h - idx + 1]
+    end
+end
+
+local function HistKey(self, key)
+    if key ~= "UP" and key ~= "DOWN" then return end
+    local now = G.GetTime and G.GetTime() or 0
+    if W.hKeyAt and now - W.hKeyAt < 0.03 and W.hKey == key then return end    -- OnArrowPressed und OnKeyDown fuer dieselbe Taste
+    W.hKey, W.hKeyAt = key, now
+    local t = W.HistNav(key == "UP" and -1 or 1, self:GetText() or "")
+    if t then
+        W.hSetting = true
+        self:SetText(t)
+        W.hSetting = false
+        if self.SetCursorPosition then self:SetCursorPosition(#t) end
+    end
+end
+W.HistKey = HistKey
+
 function W.DoSend()
     if not built then return end
     local L = FW.L
@@ -1201,6 +1272,7 @@ function W.DoSend()
     if txt == "" and W.openedAt and now - W.openedAt < 0.3 then return end   -- die Taste, die das Feld geoeffnet hat
     local kind, target, msg, explicit = W.ParseInput(txt, W.sendKind, W.target, W.channel)
     local done = false
+    W.HistPush(txt)
     if kind then
         if explicit and (kind == "say" or kind == "yell" or kind == "guild" or kind == "group") then
             W.sendKind, W.channel, W.target = kind, nil, nil        -- wie im Spiel: der Befehl stellt das Ziel dauerhaft ein
@@ -1738,6 +1810,9 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_CLASSIC,
                 function() return W.Opts().classic == true end,
                 function(v) W.Opts().classic = v and true or false; stick = true; W.ApplyLook(); W.Dirty() end), { fit = true })
+            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_SHOW_LEVEL,
+                function() return W.Opts().showLevel == true end,
+                function(v) W.Opts().showLevel = v and true or false; W.Dirty() end), { fit = true })
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_LOCKED,
                 function() return W.Opts().locked == true end,
                 function(v) W.Opts().locked = v and true or false; W.ApplyLook() end), { fit = true })
