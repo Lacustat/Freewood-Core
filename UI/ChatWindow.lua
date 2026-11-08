@@ -16,17 +16,19 @@ W.DEFAULTS = {
     locked = false,
     point = "BOTTOMLEFT", x = 34, y = 340, w = 560, h = 300,
     alpha = 85,           -- Deckkraft des Fensterhintergrunds in Prozent
-    say = true,           -- Sagen und Rufen
-    emote = false,
-    tab = "all",
+    tab = "chat",         -- Kennung des offenen Reiters
     main = false,         -- Freewood-Chat ersetzt den Spiel-Chat (Spiel-Chat unsichtbar, Enter oeffnet unser Eingabefeld)
     detach = false,       -- Eingabefeld getrennt vom Fenster, nur beim Tippen sichtbar
     moveInput = false,    -- Eingabefeld zum Verschieben dauerhaft zeigen
     inX = 34, inY = 300, inW = 460,
+    fontSize = 11,        -- Schriftgroesse in den Blasen und Zeilen
+    maxW = 78,            -- groesste Breite einer Blase in Prozent des Fensters
+    compact = true,       -- kompakte Blasen
+    combatMirror = true,  -- Kampflog des Spiels in den Reiter spiegeln
 }
 
-local MAX_MSGS = 300
-local MAX_BUBBLES = 40
+local CAPS = { msgs = 300, lines = 300, combat = 200 }
+local MAX_ROWS = 60
 local MIN_W, MIN_H = 520, 200
 local QMARK = "Interface\\Icons\\INV_Misc_QuestionMark"
 
@@ -42,23 +44,41 @@ local CLASS_ICONS = {
     PALADIN = "Interface\\Icons\\Spell_Holy_HolyBolt",
 }
 
--- Arten und Reiter
-W.KINDS = { "say", "yell", "emote", "guild", "group", "whisper", "channel", "system" }
-W.TABS = {
-    { "all", "CHATWIN_TAB_ALL", nil },
-    { "say", "CHATWIN_TAB_SAY", { say = true, yell = true, emote = true } },
-    { "guild", "CHATWIN_TAB_GUILD", { guild = true } },
-    { "group", "CHATWIN_TAB_GROUP", { group = true } },
-    { "whisper", "CHATWIN_TAB_WHISPER", { whisper = true } },
-    { "channel", "CHATWIN_TAB_CHANNEL", { channel = true } },
-    { "system", "CHATWIN_TAB_SYSTEM", { system = true } },
+-- Nachrichtengruppen: Kennung, Textschluessel, Bereich (chat/msgs), Standard-Darstellung (bubble/line)
+W.GROUPS = {
+    { "say", "CHATWIN_K_SAY", "chat", "bubble" },
+    { "yell", "CHATWIN_K_YELL", "chat", "bubble" },
+    { "emote", "CHATWIN_K_EMOTE", "chat", "line" },
+    { "guild", "CHAT_GUILD", "chat", "bubble" },
+    { "group", "CHAT_GROUP", "chat", "bubble" },
+    { "whisper", "CHAN_WHISPER", "chat", "bubble" },
+    { "skill", "CHATWIN_G_SKILL", "msgs", "line" },
+    { "xp", "CHATWIN_G_XP", "msgs", "line" },
+    { "loot", "CHATWIN_G_LOOT", "msgs", "line" },
+    { "money", "CHATWIN_G_MONEY", "msgs", "line" },
+    { "rep", "CHATWIN_G_REP", "msgs", "line" },
+    { "honor", "CHATWIN_G_HONOR", "msgs", "line" },
+    { "tradeskill", "CHATWIN_G_TRADESKILL", "msgs", "line" },
+    { "system", "CHATWIN_G_SYSTEM", "msgs", "line" },
+    { "addon", "CHATWIN_G_ADDON", "msgs", "line" },
+    { "combat", "CHATWIN_G_COMBAT", "msgs", "line" },
 }
+W.KINDS = {}
+local DEFAULT_STYLE = { channel = "bubble" }
+for _, g in ipairs(W.GROUPS) do W.KINDS[#W.KINDS + 1] = g[1]; DEFAULT_STYLE[g[1]] = g[4] end
+W.KINDS[#W.KINDS + 1] = "channel"
+-- Arten, die von Menschen geschrieben werden (Liste "msgs"); alles andere sind Meldungen (Liste "lines"), Kampflog separat
+W.CHAT_KIND = { say = true, yell = true, emote = true, guild = true, group = true, whisper = true, channel = true }
+
 local KIND_COLOR = {
     say = { 1, 1, 1 }, yell = { 1, 0.25, 0.25 }, emote = { 1, 0.5, 0.25 }, guild = { 0.25, 1, 0.25 },
-    group = { 0.67, 0.67, 1 }, whisper = { 1, 0.5, 1 }, channel = { 1, 0.75, 0.75 }, system = { 1, 1, 0.3 },
+    group = { 0.67, 0.67, 1 }, whisper = { 1, 0.5, 1 }, channel = { 1, 0.75, 0.75 },
+    skill = { 0.5, 0.8, 1 }, xp = { 0.75, 0.55, 1 }, loot = { 0.6, 0.9, 0.5 }, money = { 1, 0.85, 0.3 },
+    rep = { 0.4, 0.7, 1 }, honor = { 1, 0.6, 0.25 }, tradeskill = { 0.7, 0.9, 1 }, system = { 1, 1, 0.3 },
+    addon = { 0.8, 0.8, 0.8 }, combat = { 0.9, 0.6, 0.6 },
 }
 local KIND_LABEL = { say = "CHATWIN_K_SAY", yell = "CHATWIN_K_YELL", emote = "CHATWIN_K_EMOTE", guild = "CHAT_GUILD", group = "CHAT_GROUP",
-    whisper = "CHAN_WHISPER", channel = nil, system = nil }
+    whisper = "CHAN_WHISPER" }
 
 local function Secret(v)
     return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) or false
@@ -75,14 +95,140 @@ function W.Opts()
     return o
 end
 
+-- Darstellung je Art: "bubble" oder "line"
+function W.Style(kind)
+    local st = W.Opts().styles
+    if type(st) == "table" and (st[kind] == "bubble" or st[kind] == "line") then return st[kind] end
+    return DEFAULT_STYLE[kind] or "bubble"
+end
+
+------------------------------------------------------------------------
+-- Reiter (frei einstellbar): jeder zeigt eine Auswahl von Gruppen und Kanaelen
+------------------------------------------------------------------------
+
+local function Set(list)
+    local t = {}
+    for _, k in ipairs(list) do t[k] = true end
+    return t
+end
+
+function W.DefaultTabs()
+    return {
+        { id = "chat", nameKey = "CHATWIN_TAB_CHAT",
+            groups = Set({ "say", "yell", "emote", "guild", "group", "whisper", "skill", "xp", "loot", "money" }) },
+        { id = "trade", nameKey = "CHATWIN_TAB_TRADE", groups = {}, channels = { "Handel", "Trade" } },
+        { id = "general", nameKey = "CHATWIN_TAB_GENERAL", groups = {}, channels = { "Allgemein", "General" } },
+        { id = "msgs", nameKey = "CHATWIN_TAB_MSGS", groups = Set({ "rep", "honor", "tradeskill", "system", "addon" }) },
+        { id = "combat", nameKey = "CHATWIN_TAB_COMBAT", groups = Set({ "combat" }) },
+    }
+end
+
+function W.Tabs()
+    local o = W.Opts()
+    if type(o.tabs) ~= "table" or #o.tabs == 0 then o.tabs = W.DefaultTabs() end
+    return o.tabs
+end
+
+function W.FindTab(id)
+    for i, t in ipairs(W.Tabs()) do
+        if t.id == id then return t, i end
+    end
+end
+
+function W.CurrentTab()
+    local o = W.Opts()
+    local t = W.FindTab(o.tab)
+    if not t then t = W.Tabs()[1]; o.tab = t.id end
+    return t
+end
+
+function W.TabName(t)
+    local L = FW.L
+    return t.name or (t.nameKey and L[t.nameKey]) or t.id
+end
+
+function W.AddTab(name)
+    local o = W.Opts()
+    local tabs = W.Tabs()
+    local id
+    repeat
+        o.tabSeq = (tonumber(o.tabSeq) or 0) + 1
+        id = "t" .. o.tabSeq
+    until not W.FindTab(id)
+    local t = { id = id, name = name or id, groups = {}, channels = {} }
+    tabs[#tabs + 1] = t
+    return t
+end
+
+function W.RemoveTab(id)
+    local tabs = W.Tabs()
+    if #tabs <= 1 then return false end
+    local _, i = W.FindTab(id)
+    if not i then return false end
+    table.remove(tabs, i)
+    W.unread[id] = nil
+    if W.Opts().tab == id then W.Opts().tab = tabs[1].id end
+    return true
+end
+
+function W.MoveTab(id, dir)
+    local tabs = W.Tabs()
+    local t, i = W.FindTab(id)
+    local j = i and i + dir
+    if not t or j < 1 or j > #tabs then return false end
+    tabs[i], tabs[j] = tabs[j], tabs[i]
+    return true
+end
+
+-- Kanalname vergleichbar machen: "3. Handel - Orgrimmar" -> "handel"
+function W.NormChannel(name)
+    if type(name) ~= "string" then return "" end
+    local n = string.lower(name)
+    n = string.gsub(n, "^%d+%.%s*", "")
+    n = string.gsub(n, "%s*%-.*$", "")
+    n = string.gsub(n, "^%s+", "")
+    n = string.gsub(n, "%s+$", "")
+    return n
+end
+
+function W.TabAccepts(t, m)
+    if m.kind == "channel" then
+        if t.allChannels then return true end
+        local n = W.NormChannel(m.x)
+        for _, c in ipairs(t.channels or {}) do
+            if W.NormChannel(c) == n then return true end
+        end
+        return false
+    end
+    return t.groups ~= nil and t.groups[m.kind] == true
+end
+
+-- gesehene Kanaele merken (fuer die Auswahl im Reiter-Editor)
+function W.NoteChannel(name)
+    local n = W.NormChannel(name)
+    if n == "" then return end
+    local o = W.Opts()
+    if type(o.knownChannels) ~= "table" then o.knownChannels = {} end
+    for _, c in ipairs(o.knownChannels) do
+        if W.NormChannel(c) == n then return end
+    end
+    local disp = string.gsub(name, "^%d+%.%s*", "")
+    disp = string.gsub(disp, "%s*%-.*$", "")
+    o.knownChannels[#o.knownChannels + 1] = disp
+end
+
 ------------------------------------------------------------------------
 -- Nachrichten
 ------------------------------------------------------------------------
 
-W.msgs = {}
+W.msgs = {}      -- von Menschen geschrieben (Sagen, Gilde, Fluestern, Kanaele ...)
+W.lines = {}     -- Meldungen (Beute, Erfahrung, System, Addons ...)
+W.combat = {}    -- Kampflog
+W.seq = 0
 W.unread = {}
 W.version = 0
 W.target = nil          -- Fluesterziel nach Klick auf einen Namen
+W.sendKind = "say"      -- wohin das Eingabefeld ohne Befehl sendet (say, guild, group)
 
 -- Schluessel des Chat-Protokolls -> Art, Zusatz (Kanalname / Fluesterpartner)
 function W.Classify(key)
@@ -95,38 +241,46 @@ function W.Classify(key)
     return nil
 end
 
-function W.KindEnabled(kind)
-    local o = W.Opts()
-    if kind == "say" or kind == "yell" then return o.say ~= false end
-    if kind == "emote" then return o.emote == true end
-    return true
-end
-
 local function Now() return (G.time and G.time()) or 0 end
 
 local IsMe
 
+local function ListName(kind)
+    if kind == "combat" then return "combat" end
+    if W.CHAT_KIND[kind] then return "msgs" end
+    return "lines"
+end
+
 function W.Add(kind, sender, text, out, extra)
     if not kind or type(text) ~= "string" or text == "" or Secret(text) then return end
     if type(sender) ~= "string" or Secret(sender) then sender = "?" end
-    if not W.KindEnabled(kind) then return end
-    if not out and kind ~= "system" and kind ~= "emote" and IsMe and IsMe(sender) then out = true end
-    local list = W.msgs
-    list[#list + 1] = { t = Now(), s = sender, m = text, kind = kind, o = out and true or nil, x = extra }
-    if #list > MAX_MSGS + 40 then
+    if not out and W.CHAT_KIND[kind] and kind ~= "emote" and IsMe and IsMe(sender) then out = true end
+    W.seq = W.seq + 1
+    local msg = { t = Now(), s = sender, m = text, kind = kind, o = out and true or nil, x = extra, q = W.seq }
+    local ln = ListName(kind)
+    local list = W[ln]
+    list[#list + 1] = msg
+    if #list > CAPS[ln] + 40 then
         local new = {}
-        for i = #list - MAX_MSGS + 1, #list do new[#new + 1] = list[i] end
-        W.msgs = new
+        for i = #list - CAPS[ln] + 1, #list do new[#new + 1] = list[i] end
+        W[ln] = new
     end
+    if kind == "channel" and extra then W.NoteChannel(extra) end
     W.version = W.version + 1
-    -- ungelesen zaehlen (fuer den Reiter, der gerade nicht offen ist)
-    local cur = W.Opts().tab or "all"
-    for _, t in ipairs(W.TABS) do
-        if t[1] ~= "all" and t[3] and t[3][kind] and cur ~= t[1] and cur ~= "all" then
-            W.unread[t[1]] = (W.unread[t[1]] or 0) + 1
+    local cur = W.CurrentTab()
+    local visible, unreadChanged = false, false
+    for _, t in ipairs(W.Tabs()) do
+        if W.TabAccepts(t, msg) then
+            if t.id == cur.id then
+                visible = true
+            elseif W.CHAT_KIND[kind] and kind ~= "emote" then
+                W.unread[t.id] = (W.unread[t.id] or 0) + 1
+                unreadChanged = true
+            end
         end
     end
-    if W.Dirty then W.Dirty() end
+    if visible and W.Dirty then W.Dirty() end
+    if unreadChanged and W.DirtyTabs then W.DirtyTabs() end
 end
 
 function W.Push(key, sender, text, out)
@@ -135,16 +289,17 @@ function W.Push(key, sender, text, out)
 end
 
 -- Nachrichten eines Reiters (aelteste zuerst)
-function W.Visible(tabKey)
-    local def
-    for _, t in ipairs(W.TABS) do if t[1] == tabKey then def = t end end
-    local set = def and def[3] or nil
-    local out = {}
-    for _, m in ipairs(W.msgs) do
-        if (not set or set[m.kind]) and W.KindEnabled(m.kind) and (m.kind ~= "system" or tabKey == "system" or W.Opts().main == true) then
-            out[#out + 1] = m
+function W.Visible(tabId)
+    local t = W.FindTab(tabId) or W.Tabs()[1]
+    local out, used = {}, 0
+    for _, name in ipairs({ "msgs", "lines", "combat" }) do
+        local before = #out
+        for _, m in ipairs(W[name]) do
+            if W.TabAccepts(t, m) then out[#out + 1] = m end
         end
+        if #out > before then used = used + 1 end
     end
+    if used > 1 then table.sort(out, function(a, b) return a.q < b.q end) end
     return out
 end
 
@@ -161,10 +316,10 @@ function W.ParseInput(text, tabKey, target)
     local cmd, rest = string.match(text, "^/(%S+)%s*(.*)$")
     if cmd then
         cmd = string.lower(cmd)
-        if cmd == "s" or cmd == "say" then return "say", nil, rest end
-        if cmd == "y" or cmd == "yell" or cmd == "sch" then return "yell", nil, rest end
-        if cmd == "g" or cmd == "gilde" or cmd == "guild" then return "guild", nil, rest end
-        if cmd == "p" or cmd == "party" or cmd == "gruppe" or cmd == "ra" or cmd == "raid" then return "group", nil, rest end
+        if cmd == "s" or cmd == "say" then return "say", nil, rest, true end
+        if cmd == "y" or cmd == "yell" or cmd == "sch" then return "yell", nil, rest, true end
+        if cmd == "g" or cmd == "gilde" or cmd == "guild" then return "guild", nil, rest, true end
+        if cmd == "p" or cmd == "party" or cmd == "gruppe" or cmd == "ra" or cmd == "raid" then return "group", nil, rest, true end
         if cmd == "w" or cmd == "whisper" or cmd == "t" or cmd == "tell" then
             local who, msg = string.match(rest, "^(%S+)%s+(.+)$")
             if who then return "whisper", who, msg end
@@ -331,79 +486,111 @@ function W.Draw()
     local o = W.Opts()
     local CL = FW.ChatLog
     local L = FW.L
-    local list = W.Visible(o.tab or "all")
+    local tab = W.CurrentTab()
+    local list = W.Visible(tab.id)
     local n = #list
-    local first = math.max(1, n - MAX_BUBBLES + 1)
+    local first = math.max(1, n - MAX_ROWS + 1)
     local chat = built.chat
     local areaW = chat.child:GetWidth()
     if not areaW or areaW < 150 then areaW = (o.w or 560) - 40 end
-    local maxBub = math.floor(areaW * 0.78)
+    local fs = math.max(8, math.min(20, tonumber(o.fontSize) or 11))
+    local compact = o.compact ~= false
+    local avs = compact and 28 or 36
+    local topPad = compact and 5 or 7
+    local botPad = compact and 6 or 11
+    local textY = topPad + fs + 5
+    local maxBub = math.floor(areaW * (tonumber(o.maxW) or 78) / 100)
+    if built.fontApplied ~= fs then UI.SetFont(built.measure, "body", fs); built.fontApplied = fs end
     local atBottom = stick or (chat.scroll:GetVerticalScroll() >= lastH - lastViewH - 8)
-    local y, idx = 6, 0
+    local y, idx = 4, 0
     for i = first, n do
         local m = list[i]
         idx = idx + 1
         local b = Bubble(idx, chat.child)
-        local own = m.o == true
-        local who = m.s or "?"
-        local cls, lv
-        if CL and CL.Info then cls, lv = CL.Info(who) end
-        b.av:SetTexture((cls and CLASS_ICONS[cls]) or QMARK)
-        b.av:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        b.lvl:SetText(lv and tostring(lv) or "")
-        local nr, ng, nb = 0.9, 0.89, 0.84
-        if CL and CL.ClassColor then nr, ng, nb = CL.ClassColor(cls) end
-        b.name:SetTextColor(nr, ng, nb)
-        local tag = ""
-        if m.kind == "channel" then tag = m.x and ("  [" .. m.x .. "]") or ""
-        elseif m.kind == "whisper" then tag = "  [" .. (L.CHAN_WHISPER or "Whisper") .. "]"
-        elseif KIND_LABEL[m.kind] then tag = "  [" .. (L[KIND_LABEL[m.kind]] or m.kind) .. "]" end
+        if b.fs ~= fs then
+            UI.SetFont(b.name, "body", fs)
+            UI.SetFont(b.text, "body", fs)
+            UI.SetFont(b.time, "body", math.max(8, fs - 2))
+            b.fs = fs
+        end
+        local line = W.Style(m.kind) == "line"
         local kr, kg, kb = KindColor(m.kind)
-        b.name:SetText(who .. (tag ~= "" and (Hex(kr, kg, kb) .. tag .. "\124r") or ""))
-        local sys = m.kind == "system"
-        b.time:SetText(sys and "" or Stamp(m.t))
-        if sys then b.name:SetText("") end
-        if sys then b.avBtn:Hide() else b.avBtn:Show() end
-        if sys then b.lvl:SetText("") end
         local txt = m.m or ""
+        local links = ParseLinks(txt)
+        local who = m.s or "?"
         built.measure:SetText(Plain(txt))
         local tw = built.measure:GetStringWidth() or 0
         if tw <= 0 then tw = maxBub end
-        local nameW = (b.name:GetStringWidth() or 60) + (b.time:GetStringWidth() or 40) + 40
-        local pw = math.floor(math.max(math.min(math.max(tw, nameW) + 22, maxBub), 110))
-        if sys then pw = math.floor(math.max(math.min(tw + 22, areaW - 24), 110)) end
-        b.text:SetWidth(pw - 20)
-        b.text:SetText(txt)
-        b.text:ClearAllPoints()
-        b.text:SetPoint("TOPLEFT", b.panel, "TOPLEFT", 10, sys and -7 or -24)
-        local th = (b.text.GetStringHeight and b.text:GetStringHeight()) or 14
-        if not th or th < 14 then th = 14 end
-        local ph = math.floor(th + (sys and 16 or 38))
-        b.panel:SetSize(pw, ph)
-        if own then b.bg:SetColorTexture(0.13, 0.27, 0.46, 0.95) else b.bg:SetColorTexture(UI.Color("card", 0.95)) end
-        b.bar:SetColorTexture(kr, kg, kb, 1)
-        local rowH = sys and ph or math.max(ph, 56)
-        b:SetSize(areaW - 8, rowH)
+        local ph, rowH, pw
+        b.bar:SetColorTexture(kr, kg, kb, line and 0.8 or 1)
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", chat.child, "TOPLEFT", 0, -y)
         b.avBtn:ClearAllPoints(); b.lvl:ClearAllPoints(); b.panel:ClearAllPoints()
-        if sys then
+        b.text:ClearAllPoints(); b.name:ClearAllPoints(); b.time:ClearAllPoints()
+        if line then
+            -- einfache Zeile: Uhrzeit, Text in der Farbe der Art, keine Blase
+            b.avBtn:Hide(); b.lvl:SetText(""); b.name:SetText(""); b.time:SetText("")
+            b.bg:SetColorTexture(0, 0, 0, 0)
+            pw = areaW - 16
+            local stamp = Stamp(m.t)
+            local prefix = stamp ~= "" and (Hex(0.55, 0.55, 0.6) .. stamp .. "\124r  ") or ""
+            b.text:SetTextColor(kr, kg, kb)
+            b.text:SetWidth(pw - 14)
+            b.text:SetText(prefix .. txt)
+            b.text:SetPoint("TOPLEFT", b.panel, "TOPLEFT", 8, -2)
+            local th = (b.text.GetStringHeight and b.text:GetStringHeight()) or 14
+            if not th or th < 12 then th = 12 end
+            ph = math.floor(th + 4)
+            rowH = ph
             b.panel:SetPoint("TOPLEFT", b, "TOPLEFT", 6, 0)
-        elseif own then
-            b.avBtn:SetPoint("TOPRIGHT", b, "TOPRIGHT", -6, 0)
-            b.lvl:SetPoint("TOP", b.avBtn, "BOTTOM", 0, -1)
-            b.panel:SetPoint("TOPRIGHT", b.avBtn, "TOPLEFT", -8, 0)
         else
-            b.avBtn:SetPoint("TOPLEFT", b, "TOPLEFT", 6, 0)
-            b.lvl:SetPoint("TOP", b.avBtn, "BOTTOM", 0, -1)
-            b.panel:SetPoint("TOPLEFT", b.avBtn, "TOPRIGHT", 8, 0)
+            local own = m.o == true
+            b.avBtn:Show()
+            b.avBtn:SetSize(avs, avs)
+            local cls, lv
+            if CL and CL.Info then cls, lv = CL.Info(who) end
+            b.av:SetTexture((cls and CLASS_ICONS[cls]) or QMARK)
+            b.av:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            b.lvl:SetText(lv and tostring(lv) or "")
+            local nr, ng, nb = 0.9, 0.89, 0.84
+            if CL and CL.ClassColor then nr, ng, nb = CL.ClassColor(cls) end
+            b.name:SetTextColor(nr, ng, nb)
+            local tag = ""
+            if m.kind == "channel" then tag = m.x and ("  [" .. m.x .. "]") or ""
+            elseif m.kind == "whisper" then tag = "  [" .. (L.CHAN_WHISPER or "Whisper") .. "]"
+            elseif KIND_LABEL[m.kind] then tag = "  [" .. (L[KIND_LABEL[m.kind]] or m.kind) .. "]" end
+            b.name:SetText(who .. (tag ~= "" and (Hex(kr, kg, kb) .. tag .. "\124r") or ""))
+            b.time:SetText(Stamp(m.t))
+            local nameW = (b.name:GetStringWidth() or 60) + (b.time:GetStringWidth() or 40) + 40
+            pw = math.floor(math.max(math.min(math.max(tw, nameW) + 22, maxBub), 110))
+            b.text:SetTextColor(UI.Color("text"))
+            b.text:SetWidth(pw - 20)
+            b.text:SetText(txt)
+            b.name:SetPoint("TOPLEFT", b.panel, "TOPLEFT", 10, -topPad)
+            b.time:SetPoint("TOPRIGHT", b.panel, "TOPRIGHT", -8, -(topPad + 1))
+            b.text:SetPoint("TOPLEFT", b.panel, "TOPLEFT", 10, -textY)
+            local th = (b.text.GetStringHeight and b.text:GetStringHeight()) or 14
+            if not th or th < 12 then th = 12 end
+            ph = math.floor(th + textY + botPad)
+            if own then b.bg:SetColorTexture(0.13, 0.27, 0.46, 0.95) else b.bg:SetColorTexture(UI.Color("card", 0.95)) end
+            rowH = math.max(ph, avs + 15)
+            if own then
+                b.avBtn:SetPoint("TOPRIGHT", b, "TOPRIGHT", -6, 0)
+                b.lvl:SetPoint("TOP", b.avBtn, "BOTTOM", 0, -1)
+                b.panel:SetPoint("TOPRIGHT", b.avBtn, "TOPLEFT", -8, 0)
+            else
+                b.avBtn:SetPoint("TOPLEFT", b, "TOPLEFT", 6, 0)
+                b.lvl:SetPoint("TOP", b.avBtn, "BOTTOM", 0, -1)
+                b.panel:SetPoint("TOPLEFT", b.avBtn, "TOPRIGHT", 8, 0)
+            end
         end
-        local links = ParseLinks(txt)
-        local sender = who
-        b.avBtn:SetScript("OnClick", function() if sender ~= "?" then SetTarget(sender) end end)
+        b.panel:SetSize(pw, ph)
+        b:SetSize(areaW - 8, rowH)
+        local sender = (not line and who ~= "?" and who ~= "") and who or nil
+        b.avBtn:SetScript("OnClick", function() if sender then SetTarget(sender) end end)
         b.panel:SetScript("OnClick", function(_, btn)
             if btn == "RightButton" then
-                if sender ~= "?" then SetTarget(sender) end
+                if sender then SetTarget(sender) end
             elseif #links >= 1 then
                 ShowLink(links[1])
             end
@@ -423,7 +610,7 @@ function W.Draw()
             b.panel:SetScript("OnLeave", nil)
         end
         b:Show()
-        y = y + rowH + 8
+        y = y + rowH + (line and 2 or 8)
     end
     idx = idx + 1
     while bubbles[idx] do bubbles[idx]:Hide(); idx = idx + 1 end
@@ -439,40 +626,95 @@ function W.Draw()
 end
 
 local function TabText(t)
-    local L = FW.L
-    local u = W.unread[t[1]]
-    local txt = L[t[2]] or t[1]
+    local u = W.unread[t.id]
+    local txt = W.TabName(t)
     if u and u > 0 then txt = txt .. " (" .. u .. ")" end
     return txt
 end
 
-local function RefreshTabs()
-    if not built then return end
-    local cur = W.Opts().tab or "all"
-    for _, tb in ipairs(built.tabs) do
-        tb.btn:SetLabel(TabText(tb.def))
-        tb.btn:SetStyle(tb.def[1] == cur and "primary" or "default")
+local tabBtns = {}
+
+function W.TabClick(id, mouse)
+    if mouse == "RightButton" then
+        if W.OpenTabEditor then W.OpenTabEditor(id) end
+    else
+        W.SelectTab(id)
     end
 end
 
-function W.SelectTab(key)
-    W.Opts().tab = key
-    W.unread[key] = nil
+-- Reiterleiste: Knoepfe je Reiter nach Textbreite, "+" dahinter, bei Platzmangel schmaler
+function W.LayoutTabs()
+    if not (built and built.head) then return end
+    local head = built.head
+    local tabs = W.Tabs()
+    local cur = W.CurrentTab().id
+    local avail = (tonumber(head:GetWidth()) or 520) - 4 - 28 - 28 - 6
+    local widths, total = {}, 0
+    for i, t in ipairs(tabs) do
+        local btn = tabBtns[i]
+        if not btn then
+            btn = UI.CreateButton(head, "", 60, 22, function(self, mouse) W.TabClick(self.fwTabId, mouse) end, "default")
+            btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            tabBtns[i] = btn
+        end
+        btn.fwTabId = t.id
+        btn:SetLabel(TabText(t))
+        local w = math.floor(math.max(48, math.min(150, (btn.label:GetStringWidth() or 40) + 22)))
+        widths[i] = w
+        total = total + w + 2
+    end
+    local scale = total > avail and avail / total or 1
+    local x = 4
+    for i, t in ipairs(tabs) do
+        local btn = tabBtns[i]
+        local w = math.floor(math.max(36, widths[i] * scale))
+        btn:SetWidth(w)
+        btn:ClearAllPoints()
+        btn:SetPoint("LEFT", head, "LEFT", x, 0)
+        btn:SetStyle(t.id == cur and "primary" or "default")
+        btn:Show()
+        x = x + w + 2
+    end
+    for i = #tabs + 1, #tabBtns do tabBtns[i]:Hide() end
+    if built.plus then
+        built.plus:ClearAllPoints()
+        built.plus:SetPoint("LEFT", head, "LEFT", x + 2, 0)
+    end
+end
+
+local function RefreshTabs()
+    W.LayoutTabs()
+end
+W.RefreshTabs = RefreshTabs
+
+local tabsDirty = false
+function W.DirtyTabs() tabsDirty = true end
+
+function W.SelectTab(id)
+    if not W.FindTab(id) then return end
+    W.Opts().tab = id
+    W.unread[id] = nil
     stick = true
     RefreshTabs()
     if W.RefreshInput then W.RefreshInput() end
     W.Draw()
 end
 
+function W.CycleSend()
+    local order = { say = "guild", guild = "group", group = "say" }
+    W.sendKind = order[W.sendKind or "say"] or "say"
+    if W.RefreshInput then W.RefreshInput() end
+end
+
 function W.RefreshInput()
     if not built then return end
     local L = FW.L
-    local o = W.Opts()
     local label
+    local k = W.sendKind or "say"
     if W.target then
         label = (L.CHATWIN_TO or "To") .. ": " .. W.target .. "  (x)"
-    elseif o.tab == "guild" then label = L.CHAT_GUILD
-    elseif o.tab == "group" then label = L.CHAT_GROUP
+    elseif k == "guild" then label = L.CHAT_GUILD
+    elseif k == "group" then label = L.CHAT_GROUP
     else label = L.CHATWIN_K_SAY end
     built.target:SetText(label or "")
 end
@@ -560,13 +802,8 @@ function W.Build()
     head:RegisterForDrag("LeftButton")
     head:SetScript("OnDragStart", function() if not W.Opts().locked then frame:StartMoving() end end)
     head:SetScript("OnDragStop", function() frame:StopMovingOrSizing(); W.SavePosition() end)
-    local x = 4
-    for _, def in ipairs(W.TABS) do if def[1] ~= "system" then
-        local btn = UI.CreateButton(head, TabText(def), 68, 22, function() W.SelectTab(def[1]) end, "default")
-        btn:SetPoint("LEFT", head, "LEFT", x, 0)
-        x = x + 70
-        built.tabs[#built.tabs + 1] = { def = def, btn = btn }
-    end end
+    built.head = head
+    built.plus = UI.CreateButton(head, "+", 22, 22, function() if W.NewTab then W.NewTab() end end, "default")
     local close = UI.CreateButton(head, "x", 22, 22, function() W.SetShown(false) end, "default")
     close:SetPoint("RIGHT", head, "RIGHT", -4, 0)
 
@@ -597,7 +834,7 @@ function W.Build()
     tgt:SetWidth(96)
     built.target = UI.CreateLabel(tgt, "", { size = 11, color = "goldLight", justify = "LEFT" })
     built.target:SetPoint("LEFT", tgt, "LEFT", 0, 0)
-    tgt:SetScript("OnClick", function() SetTarget(nil) end)
+    tgt:SetScript("OnClick", function() if W.target then SetTarget(nil) else W.CycleSend() end end)
     local input = CreateFrame("EditBox", nil, ibox)
     input:SetAutoFocus(false)
     input:SetPoint("TOPLEFT", ibox, "TOPLEFT", 106, -3)
@@ -638,12 +875,13 @@ function W.Build()
     grip:SetScript("OnMouseDown", function() if not W.Opts().locked then frame:StartSizing("BOTTOMRIGHT") end end)
     grip:SetScript("OnMouseUp", function() frame:StopMovingOrSizing(); W.SavePosition(); stick = false; W.Dirty() end)
     built.grip = grip
-    frame:SetScript("OnSizeChanged", function() W.Dirty() end)
+    frame:SetScript("OnSizeChanged", function() W.Dirty(); W.DirtyTabs() end)
 
     local lastCheck = 0
     frame:SetScript("OnUpdate", function()
         local now = G.GetTime and G.GetTime() or 0
-        if dirty and now - dirtyAt >= 0.15 then pcall(W.Draw); RefreshTabs() end
+        if dirty and now - dirtyAt >= 0.15 then pcall(W.Draw); pcall(RefreshTabs); tabsDirty = false
+        elseif tabsDirty then tabsDirty = false; pcall(RefreshTabs) end
         if now - lastCheck >= 2 then
             lastCheck = now
             if W.Opts().main then pcall(W.ApplyMain) end
@@ -741,10 +979,14 @@ function W.DoSend()
     local o = W.Opts()
     local now = G.GetTime and G.GetTime() or 0
     if txt == "" and W.openedAt and now - W.openedAt < 0.3 then return end   -- die Taste, die das Feld geoeffnet hat
-    local kind, target, msg = W.ParseInput(txt, o.tab, W.target)
+    local kind, target, msg, explicit = W.ParseInput(txt, W.sendKind, W.target)
     local done = false
     if kind then
-        done = W.Send(kind, target, msg) and true or false
+        if explicit and (kind == "say" or kind == "guild" or kind == "group") then
+            W.sendKind = kind        -- wie im Spiel: der Befehl stellt das Ziel dauerhaft ein
+            W.RefreshInput()
+        end
+        if msg == "" and explicit then done = true else done = W.Send(kind, target, msg) and true or false end
     elseif target == "unknown" or target == "usage" then
         done = W.Forward(txt)
         if not done and FW.Print then FW:Print(L.CHATWIN_UNKNOWN_CMD or "Unknown command") end
@@ -771,29 +1013,32 @@ end
 -- System-Meldungen (Beute, Erfahrung, Wuerfeln, "ist jetzt offline", Addon-Ausgaben)
 ------------------------------------------------------------------------
 
-local SYSTEM_EVENTS = {
-    "CHAT_MSG_SYSTEM", "CHAT_MSG_LOOT", "CHAT_MSG_MONEY", "CHAT_MSG_SKILL", "CHAT_MSG_COMBAT_XP_GAIN",
-    "CHAT_MSG_COMBAT_FACTION_CHANGE", "CHAT_MSG_COMBAT_HONOR_GAIN", "CHAT_MSG_TRADESKILLS", "CHAT_MSG_CURRENCY",
-    "CHAT_MSG_PET_INFO", "CHAT_MSG_COMBAT_MISC_INFO", "CHAT_MSG_BG_SYSTEM_NEUTRAL", "CHAT_MSG_BG_SYSTEM_ALLIANCE",
-    "CHAT_MSG_BG_SYSTEM_HORDE", "CHAT_MSG_TARGETICONS", "CHAT_MSG_ACHIEVEMENT", "CHAT_MSG_RAID_BOSS_EMOTE",
+local EVENT_KIND = {
+    CHAT_MSG_SYSTEM = "system", CHAT_MSG_PET_INFO = "system", CHAT_MSG_COMBAT_MISC_INFO = "system",
+    CHAT_MSG_BG_SYSTEM_NEUTRAL = "system", CHAT_MSG_BG_SYSTEM_ALLIANCE = "system", CHAT_MSG_BG_SYSTEM_HORDE = "system",
+    CHAT_MSG_TARGETICONS = "system", CHAT_MSG_ACHIEVEMENT = "system", CHAT_MSG_RAID_BOSS_EMOTE = "system",
+    CHAT_MSG_SKILL = "skill", CHAT_MSG_COMBAT_XP_GAIN = "xp", CHAT_MSG_LOOT = "loot", CHAT_MSG_CURRENCY = "loot",
+    CHAT_MSG_MONEY = "money", CHAT_MSG_COMBAT_FACTION_CHANGE = "rep", CHAT_MSG_COMBAT_HONOR_GAIN = "honor",
+    CHAT_MSG_TRADESKILLS = "tradeskill",
 }
 local recentSys, recentN = {}, 0
 
-function W.AddSystem(text)
-    if W.Opts().sysOn ~= true then return end   -- vorerst aus: der Reiter wurde zu voll
+function W.AddSystem(text, kind)
     if type(text) ~= "string" or text == "" or Secret(text) then return end
+    kind = kind or "system"
     local plain = string.gsub(string.gsub(string.gsub(text, "\124H.-\124h(.-)\124h", "%1"), "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
     local now = G.GetTime and G.GetTime() or 0
-    local last = recentSys[plain]
+    local key = kind .. plain
+    local last = recentSys[key]
     if last and now - last < 1 then return end
     recentN = recentN + 1
     if recentN > 60 then recentSys, recentN = {}, 0 end
-    recentSys[plain] = now
-    W.Add("system", "", text, false)
+    recentSys[key] = now
+    W.Add(kind, "", text, false)
 end
 
-for _, e in ipairs(SYSTEM_EVENTS) do
-    FW:RegisterEvent(e, function(text) W.AddSystem(text) end)
+for e, k in pairs(EVENT_KIND) do
+    FW:RegisterEvent(e, function(text) W.AddSystem(text, k) end)
 end
 
 -- Ausgaben anderer Addons (print) gehen ohne Farbangabe an den Spiel-Chat
@@ -803,8 +1048,8 @@ function W.HookPrints()
     if not (cf and G.hooksecurefunc and cf.AddMessage) then return end
     W.printHooked = true
     pcall(G.hooksecurefunc, cf, "AddMessage", function(_, text, r)
-        if r ~= nil or W.Opts().main ~= true then return end
-        W.AddSystem(text)
+        if r ~= nil then return end
+        W.AddSystem(text, "addon")
     end)
 end
 
@@ -1160,6 +1405,7 @@ end)
 FW:RegisterEvent("PLAYER_ENTERING_WORLD", function()
     if W.Opts().enabled then pcall(W.Build) end
     pcall(W.InstallHooks)
+    pcall(W.HookPrints)
     pcall(W.ApplyMain)
 end)
 FW:RegisterEvent("UPDATE_CHAT_WINDOWS", function()
@@ -1215,12 +1461,25 @@ if UI.RegisterSettingsSection then
             wSlider:Refresh()
             stack:Add(wSlider, { height = 20, gap = 2 })
             stack:Add(UI.CreateButton(f, L.CHATWIN_TEST_INPUT, 260, 24, function() W.Build(); W.TestInput() end), { height = 24, gap = 8 })
-            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_SAY,
-                function() return W.Opts().say ~= false end,
-                function(v) W.Opts().say = v and true or false; W.Dirty() end), { fit = true })
-            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_EMOTE,
-                function() return W.Opts().emote == true end,
-                function(v) W.Opts().emote = v and true or false; W.Dirty() end), { fit = true })
+            local fLabel = UI.CreateLabel(f, "", { size = 12 })
+            stack:Add(fLabel, { height = 16, gap = 10 })
+            local fSlider = UI.CreateSlider(f, 240, { min = 8, max = 16, step = 1,
+                get = function() return tonumber(W.Opts().fontSize) or 11 end,
+                set = function(v) W.Opts().fontSize = v; stick = true; W.Dirty() end })
+            fSlider.onText = function(v) fLabel:SetText(string.format(L.CHATWIN_FONTSIZE, v)) end
+            fSlider:Refresh()
+            stack:Add(fSlider, { height = 20, gap = 2 })
+            local mLabel = UI.CreateLabel(f, "", { size = 12 })
+            stack:Add(mLabel, { height = 16, gap = 8 })
+            local mSlider = UI.CreateSlider(f, 240, { min = 40, max = 95, step = 5,
+                get = function() return tonumber(W.Opts().maxW) or 78 end,
+                set = function(v) W.Opts().maxW = v; stick = true; W.Dirty() end })
+            mSlider.onText = function(v) mLabel:SetText(string.format(L.CHATWIN_MAXW, v)) end
+            mSlider:Refresh()
+            stack:Add(mSlider, { height = 20, gap = 2 })
+            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_COMPACT,
+                function() return W.Opts().compact ~= false end,
+                function(v) W.Opts().compact = v and true or false; stick = true; W.Dirty() end), { fit = true, gap = 8 })
             local aLabel = UI.CreateLabel(f, "", { size = 12 })
             stack:Add(aLabel, { height = 16, gap = 10 })
             local alpha = UI.CreateSlider(f, 240, { min = 20, max = 100, step = 5,
