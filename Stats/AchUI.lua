@@ -143,13 +143,12 @@ local function Build(content)
     local titleDD = UI.CreateDropdown(f, 230, 22, {
         getOptions = function()
             local list = { { value = "", text = L.ACH_TITLE_NONE } }
-            for _, e in ipairs(A.UnlockedTitles()) do list[#list + 1] = { value = e.id, text = A.TitleOf(e) } end
+            for _, t in ipairs(A.TitleList()) do list[#list + 1] = t end
             return list
         end,
         textOf = function(v)
             if not v or v == "" then return L.ACH_TITLE_NONE end
-            local e = A.BY_ID[v]
-            return e and A.TitleOf(e) or L.ACH_TITLE_NONE
+            return A.TitleText(v) or L.ACH_TITLE_NONE
         end,
         onChange = function(v) Db().title = (v and v ~= "") and v or nil end,
     })

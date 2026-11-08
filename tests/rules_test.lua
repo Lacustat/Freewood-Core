@@ -1,0 +1,183 @@
+-- Test der Herausforderungen: Pruefung, Klartext, Annehmen, Auswertung, Scheitern, Abschluss, Titel (texlua tests/rules_test.lua)
+local function Proxy()
+    return setmetatable({}, { __index = function(_, k)
+        if k == "child" or k == "label" or k == "scroll" then return Proxy() end
+        return function() return Proxy() end
+    end })
+end
+local fails, n = 0, 0
+local function eq(a, b, m) n = n + 1; if a ~= b then fails = fails + 1; print("FEHLER " .. m, a, b) end end
+
+_G.CreateFrame = function() return Proxy() end
+_G.UIParent = Proxy()
+local now = 1000
+_G.time = function() return now end
+local fired, printed = {}, {}
+local FW = { activeLocale = "enUS", modules = {}, Util = { IsSecret = function() return false end },
+    Print = function(_, t) printed[#printed + 1] = t end, locales = {},
+    Fire = function(_, e, ...) fired[#fired + 1] = e end,
+    RegisterEvent = function() end, chardb = {} }
+FW.L = setmetatable({}, { __index = function(_, k) return (FW.locales[k]) or k end })
+function FW:AddLocale(loc, t) if loc == "enUS" then for k, v in pairs(t) do FW.locales[k] = v end end end
+function FW:NewModule(name, opts)
+    opts.db = { defs = {}, seq = 0, done = {}, titles = {} }
+    self.modules[name] = opts
+    return opts
+end
+local function Load(f) assert(loadfile(f))("Freewood-Core", FW) end
+Load("Core/RulesLocales.lua")
+Load("Core/RulesData.lua")
+Load("Core/Rules.lua")
+local R = FW.Rules
+
+-- Pruefung
+eq(R.Validate(nil), nil, "kein Table")
+eq(select(2, R.Validate({ name = "", goals = {} })), "RV_NAME", "Name fehlt")
+eq(select(2, R.Validate({ name = "X", goals = {} })), "RV_GOALS", "ohne Ziele")
+eq(select(2, R.Validate({ name = "X", goals = { { type = "evil" } } })), "RV_TYPE", "unbekannter Baustein")
+eq(select(2, R.Validate({ name = "X", goals = { { type = "level", n = 999 } } })), "RV_NUM", "Zahl ausser Bereich")
+local many = {}
+for i = 1, 7 do many[i] = { type = "level", n = 10 } end
+eq(select(2, R.Validate({ name = "X", goals = many })), "RV_MANY", "zu viele Ziele")
+local good = {
+    name = "Wehklagen\124 solo", desc = "d", bogus = "x",
+    goals = { { type = "kill", id = 3654, name = "Mutanus", count = 1, inst = 43, extra = "x" } },
+    rules = { { type = "nogroup" }, { type = "levelbelow", n = 25 }, { type = "deathsmax", n = 0 } },
+    warns = { { type = "level", n = 24, text = "Gleich Stufe 25!" } },
+    reward = { points = 20, title = "Solist", text = "Gut" },
+}
+local c = R.Validate(good)
+eq(c ~= nil, true, "gueltig")
+eq(c.name, "Wehklagen solo", "Steuerzeichen entfernt")
+eq(c.bogus, nil, "unbekanntes Feld verworfen")
+eq(c.goals[1].extra, nil, "unbekanntes Feld im Baustein verworfen")
+eq(c.goals[1].iname ~= nil, true, "Instanzname aus Liste")
+eq(#c.rules, 3, "drei Regeln")
+eq(c.reward.points, 20, "Punkte")
+eq(R.Validate({ name = "X", goals = { { type = "level", n = 10 } }, reward = { points = 5000 } }).reward.points, 0, "Punkte ausser Bereich -> 0")
+eq(select(2, R.Validate({ name = "X", goals = { { type = "kill", id = 1, count = 1 } } })), "RV_NAME", "Ziel ohne Namen")
+eq(select(2, R.Validate({ name = "X", goals = { { type = "level", n = 10 } }, warns = { { type = "start", text = "" } } })), "RV_TEXT", "Warntext leer")
+-- Code wird nie uebernommen
+local code = R.Validate({ name = "X", goals = { { type = "level", n = 10 } }, onDone = "os.execute('x')" })
+eq(code.onDone, nil, "kein Code")
+
+-- Klartext
+local d = R.Describe(c)
+eq(type(d) == "string" and d:find("Mutanus", 1, true) ~= nil, true, "Klartext nennt das Ziel")
+eq(d:sub(-1), ".", "Klartext endet mit Punkt")
+
+-- Speichern, Import
+local id = R.Save(good)
+eq(id, "L1", "erste Kennung")
+eq(R.Get(id).src, "mine", "eigene Quelle")
+eq(R.Import(good, "L1", "board"), nil, "eigene nicht ueberschreibbar")
+eq(R.Import({ name = "" }, "B1", "board"), nil, "Import ungueltig")
+eq(R.Import(good, "B1", "board"), "B1", "Import gueltig")
+eq(R.Get("B1").src, "board", "Quelle board")
+eq(#R.List(), 2, "zwei in der Liste")
+eq(R.List()[1].src, "mine", "eigene zuerst")
+
+-- Welt
+local world = { level = 20, inGroup = false, groupSize = 1, zone = "Barrens", subzone = "", instName = nil }
+R.worldFn = function() return world end
+
+-- Annehmen
+eq(R.Status(id), "new", "neu")
+local ok = R.Accept(id)
+eq(ok, true, "angenommen")
+eq(R.Status(id), "active", "aktiv")
+eq(R.ActiveCount(), 1, "eine aktive")
+eq(select(2, R.CanAccept(id)), "CH_ALREADY", "schon aktiv")
+
+-- Kill nur in der Instanz
+R.OnKill("Mutanus", 3654)
+eq(R.GoalProgress(R.Get(id).goals[1], 1, FW.chardb.rules.act[id], world), 0, "Kill ausserhalb zaehlt nicht")
+world.instName, world.instId = "Wailing Caverns", 43
+-- Gruppe -> gescheitert
+world.inGroup, world.groupSize = true, 2
+R.Step()
+eq(R.Status(id), "failed", "Gruppe bricht ab")
+eq(FW.chardb.rules.hist[id].reason, "nogroup", "Grund")
+eq(printed[#printed]:find("Wehklagen", 1, true) ~= nil, true, "Hinweis gedruckt")
+eq(R.ActiveCount(), 0, "keine aktive mehr")
+
+-- Neuer Versuch nur ohne Verstoss
+local okr, why = R.CanAccept(id)
+eq(okr, false, "in Gruppe nicht annehmbar"); eq(why, "CH_BROKEN_nogroup", "Grund Gruppe")
+world.inGroup, world.groupSize = false, 1
+eq(R.Accept(id), true, "neuer Versuch")
+eq(FW.chardb.rules.hist[id].tries, 2, "Versuche gezaehlt")
+-- Warnung bei Stufe 24, einmalig
+world.level = 24
+local before = #printed
+R.Step(); R.Step()
+local warns = 0
+for i = before + 1, #printed do if printed[i]:find("Gleich Stufe 25", 1, true) then warns = warns + 1 end end
+eq(warns, 1, "Warnung genau einmal")
+-- Stufe 25 -> gescheitert
+world.level = 25
+R.Step()
+eq(R.Status(id), "failed", "Stufe 25 bricht ab")
+-- Erfolg: Kill zaehlt vor Regelbruch (Boss gibt Stufe)
+world.level = 20
+R.Accept(id)
+R.OnKill("Mutanus", 3654)
+eq(R.Status(id), "done", "Ziel erreicht")
+eq(R.Get(id) ~= nil and select(1, R.Points()), 20, "20 Punkte")
+eq(R.Db().titles[id], "Solist", "Titel freigeschaltet")
+eq(R.TitleText("c:" .. id), "Solist", "Titeltext")
+eq(R.UnlockedTitles()[1].key, "c:" .. id, "Titelschluessel")
+-- Zweiter Abschluss gibt keine Punkte mehr
+eq(select(2, R.CanAccept(id)), "CH_ALREADY_DONE", "nicht erneut")
+
+-- Zaehler, Stufe, Quest, Zeit
+local id2 = R.Save({ name = "Springer", goals = { { type = "counter", key = "jumps", n = 5 } }, rules = { { type = "timelimit", n = 1 } } })
+FW.Stats = { Rec = function() return { c = { jumps = 100 } } end, Key = function() return "Lacustat-X" end }
+R.Accept(id2)
+FW.Stats = { Rec = function() return { c = { jumps = 104 } } end, Key = function() return "Lacustat-X" end }
+R.Step()
+eq(R.Status(id2), "active", "4 von 5")
+FW.Stats = { Rec = function() return { c = { jumps = 105 } } end, Key = function() return "Lacustat-X" end }
+R.Step()
+eq(R.Status(id2), "done", "5 von 5")
+local id3 = R.Save({ name = "Eile", goals = { { type = "level", n = 60 } }, rules = { { type = "timelimit", n = 1 } } })
+R.Accept(id3)
+now = now + 61
+R.Step()
+eq(R.Status(id3), "failed", "Zeitlimit")
+eq(FW.chardb.rules.hist[id3].reason, "timelimit", "Grund Zeit")
+
+-- Quest
+local id4 = R.Save({ name = "Auftrag", goals = { { type = "quest", id = 100, name = "Q" } } })
+R.Accept(id4); R.OnQuest(99); eq(R.Status(id4), "active", "falsche Quest")
+R.OnQuest(100); eq(R.Status(id4), "done", "Quest erledigt")
+
+-- Tod
+local id5 = R.Save({ name = "Unsterblich", goals = { { type = "level", n = 60 } }, rules = { { type = "deathsmax", n = 0 } } })
+R.Accept(id5); R.OnDeath()
+eq(R.Status(id5), "failed", "Tod beendet")
+
+-- Aufgeben, Loeschen, Grenze
+local id6 = R.Save({ name = "A", goals = { { type = "level", n = 60 } } })
+R.Accept(id6); R.Abandon(id6)
+eq(R.Status(id6), "new", "aufgegeben -> neu")
+eq(R.Delete(id6), true, "geloescht")
+eq(R.Get(id6), nil, "weg")
+for i = 1, 5 do local x = R.Save({ name = "G" .. i, goals = { { type = "level", n = 60 } } }); R.Accept(x) end
+local idx = R.Save({ name = "Sechste", goals = { { type = "level", n = 60 } } })
+eq(select(2, R.Accept(idx)), "CH_TOO_MANY", "hoechstens 5 aktive")
+
+-- Annehmen nicht moeglich, wenn Regel schon verletzt
+FW.chardb.rules.act = {}
+world.level = 30
+local idl = R.Save({ name = "Zu spaet", goals = { { type = "level", n = 60 } }, rules = { { type = "levelbelow", n = 25 } } })
+local okl, whyl = R.CanAccept(idl)
+eq(okl, false, "Regel schon verletzt"); eq(whyl, "CH_BROKEN_levelbelow", "Grund")
+
+-- Ereignisse melden
+local seen = false
+for _, e in ipairs(fired) do if e == "FW_CHALLENGE_DONE" then seen = true end end
+eq(seen, true, "Ereignis DONE gefeuert")
+
+print(string.format("%d Pruefungen, %d Fehler", n, fails))
+os.exit(fails == 0 and 0 or 1)

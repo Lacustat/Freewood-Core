@@ -329,9 +329,32 @@ function A.UnlockedTitles()
     return out
 end
 
+-- Alle waehlbaren Titel: { { value = Schluessel, text = Titeltext } } (Erfolge und Herausforderungen)
+function A.TitleList()
+    local out = {}
+    for _, e in ipairs(A.UnlockedTitles()) do out[#out + 1] = { value = e.id, text = A.TitleOf(e) } end
+    local R = FW.Rules
+    if R and R.UnlockedTitles then
+        for _, t in ipairs(R.UnlockedTitles()) do out[#out + 1] = { value = t.key, text = t.text } end
+    end
+    return out
+end
+
+function A.TitleText(value)
+    if not value or value == "" then return nil end
+    local R = FW.Rules
+    if type(value) == "string" and value:sub(1, 2) == "c:" then return R and R.TitleText and R.TitleText(value) or nil end
+    local e = A.BY_ID[value]
+    return e and A.TitleOf(e) or nil
+end
+
 function A.ActiveTitle()
     local db = A.Db()
     if not db or not db.title then return nil end
+    if type(db.title) == "string" and db.title:sub(1, 2) == "c:" then
+        local R = FW.Rules
+        return R and R.TitleText and R.TitleText(db.title) or nil
+    end
     local e = A.BY_ID[db.title]
     local s = db.acct and db.acct[db.title]
     if e and s and (s.l or 0) >= A.TITLE_TIER then return A.TitleOf(e) end
