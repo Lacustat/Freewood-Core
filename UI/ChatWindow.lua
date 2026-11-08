@@ -670,7 +670,8 @@ function W.Draw()
             if m.kind == "channel" then tag = m.x and ("  [" .. m.x .. "]") or ""
             elseif m.kind == "whisper" then tag = "  [" .. (L.CHAN_WHISPER or "Whisper") .. "]"
             elseif KIND_LABEL[m.kind] then tag = "  [" .. (L[KIND_LABEL[m.kind]] or m.kind) .. "]" end
-            b.name:SetText(who .. (tag ~= "" and (Hex(kr, kg, kb) .. tag .. "\124r") or ""))
+            local ttl = (m.o and FW.Ach and FW.Ach.TitleTag) and FW.Ach.TitleTag() or ""
+            b.name:SetText(who .. ttl .. (tag ~= "" and (Hex(kr, kg, kb) .. tag .. "\124r") or ""))
             b.time:SetText(Stamp(m.t))
             local nameW = (b.name:GetStringWidth() or 60) + (b.time:GetStringWidth() or 40) + 40
             pw = math.floor(math.max(math.min(math.max(tw, nameW) + 22, maxBub), 110))
