@@ -209,5 +209,70 @@ local hasCat = false
 for _, c in ipairs(A.CATS) do if c == "custom" then hasCat = true end end
 eq(hasCat, true, "Kategorie vorhanden")
 
+-- Partner
+FW.chardb.rules.act = {}
+local sent = {}
+R.sendFn = function(t) sent[#sent + 1] = t end
+_G.UnitName = function() return "Ich" end
+world.level, world.inGroup, world.groupSize = 20, false, 1
+local pid = R.Save({ name = "Zu zweit", goals = { { type = "level", n = 21 } }, rules = { { type = "partner" } } })
+local pdef = R.Get(pid)
+local hash = R.DefHash(pdef)
+eq(R.HasPartnerRule(pdef), true, "Partnerregel erkannt")
+eq(R.HasPartnerRule(R.Get(id2)), false, "keine Partnerregel")
+eq(R.Accept(pid), true, "Partner-Herausforderung angenommen")
+-- allein: Ziel erreicht, aber ohne Partner zaehlt es nicht
+world.level = 21
+R.Step()
+eq(R.Status(pid), "active", "ohne Partner nicht geschafft")
+-- Gruppe aus zwei: Ping wird gesendet
+world.inGroup, world.groupSize = true, 2
+FW.chardb.rules.act[pid].lastPing = nil
+R.Step()
+eq(sent[#sent], "A|" .. hash, "Ping mit Kennung")
+-- eigene Nachricht und fremde Kennung zaehlen nicht
+R.OnPartnerMessage("FWChal1", "A|" .. hash, "Ich")
+eq(FW.chardb.rules.act[pid].partnerSeen, nil, "eigene Nachricht ignoriert")
+R.OnPartnerMessage("FWChal1", "A|deadbeef", "Anna")
+eq(FW.chardb.rules.act[pid].partnerSeen, nil, "andere Herausforderung ignoriert")
+R.OnPartnerMessage("Falsch", "A|" .. hash, "Anna")
+eq(FW.chardb.rules.act[pid].partnerSeen, nil, "falsches Praefix ignoriert")
+-- Partner meldet sich: Ziel zaehlt
+R.OnPartnerMessage("FWChal1", "A|" .. hash, "Anna")
+eq(R.Status(pid), "done", "mit Partner geschafft")
+
+-- Dritter kommt dazu -> gescheitert
+local pid2 = R.Save({ name = "Zu zweit 2", goals = { { type = "level", n = 60 } }, rules = { { type = "partner" } } })
+R.Accept(pid2)
+R.OnPartnerMessage("FWChal1", "A|" .. R.DefHash(R.Get(pid2)), "Anna")
+world.groupSize = 3
+R.Step()
+eq(R.Status(pid2), "failed", "dritter Spieler bricht ab"); eq(FW.chardb.rules.hist[pid2].reason, "partner", "Grund Partner")
+-- Scheitern wird dem Partner gemeldet
+local pid3 = R.Save({ name = "Zu zweit 3", goals = { { type = "level", n = 60 } }, rules = { { type = "partner" }, { type = "deathsmax", n = 0 } } })
+world.groupSize = 2
+R.Accept(pid3)
+R.OnDeath()
+eq(sent[#sent], "F|" .. R.DefHash(R.Get(pid3)), "Scheitern gemeldet")
+-- Partner scheitert -> ich auch
+local pid4 = R.Save({ name = "Zu zweit 4", goals = { { type = "level", n = 60 } }, rules = { { type = "partner" } } })
+R.Accept(pid4)
+R.OnPartnerMessage("FWChal1", "A|" .. R.DefHash(R.Get(pid4)), "Berta")
+eq(R.Status(pid4), "active", "Partner da")
+R.OnPartnerMessage("FWChal1", "F|" .. R.DefHash(R.Get(pid4)), "Berta")
+eq(R.Status(pid4), "failed", "Partner gescheitert -> ich auch")
+-- Ein Fremder (nicht der Partner) kann nicht abbrechen
+local pid5 = R.Save({ name = "Zu zweit 5", goals = { { type = "level", n = 60 } }, rules = { { type = "partner" } } })
+R.Accept(pid5)
+R.OnPartnerMessage("FWChal1", "A|" .. R.DefHash(R.Get(pid5)), "Berta")
+R.OnPartnerMessage("FWChal1", "F|" .. R.DefHash(R.Get(pid5)), "Carla")
+eq(R.Status(pid5), "active", "Fremder Abbruch wirkt nicht")
+-- Partner schweigt lange / Gruppe weg
+now = now + 100
+world.inGroup, world.groupSize = true, 2
+R.Step()
+eq(R.Status(pid5), "failed", "Partner schweigt")
+R.sendFn = nil
+
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

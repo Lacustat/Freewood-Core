@@ -15,6 +15,7 @@
 --   3. Ereignisse
 --   4. Titel und Punkte
 --   5. Eigene Erfolge
+--   6. Partner
 -- UNGEPRUEFT im Spiel (Forever).
 
 local ADDON, FW = ...
@@ -295,6 +296,7 @@ function R.Fail(id, why, n)
     local c, def = R.Cdb(), R.Get(id)
     if not c or not c.act[id] then return false end
     c.act[id] = nil
+    if def and why ~= "partner" and R.HasPartnerRule(def) then R.PartnerSend("F|" .. R.DefHash(def)) end
     local h = c.hist[id] or { tries = 1 }
     h.st, h.at, h.reason = "failed", R.Now(), why
     c.hist[id] = h
@@ -339,7 +341,8 @@ function R.EvalOne(id, st, w)
     for i, g in ipairs(def.goals) do
         if g.type == "zone" and not st.prog[i] and R.ZoneMatch(g, w) then st.prog[i] = true end
     end
-    if GoalsDone(def, st, w) then R.Complete(id); return end
+    if GoalsDone(def, st, w) and (not R.HasPartnerRule(def) or st.partnerSeen) then R.Complete(id); return end
+    R.PartnerPing(def, st, w)
     for _, r in ipairs(def.rules) do
         local why, n = R.RuleBroken(r, st, w, def)
         if why then R.Fail(id, why, n); return end
@@ -428,7 +431,12 @@ if R.module then
         On("ZONE_CHANGED_NEW_AREA", function() R.Step() end)
         On("ZONE_CHANGED", function() R.Step() end)
         On("PLAYER_ENTERING_WORLD", function() R.Step() end)
-        On("GROUP_ROSTER_UPDATE", function() R.Step() end)
+        On("GROUP_ROSTER_UPDATE", function()
+            local c = R.Cdb()
+            for _, st in pairs((c and c.act) or {}) do st.lastPing = nil end
+            R.Step()
+        end)
+        On("CHAT_MSG_ADDON", function(_, prefix, text, _, sender) R.OnPartnerMessage(prefix, text, sender) end)
         On("BAG_UPDATE_DELAYED", function() R.Step() end)
         On("PLAYER_DEAD", function() R.OnDeath() end)
         On("QUEST_TURNED_IN", function(_, questId) R.OnQuest(Clean(questId)) end)
@@ -566,3 +574,91 @@ function R.DeleteAch(id)
     AfterAchChange(id)
     return true
 end
+
+------------------------------------------------------------------------
+-- 6. Partner
+--   Regel "nur mit Partner": Die Gruppe darf nur aus zwei Spielern bestehen, und der andere muss dieselbe Herausforderung gestartet haben.
+--   Das merken beide ueber Addon-Nachrichten in der Gruppe ("A|Kennung" = ich habe sie, "F|Kennung" = ich bin gescheitert).
+--   Ziele zaehlen erst, wenn der Partner mindestens einmal gemeldet hat. Scheitert einer, scheitern beide.
+------------------------------------------------------------------------
+
+local PREFIX = "FWChal1"
+local PING_EVERY, PARTNER_SILENCE, NOGROUP_GRACE = 20, 90, 10
+
+function R.HasPartnerRule(def)
+    for _, r in ipairs((def and def.rules) or {}) do if r.type == "partner" then return true end end
+    return false
+end
+
+-- Kurze Kennung der Herausforderung (gleicher Name und gleicher Inhalt ergibt dieselbe Kennung, auch bei Fremden)
+function R.DefHash(def)
+    local text = tostring(def.name) .. "|" .. R.Describe(def)
+    local h = 5381
+    for i = 1, #text do h = (h * 33 + text:byte(i)) % 99999989 end
+    return string.format("%x", h)
+end
+
+function R.PartnerSend(text)
+    if R.sendFn then return R.sendFn(text) end
+    local api = G.C_ChatInfo
+    if api and api.SendAddonMessage and G.IsInGroup and G.IsInGroup() then
+        pcall(api.SendAddonMessage, PREFIX, text, "PARTY")
+    end
+end
+
+function R.PartnerPing(def, st, w)
+    if not R.HasPartnerRule(def) or not w.inGroup then return end
+    if R.Now() - (st.lastPing or -1000) >= PING_EVERY then
+        st.lastPing = R.Now()
+        R.PartnerSend("A|" .. R.DefHash(def))
+    end
+end
+
+function R.PartnerBroken(st, w, def)
+    if w.groupSize > 2 then return true end
+    if st.partnerFailed then return true end
+    if st.partnerSeen then
+        if not w.inGroup then
+            st.noGroupAt = st.noGroupAt or R.Now()
+            if R.Now() - st.noGroupAt >= NOGROUP_GRACE then return true end
+        else
+            st.noGroupAt = nil
+        end
+        if R.Now() - (st.partnerAt or R.Now()) > PARTNER_SILENCE then return true end
+    end
+    return false
+end
+
+local function SelfName()
+    local n = G.UnitName and G.UnitName("player")
+    return type(n) == "string" and n or nil
+end
+
+function R.OnPartnerMessage(prefix, text, sender)
+    if prefix ~= PREFIX or type(text) ~= "string" or #text > 40 then return end
+    sender = Clean(sender)
+    if type(sender) ~= "string" then return end
+    local plain = sender
+    if G.Ambiguate then
+        local ok, v = pcall(G.Ambiguate, sender, "none")
+        if ok and v then plain = v end
+    end
+    if plain == SelfName() then return end
+    local kind, hash = text:match("^(%u)|(%x+)$")
+    if not kind or (kind ~= "A" and kind ~= "F") then return end
+    local hit = false
+    EachActive(function(id, st, def)
+        if R.HasPartnerRule(def) and R.DefHash(def) == hash then
+            if kind == "A" then
+                if st.partner and st.partner ~= plain and st.partnerSeen then return end
+                st.partner, st.partnerSeen, st.partnerAt = plain, true, R.Now()
+            else
+                if st.partner == plain or not st.partner then st.partnerFailed = true end
+            end
+            hit = true
+        end
+    end)
+    if hit then R.Step() end
+end
+
+if G.C_ChatInfo and G.C_ChatInfo.RegisterAddonMessagePrefix then pcall(G.C_ChatInfo.RegisterAddonMessagePrefix, PREFIX) end
