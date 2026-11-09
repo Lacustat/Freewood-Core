@@ -386,5 +386,16 @@ do -- /rollen und /würfeln gehen als /roll an das Spiel
     W.Forward("/rollen 50"); W.Forward("/würfeln"); W.Forward("/rollenx")
     eq(sent[1], "/roll 50", "/rollen -> /roll"); eq(sent[2], "/roll", "/würfeln -> /roll"); eq(sent[3], "/rollenx", "kein falscher Treffer")
 end
+do -- Pfeil-Abfrage: Ereignis und Abfrage derselben Taste zaehlen einmal, Abfrage allein wirkt
+    local o = W.Opts(); o.hist = { "eins", "zwei" }; W.HistReset(); W.arrowLog = {}
+    local box = { t = "", GetText = function(self) return self.t end, SetText = function(self, v) self.t = v end }
+    W.HistKey(box, "UP", "Pfeil"); W.HistKey(box, "UP", "Abfrage")
+    eq(box.t, "zwei", "Ereignis + Abfrage = ein Schritt")
+    _G.GetTime = function() return 100 end
+    W.hKeyAt = nil
+    W.HistKey(box, "UP", "Abfrage")
+    eq(box.t, "eins", "Abfrage allein geht eine Eintragung zurueck")
+    eq(#W.arrowLog, 3, "Pfeilprotokoll")
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

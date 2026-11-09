@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.33.2 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.33.3 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.33.3 DE:** Pfeiltasten-Verlauf im Freewood-Eingabefeld: Die Probe zeigte, dass der Client die Pfeiltasten weder als Pfeil- noch als Tastenereignis an das Feld meldet (Verlauf selbst war mit 20 Einträgen vorhanden). Jetzt fragt das Feld Pfeil hoch und runter zusätzlich selbst per `IsKeyDown` ab, solange es den Fokus hat; meldet der Client sie doch, zählt eine Taste nur einmal. `/fwchatwin probe` zeigt zusätzlich eine Zeile „Pfeile: …" (welche Pfeile auf welchem Weg ankamen) und ob `IsKeyDown` existiert. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel. **EN:** Arrow-key history in the Freewood input: the probe showed the client reports arrow keys to the field neither as arrow nor as key events (the history itself held 20 entries). Now the field also polls Up and Down via `IsKeyDown` while focused; if the client does report them, a key counts once. `/fwchatwin probe` additionally shows an "Pfeile: …" line (which arrows arrived by which path) and whether `IsKeyDown` exists. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game.
 
 **0.33.2 DE:** Würfeln erscheint jetzt im Freewood-Chat: `/roll`-Ergebnisse und Beute-Würfe (Bedarf, Gier, Gewinner, Passen). Erkannt werden sie über die Ereignisse und zusätzlich über die Textvorlagen des Spiels (`RANDOM_ROLL_RESULT`, `LOOT_ROLL_*`, auch deutsche mit nummerierten Platzhaltern), falls das Spiel sie nur als Zeile in den Spiel-Chat schreibt. Doppelte Meldungen zählen einmal. Außerdem: `/rollen` und `/würfeln` im Freewood-Eingabefeld gehen als `/roll` ans Spiel. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel. **EN:** Rolls now show in the Freewood chat: `/roll` results and loot rolls (need, greed, winner, pass). They are detected via events and also via the game's text templates (`RANDOM_ROLL_RESULT`, `LOOT_ROLL_*`, including German ones with numbered placeholders) in case the game only writes them as a line to the game chat. Duplicates count once. Also: `/rollen` and `/würfeln` in the Freewood input are sent to the game as `/roll`. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game.
 

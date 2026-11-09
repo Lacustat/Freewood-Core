@@ -1116,11 +1116,25 @@ function W.Build()
             if W.RefreshInput then W.RefreshInput() end
         end
     end)
+    -- Rueckfall: meldet der Client die Pfeiltasten nicht an das Feld, fragen wir sie solange das Feld den Fokus hat selbst ab
+    local poll = CreateFrame("Frame")
+    local down = {}
+    poll:Hide()
+    poll:SetScript("OnUpdate", function()
+        if not G.IsKeyDown then return end
+        for _, k in ipairs({ "UP", "DOWN" }) do
+            local d = G.IsKeyDown(k) and true or false
+            if d and not down[k] then W.HistKey(input, k, "Abfrage") end
+            down[k] = d
+        end
+    end)
     input:SetScript("OnEditFocusGained", function(self)
+        down.UP, down.DOWN = true, true     -- eine beim Oeffnen schon gehaltene Taste zaehlt nicht
+        poll:Show()
         if self.SetAltArrowKeyMode then pcall(self.SetAltArrowKeyMode, self, false) end
         W.UpdateInputVisibility()
     end)
-    input:SetScript("OnEditFocusLost", function() W.UpdateInputVisibility() end)
+    input:SetScript("OnEditFocusLost", function() poll:Hide(); W.UpdateInputVisibility() end)
     built.input = input
 
     -- Chatbereich
@@ -1290,13 +1304,18 @@ function W.HistNav(dir, current)
 end
 
 W.keyLog = {}
+W.arrowLog = {}
 local function HistKey(self, key, source)
     -- die letzten Tastenereignisse merken (zeigt /fwchatwin probe), damit man sieht, was der Client an das Feld meldet
     local log = W.keyLog
     log[#log + 1] = tostring(source or "?") .. ":" .. tostring(key)
     if #log > 12 then table.remove(log, 1) end
     if key ~= "UP" and key ~= "DOWN" then return end
+    local alog = W.arrowLog
+    alog[#alog + 1] = tostring(source or "?") .. ":" .. key
+    if #alog > 6 then table.remove(alog, 1) end
     local now = G.GetTime and G.GetTime() or 0
+    if W.hKeyAt and now - W.hKeyAt < 0.15 and W.hKey == key and source == "Abfrage" then return end   -- Ereignis hat sie schon behandelt
     if W.hKeyAt and now - W.hKeyAt < 0.03 and W.hKey == key then return end    -- OnArrowPressed und OnKeyDown fuer dieselbe Taste
     W.hKey, W.hKeyAt = key, now
     local t = W.HistNav(key == "UP" and -1 or 1, self:GetText() or "")
@@ -1916,6 +1935,8 @@ function W.Probe()
         alt = ok and tostring(v) or "Fehler"
     elseif ib then alt = "Funktion fehlt" end
     lines[#lines + 1] = "Verlauf: " .. tostring(#(W.Opts().hist or {})) .. " Eintraege, Alt-Pfeilmodus: " .. alt
+        .. ", Pfeile: " .. (#W.arrowLog > 0 and table.concat(W.arrowLog, " ") or "keine gemeldet")
+        .. ", Abfrage IsKeyDown: " .. tostring(G.IsKeyDown ~= nil)
         .. ", letzte Tasten im Feld: " .. (#W.keyLog > 0 and table.concat(W.keyLog, " ") or "keine")
     lines[#lines + 1] = "Eingabe: " .. (W.UseBlizz() and "Feld des Spiels im Freewood-Design (Weg B)" or "eigenes Feld (Weg A)")
         .. ", Tastenabfrage: " .. ((G.SetOverrideBindingClick and "Bindungen ja") or "Bindungen nein")
