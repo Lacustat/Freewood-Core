@@ -292,12 +292,14 @@ end
 -- Statusleisten nehmen secret-Werte an und schneiden die Fuellung selbst zu, ganz ohne Rechnen im Addon.
 ---------------------------------------------------------------------
 
--- Anzahl der Stuecke steht in Media\Rings\Segments.lua (muss vor dieser Datei geladen sein)
-R.SEG_N = FW.RingSegments and FW.RingSegments[1] and #FW.RingSegments[1] or 32
+-- Anzahl der Stuecke steht in Media\Rings\Segments.lua; zur Laufzeit gelesen (die Datei kann nach dieser geladen werden)
+function R.SegCount()
+    return FW.RingSegments and FW.RingSegments[1] and #FW.RingSegments[1] or 32
+end
 
 -- Fuellrichtung eines Segments (im Uhrzeigersinn ab 12 Uhr): orientation, reverse
 function R.SegDirection(k, n)
-    n = n or R.SEG_N
+    n = n or R.SegCount()
     local th = ((k - 0.5) / n) * 2 * math.pi
     local dx, dy = math.cos(th), -math.sin(th)   -- Laufrichtung im Uhrzeigersinn (x rechts, y oben)
     if math.abs(dx) >= math.abs(dy) then
@@ -310,7 +312,7 @@ function R.BuildSegs(ring)
     if ring.segs then return ring.segs end
     if not FW.RingSegments or not G.CreateFrame then return nil end
     ring.segs = {}
-    for k = 1, R.SEG_N do
+    for k = 1, R.SegCount() do
         local sb = G.CreateFrame("StatusBar", nil, ring.frame)
         sb:SetStatusBarTexture(string.format("%sseg%d_%02d.tga", PATH, ring.level or 3, k))
         local orient = R.SegDirection(k)
@@ -358,7 +360,7 @@ function R.SegMode(ring, on, pmax, ccw)
         local key = tostring(pmax) .. (ccw and "c" or "n")
         if ring.segKey ~= key then
             ring.segKey = key
-            local n = R.SEG_N
+            local n = R.SegCount()
             for k, sb in ipairs(ring.segs) do
                 local j = ccw and (n - k + 1) or k
                 sb:SetMinMaxValues((j - 1) / n * pmax, j / n * pmax)

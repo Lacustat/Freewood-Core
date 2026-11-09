@@ -154,6 +154,12 @@ eq(R.FeedSegs(ring, "health", 0.2, 0.8, 0.2, false), true, "Segmente gefuettert"
 R.SegMode(ring, false); eq(ring.segOn, false, "Segmente aus")
 _G.UnitHealthPercent = nil; _G.CurveConstants = nil
 
+-- 64 Stuecke: Anzahl kommt aus den Daten (auch wenn sie erst nach dem Laden der Datei da sind)
+FW.RingSegments = {}; for l = 1, 6 do FW.RingSegments[l] = {}; for i = 1, 64 do FW.RingSegments[l][i] = { 10, 10, 20, 20 } end end
+eq(R.SegCount(), 64, "Anzahl aus Daten")
+local ring64 = { frame = Fake(), cd = Fake(), track = Fake(), size = 100, level = 3 }
+R.SegMode(ring64, true, 100, false); eq(#ring64.segs, 64, "64 Segmente gebaut"); near(ring64.segs[33].range[1], 50, "Segment 33 beginnt bei 50"); near(ring64.segs[64].range[2], 100, "Segment 64 endet bei 100")
+
 -- Dicke umstellen
 local tr = { frame = Fake(), cd = Fake(), track = Fake(), size = 100, level = 3 }
 local texCalls = {}; tr.track.SetTexture = function(_, p) table.insert(texCalls, p) end

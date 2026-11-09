@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.38.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.38.1 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.38.1 DE:** Ring-Anzeige: Fehler behoben, durch den die Ringe nur zur Hälfte (rechts, 12 bis 6 Uhr) gefüllt waren. Die Ring-Daten (`Segments.lua`) wurden nach der Ring-Datei geladen, deshalb rechnete das Addon mit 32 statt 64 Stücken. Die Anzahl wird jetzt zur Laufzeit gelesen, und `Segments.lua` steht in der `.toc` vor `UnitRings.lua`. **EN:** Unit rings: fixed a bug that left the rings only half filled (right side, 12 to 6 o'clock). The ring data (`Segments.lua`) was loaded after the ring file, so the addon counted 32 instead of 64 pieces. The count is now read at run time, and `Segments.lua` comes before `UnitRings.lua` in the `.toc`.
 
 **0.38.0 DE:** Ring-Anzeige in vier Ebenen, von außen nach innen: 1 Mana-Ring (nur Druide in Katzen- oder Bärengestalt, damit man sein Mana sieht), 2 Ressourcenring (Mana, Wut, Energie ...; beim Druiden in Eulen-/Baumgestalt also das Mana), 3 Lebensring, 4 Porträt. Jede Ebene hat einen eigenen Haken, eine eigene Dicke (Stufe 1–6) und eine eigene Richtung (Haken „gegen den Uhrzeigersinn“ je Ring; der alte gemeinsame Haken entfällt). Der Platz der Druiden-Ebene bleibt auch außerhalb der Gestalt frei, damit die Ringe nicht springen. `/fwring` zeigt jetzt je Ring Quelle, Stufe, Segmente und Größe. Ungeprüft im Spiel. **EN:** Unit rings in four layers, from the outside in: 1 mana ring (druids in cat or bear form only, so you can see your mana), 2 resource ring (mana, rage, energy ...; for a druid in owl/tree form that is mana), 3 life ring, 4 portrait. Each layer has its own checkbox, its own thickness (level 1-6) and its own direction ("counter-clockwise" checkbox per ring; the old shared checkbox is gone). The druid layer's slot stays free outside the form so the rings do not jump. `/fwring` now shows source, level, segments and size per ring. Unchecked in game.
 
