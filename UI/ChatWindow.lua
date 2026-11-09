@@ -26,6 +26,7 @@ W.DEFAULTS = {
     maxW = 78,            -- groesste Breite einer Blase in Prozent des Fensters
     compact = true,       -- kompakte Blasen
     combatMirror = true,  -- Kampflog des Spiels in den Reiter spiegeln
+    ownMenu = false,      -- Rechtsklick auf Namen: eigenes Menue statt des Menues des Spiels
     classic = false,      -- Aussehen wie der Chat des Spiels: nur Zeilen, schlichter Hintergrund
 }
 
@@ -554,6 +555,152 @@ local function ShowLink(lk)
     if G.SetItemRef then pcall(G.SetItemRef, lk.data, full, "LeftButton") end
 end
 
+
+------------------------------------------------------------------------
+-- Rechtsklick auf einen Namen: Spielermenue (Fluestern, Einladen, Freund, Ignorieren, Wer)
+-- Zuerst das Menue des Spiels (SetItemRef mit rechter Maustaste, sonst FriendsFrame_ShowDropdown); oeffnet sich keines, oder ist in den
+-- Einstellungen "eigenes Menue" gewaehlt, erscheint ein eigenes kleines Menue mit denselben Kernpunkten. UNGEPRUEFT im Spiel.
+------------------------------------------------------------------------
+
+if FW.AddLocale then
+    FW:AddLocale("enUS", {
+        MENU_WHISPER = "Whisper", MENU_INVITE = "Invite to group", MENU_FRIEND = "Add friend", MENU_IGNORE = "Ignore",
+        MENU_WHO = "Who", MENU_CLOSE = "Cancel",
+        CHATWIN_OWN_MENU = "Use Freewood's own player menu on right-click (instead of the game's menu)",
+    })
+    FW:AddLocale("deDE", {
+        MENU_WHISPER = "Flüstern", MENU_INVITE = "In Gruppe einladen", MENU_FRIEND = "Freund hinzufügen", MENU_IGNORE = "Ignorieren",
+        MENU_WHO = "Wer", MENU_CLOSE = "Abbrechen",
+        CHATWIN_OWN_MENU = "Eigenes Spielermenü von Freewood bei Rechtsklick nutzen (statt des Menüs des Spiels)",
+    })
+end
+
+local function Api(...)
+    -- erste vorhandene Funktion aus einer Liste von { Tabelle, Name } oder Namen
+    for _, spec in ipairs({ ... }) do
+        local f
+        if type(spec) == "table" then f = spec[1] and spec[1][spec[2]] else f = G[spec] end
+        if type(f) == "function" then return f end
+    end
+end
+
+function W.MenuEntries(name)
+    local L = FW.L
+    local list = { { id = "whisper", label = L.MENU_WHISPER } }
+    if Api({ G.C_PartyInfo, "InviteUnit" }, "InviteUnit") then list[#list + 1] = { id = "invite", label = L.MENU_INVITE } end
+    if Api({ G.C_FriendList, "AddFriend" }, "AddFriend") then list[#list + 1] = { id = "friend", label = L.MENU_FRIEND } end
+    if Api({ G.C_FriendList, "AddIgnore" }, "AddIgnore") then list[#list + 1] = { id = "ignore", label = L.MENU_IGNORE } end
+    if Api({ G.C_FriendList, "SendWho" }, "SendWho") then list[#list + 1] = { id = "who", label = L.MENU_WHO } end
+    return list
+end
+
+function W.MenuAction(id, name)
+    if type(name) ~= "string" or name == "" then return false end
+    local f
+    if id == "whisper" then W.StartWhisper(name); return true
+    elseif id == "invite" then f = Api({ G.C_PartyInfo, "InviteUnit" }, "InviteUnit")
+    elseif id == "friend" then f = Api({ G.C_FriendList, "AddFriend" }, "AddFriend")
+    elseif id == "ignore" then f = Api({ G.C_FriendList, "AddIgnore" }, "AddIgnore")
+    elseif id == "who" then
+        f = Api({ G.C_FriendList, "SendWho" }, "SendWho")
+        if f then return pcall(f, "n-\"" .. name .. "\"") end
+    end
+    if not f then return false end
+    return (pcall(f, name))
+end
+
+local function BlizzMenuOpen()
+    local d = G.DropDownList1
+    if d and d.IsShown and d:IsShown() then return true end
+    if G.Menu and G.Menu.GetManager then
+        local ok, m = pcall(G.Menu.GetManager)
+        if ok and m and m.GetOpenMenu then
+            local ok2, o = pcall(m.GetOpenMenu, m)
+            if ok2 and o then return true end
+        end
+    end
+    return false
+end
+
+-- Menue des Spiels versuchen; Rueckgabe: ist eines offen
+function W.BlizzMenu(name)
+    local dc = G.DEFAULT_CHAT_FRAME
+    if G.SetItemRef then
+        pcall(G.SetItemRef, "player:" .. name, "\124Hplayer:" .. name .. "\124h[" .. name .. "]\124h", "RightButton", dc)
+        if BlizzMenuOpen() then return true end
+    end
+    if G.FriendsFrame_ShowDropdown then
+        pcall(G.FriendsFrame_ShowDropdown, name, 1, nil, "WHISPER", dc)
+        if BlizzMenuOpen() then return true end
+    end
+    return false
+end
+
+local menuF, menuCatcher
+function W.HideOwnMenu()
+    if menuF then menuF:Hide() end
+    if menuCatcher then menuCatcher:Hide() end
+end
+
+function W.OwnMenu(name)
+    local L = FW.L
+    if not menuCatcher then
+        menuCatcher = CreateFrame("Button", nil, G.UIParent)
+        menuCatcher:SetAllPoints(G.UIParent)
+        menuCatcher:SetFrameStrata("DIALOG")
+        menuCatcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        menuCatcher:SetScript("OnClick", function() W.HideOwnMenu() end)
+        menuF = UI.CreatePanel(G.UIParent, "panel", "bronze")
+        menuF:SetFrameStrata("FULLSCREEN_DIALOG")
+        menuF:EnableMouse(true)
+        menuF.title = UI.CreateLabel(menuF, "", { size = 12 })
+        menuF.title:SetPoint("TOP", menuF, "TOP", 0, -7)
+        menuF.btns = {}
+    end
+    local entries = W.MenuEntries(name)
+    entries[#entries + 1] = { id = "close", label = L.MENU_CLOSE }
+    menuF.title:SetText(name)
+    for i, e in ipairs(entries) do
+        local b = menuF.btns[i]
+        if not b then
+            b = UI.CreateButton(menuF, e.label, 150, 22, nil)
+            menuF.btns[i] = b
+        end
+        b:SetLabel(e.label)
+        b:SetScript("OnClick", function()
+            if e.id ~= "close" then W.MenuAction(e.id, name) end
+            W.HideOwnMenu()
+        end)
+        b:ClearAllPoints()
+        b:SetPoint("TOP", menuF, "TOP", 0, -26 - (i - 1) * 24)
+        b:Show()
+    end
+    for i = #entries + 1, #menuF.btns do menuF.btns[i]:Hide() end
+    menuF:SetSize(166, 34 + #entries * 24)
+    local cx, cy = 0, 0
+    if G.GetCursorPosition then cx, cy = G.GetCursorPosition() end
+    local sc = G.UIParent.GetEffectiveScale and G.UIParent:GetEffectiveScale()
+    if type(sc) ~= "number" or sc == 0 then sc = 1 end
+    if type(cx) ~= "number" then cx = 0 end
+    if type(cy) ~= "number" then cy = 0 end
+    menuF:ClearAllPoints()
+    menuF:SetPoint("TOPLEFT", G.UIParent, "BOTTOMLEFT", (cx or 0) / sc, (cy or 0) / sc)
+    menuF:SetClampedToScreen(true)
+    menuCatcher:Show()
+    menuF:Show()
+end
+
+-- Einstieg: Rechtsklick auf Namen
+function W.ShowPlayerMenu(name)
+    if type(name) ~= "string" or name == "" or Secret(name) then return false end
+    local me = G.UnitName and G.UnitName("player")
+    if me and name == me then return false end
+    W.HideOwnMenu()
+    if not W.Opts().ownMenu and W.BlizzMenu(name) then return true end
+    W.OwnMenu(name)
+    return true
+end
+
 local lastH, lastViewH, stick = 0, 0, true
 
 -- Position (links unten) eines Rahmens in Einheiten von UIParent
@@ -738,10 +885,14 @@ function W.Draw()
         b:SetSize(areaW - 8, rowH)
         local sender = (who ~= "?" and who ~= "" and (not line or W.CHAT_KIND[m.kind])) and who or nil
         if nameHit then sender = nameHit.name end
-        b.avBtn:SetScript("OnClick", function() if sender then SetTarget(sender) end end)
+        b.avBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        b.avBtn:SetScript("OnClick", function(_, btn)
+            if not sender then return end
+            if btn == "RightButton" then W.ShowPlayerMenu(sender) else SetTarget(sender) end
+        end)
         b.panel:SetScript("OnClick", function(_, btn)
             if btn == "RightButton" then
-                if sender then SetTarget(sender) end
+                if sender then W.ShowPlayerMenu(sender) end
             elseif nameHit and W.CursorInName(b.panel, nameHit) then
                 SetTarget(nameHit.name)
             elseif #links >= 1 then
@@ -1944,6 +2095,9 @@ function W.Probe()
         "Haken gesetzt: " .. tostring(W.hookCount or 0) .. ", Aktivierung abgefangen: " .. tostring(W.hookActivate == true)
             .. ", Haupt-Chat: " .. tostring(W.Opts().main == true),
     }
+    lines[#lines + 1] = "Spielermenue: SetItemRef " .. (G.SetItemRef and "ja" or "nein") .. ", FriendsFrame_ShowDropdown " .. (G.FriendsFrame_ShowDropdown and "ja" or "nein")
+        .. ", UnitPopup_OpenMenu " .. (G.UnitPopup_OpenMenu and "ja" or "nein") .. ", DropDownList1 " .. (G.DropDownList1 and "ja" or "nein")
+        .. ", Menu " .. (G.Menu and "ja" or "nein") .. ", eigenes Menue " .. (W.Opts().ownMenu and "an" or "aus")
     if G.GetBindingKey then
         local ok, k1, k2 = pcall(G.GetBindingKey, "OPENCHAT")
         lines[#lines + 1] = "Taste OPENCHAT: " .. tostring(ok and k1 or "?") .. " " .. tostring(ok and k2 or "")
@@ -2000,7 +2154,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-window", {
         category = "chat",
         order = 5,
-        height = 800,
+        height = 830,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CHATWIN_TITLE)
@@ -2011,6 +2165,9 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_CLASSIC,
                 function() return W.Opts().classic == true end,
                 function(v) W.Opts().classic = v and true or false; stick = true; W.ApplyLook(); W.Dirty() end), { fit = true })
+            stack:Add(UI.CreateCheckbox(f, L.CHATWIN_OWN_MENU,
+                function() return W.Opts().ownMenu == true end,
+                function(v) W.Opts().ownMenu = v and true or false end), { fit = true })
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_SHOW_LEVEL,
                 function() return W.Opts().showLevel == true end,
                 function(v) W.Opts().showLevel = v and true or false; W.Dirty() end), { fit = true })

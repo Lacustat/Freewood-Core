@@ -406,5 +406,25 @@ do -- "kein Spieler ... online" wird nicht angezeigt
     W.AddSystem("Momentan ist kein Spieler mit dem Namen 'Talon' online.", "system")
     eq(#W.lines, before, "nicht in die Zeilen")
 end
+do -- Spielermenue
+    local calls = {}
+    _G.C_PartyInfo = { InviteUnit = function(n) calls[#calls + 1] = "invite:" .. n end }
+    _G.C_FriendList = { AddFriend = function(n) calls[#calls + 1] = "friend:" .. n end, SendWho = function(q) calls[#calls + 1] = "who:" .. q end }
+    local ids = {}
+    for _, e in ipairs(W.MenuEntries("Anna")) do ids[#ids + 1] = e.id end
+    eq(table.concat(ids, ","), "whisper,invite,friend,who", "Menuepunkte (Ignorieren fehlt ohne Funktion)")
+    eq(W.MenuAction("invite", "Anna"), true, "einladen"); eq(W.MenuAction("friend", "Anna"), true, "Freund")
+    W.MenuAction("who", "Anna")
+    eq(calls[1], "invite:Anna", "Einladung an Anna"); eq(calls[2], "friend:Anna", "Freund Anna"); eq(calls[3], 'who:n-"Anna"', "Wer-Abfrage")
+    eq(W.MenuAction("ignore", "Anna"), false, "Ignorieren ohne Funktion")
+    -- Spiel-Menue: oeffnet SetItemRef eines, wird kein eigenes gebraucht
+    local ref
+    _G.SetItemRef = function(link, text, btn) ref = { link, btn }; _G.DropDownList1 = { IsShown = function() return true end } end
+    eq(W.ShowPlayerMenu("Bert"), true, "Menue geoeffnet"); eq(ref[1], "player:Bert", "Link"); eq(ref[2], "RightButton", "rechte Taste")
+    eq(W.ShowPlayerMenu("Pinky"), false, "eigener Name: kein Menue")
+    W.Opts().ownMenu = true; ref = nil
+    W.ShowPlayerMenu("Bert"); eq(ref, nil, "eigenes Menue statt Spiel-Menue")
+    W.Opts().ownMenu = false; _G.SetItemRef = nil; _G.DropDownList1 = nil
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)
