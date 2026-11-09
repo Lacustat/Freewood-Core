@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.39.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.40.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.40.0 DE:** Ring-Anzeige als Scheiben: Jede Ebene ist jetzt eine volle, geschlossene Scheibe, die sich im oder gegen den Uhrzeigersinn füllt; die Scheiben liegen übereinander, die kleineren oben, und das Porträt auf der innersten. Sichtbar bleibt von jeder Scheibe das Band am Rand, dessen Breite man je Ebene in Prozent einstellt (4–45 %, Standard 16 %; ersetzt die Dickenstufen 1–6). Der leere Teil jeder Scheibe ist dunkel und deckend. Die Segment-Scheibe für geheime Werte hat jetzt 128 Stücke (feinerer Schnitt, weniger kantig; `seg_001…128.tga`, Scheibe `disc.tga`); die alten `ring<N>.tga`/`seg<N>_NN.tga` entfallen. Gespeicherte Dicken der Version 0.38/0.39 werden auf 16 % zurückgesetzt. Ungeprüft im Spiel. **EN:** Unit rings as discs: every layer is now a full, closed disc that fills clockwise or counter-clockwise; the discs lie on top of each other, the smaller ones above, and the portrait on the innermost. What stays visible of each disc is the band at its edge, whose width you set per layer in percent (4-45 %, default 16 %; replaces thickness levels 1-6). The empty part of each disc is dark and opaque. The segment disc for secret values now has 128 pieces (finer cut, less angular; `seg_001..128.tga`, disc `disc.tga`); the old `ring<N>.tga`/`seg<N>_NN.tga` are gone. Saved thicknesses from versions 0.38/0.39 are reset to 16 %. Unchecked in game.
 
 **0.39.0 DE:** Ring-Anzeige mit Konturen: Jeder Ring hat jetzt eine eigene Kontur (deine Bilder, 512 px mit 10 px Rand) über der Füllung: grün für Leben, blau für Mana (auch der Druiden-Mana-Ring), rot für Wut, gelb für Energie; andere Ressourcen (Fokus, Runenmacht …) bekommen eine weiße Kontur in der Ressourcenfarbe. Beim Ressourcenring wechselt die Kontur mit der Ressource (Druide: Katze gelb, Bär rot, Zauberform blau). Die Füllung sitzt knapp innerhalb der Kontur (Dicke wie bisher einstellbar), der nächste Ring und das Porträt liegen innerhalb der Füllung. Neue Dateien `Media\Rings\frame_green|blue|red|yellow|white.tga`. Ungeprüft im Spiel. **EN:** Unit rings with outlines: every ring now has its own outline (your images, 512 px with a 10 px border) above the fill: green for life, blue for mana (also the druid mana ring), red for rage, yellow for energy; other resources (focus, runic power ...) get a white outline in the resource colour. On the resource ring the outline changes with the resource (druid: cat yellow, bear red, caster form blue). The fill sits just inside the outline (thickness adjustable as before); the next ring and the portrait sit inside the fill. New files `Media\Rings\frame_green|blue|red|yellow|white.tga`. Unchecked in game.
 

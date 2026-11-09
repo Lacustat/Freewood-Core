@@ -1,12 +1,13 @@
 -- Freewood-Core: Ring-Anzeige fuer Leben und Ressourcen neben dem Charakter (Einstellungen > Interface).
--- Jeder Ring besteht aus einer Kontur (Bild frame_<farbe>.tga, 10 px von 512, gruen=Leben, blau=Mana, rot=Wut, gelb=Energie)
--- ueber der Fuellung, die knapp innerhalb der Kontur liegt (Dicke einstellbar).
--- Ebenen von aussen nach innen: 1 Mana-Ring (nur Druide in Katzen-/Baerengestalt), 2 Ressourcenring (Mana, Wut, Energie ...),
--- 3 Lebensring, 4 Portrait (runde Maske). Jeder Ring ist ein einzelner Kreis mit eigener Dicke, Richtung und eigenem Haken.
+-- Ebenen von aussen nach innen: 1 Mana-Scheibe (nur Druide in Katzen-/Baerengestalt), 2 Ressourcen-Scheibe (Mana, Wut, Energie ...),
+-- 3 Lebens-Scheibe, 4 Portrait (runde Maske). Jede Ebene ist eine volle, geschlossene Scheibe, die sich im oder gegen den Uhrzeigersinn
+-- fuellt; die Scheiben liegen uebereinander, die kleineren oben. Sichtbar bleibt von jeder Scheibe das Band am Rand: seine Breite stellt
+-- man je Ebene ein (Prozent des Radius). Darueber liegt je Ebene eine Kontur (Bild frame_<farbe>.tga: gruen=Leben, blau=Mana, rot=Wut,
+-- gelb=Energie, weiss=andere).
 -- Alles ist standardmaessig AUS. Blizzards Spielerfenster ausblenden (nur Transparenz), Verschieben per Ziehen, Groesse per Regler.
--- Zeichnen: sind die Werte lesbar, ein Cooldown-Frame mit Ring-Textur (Media\Rings\ring<stufe>.tga), angehalten auf dem Prozentwert.
--- Sind die Werte "secret" (Spieler auf Forever), nimmt ein Ring aus 64 Statusleisten ihren Platz (siehe Segment-Ring).
--- UNGEPRUEFT im Spiel: Druiden-Mana-Ring, Richtung je Ring, die Richtung des Swipes (Haken "Füllung vertauschen").
+-- Zeichnen: sind die Werte lesbar, ein Cooldown-Frame mit Scheiben-Textur (Media\Rings\disc.tga), angehalten auf dem Prozentwert.
+-- Sind die Werte "secret" (Spieler auf Forever), nimmt eine Scheibe aus 128 Statusleisten ihren Platz (siehe Segment-Scheibe).
+-- UNGEPRUEFT im Spiel: Scheiben-Ebenen, Druiden-Mana, Richtung je Ebene, Richtung des Swipes (Haken "Füllung vertauschen").
 
 local ADDON, FW = ...
 
@@ -36,9 +37,9 @@ FW:AddLocale("enUS", {
     RINGS_UNLOCK = "Move (drag the rings)",
     RINGS_FLIP = "Swap fill (if a smooth ring shows the wrong part)",
     RINGS_SIZE = "Size: %d",
-    RINGS_DMANA_THICK = "Druid mana ring thickness: %d",
-    RINGS_POWER_THICK = "Resource ring thickness: %d",
-    RINGS_HEALTH_THICK = "Life ring thickness: %d",
+    RINGS_DMANA_THICK = "Druid mana ring: visible band %d %%",
+    RINGS_POWER_THICK = "Resource ring: visible band %d %%",
+    RINGS_HEALTH_THICK = "Life ring: visible band %d %%",
 })
 FW:AddLocale("deDE", {
     RINGS_TITLE = "Ring-Anzeige (Leben und Ressourcen)",
@@ -56,17 +57,19 @@ FW:AddLocale("deDE", {
     RINGS_UNLOCK = "Verschieben (Ringe ziehen)",
     RINGS_FLIP = "Füllung vertauschen (falls ein glatter Ring den falschen Teil zeigt)",
     RINGS_SIZE = "Größe: %d",
-    RINGS_DMANA_THICK = "Dicke Druiden-Mana-Ring: %d",
-    RINGS_POWER_THICK = "Dicke Ressourcenring: %d",
-    RINGS_HEALTH_THICK = "Dicke Lebensring: %d",
+    RINGS_DMANA_THICK = "Druiden-Mana-Ring: sichtbares Band %d %%",
+    RINGS_POWER_THICK = "Ressourcenring: sichtbares Band %d %%",
+    RINGS_HEALTH_THICK = "Lebensring: sichtbares Band %d %%",
 })
 
 local DEFAULTS = {
     on = false, dmana = false, power = false, health = false, portrait = false, hideBlizz = false, hideFull = false,
     unlock = false, flip = false, size = 120, x = 160, y = 0,
-    dmanaThick = 3, powerThick = 3, healthThick = 3,   -- Dicke je Ring, Stufe 1 (duenn) bis 6 (dick); 3 = bisheriges Aussehen
+    dmanaThick = 16, powerThick = 16, healthThick = 16,   -- sichtbares Band je Ebene in Prozent des Radius (4 bis 45)
     dmanaRev = false, powerRev = false, healthRev = false,   -- true = gegen den Uhrzeigersinn
 }
+
+R.BAND_MIN, R.BAND_MAX = 4, 45
 
 -- Ebenen von aussen nach innen
 R.ORDER = { "dmana", "power", "health" }
@@ -78,6 +81,11 @@ function R.Opts()
     local o = s.unitRings
     for k, v in pairs(DEFAULTS) do
         if o[k] == nil then o[k] = v end
+    end
+    -- aeltere Versionen speicherten die Dicke als Stufe 1-6: auf das Standard-Band zuruecksetzen
+    for _, key in ipairs(R.ORDER) do
+        local v = o[key .. "Thick"]
+        if type(v) ~= "number" or v < R.BAND_MIN then o[key .. "Thick"] = 16 end
     end
     return o
 end
@@ -138,18 +146,11 @@ function R.PowerColor(ptype)
     return c[1], c[2], c[3]
 end
 
-R.LEVELS = 6
-
-function R.Level(v)
-    v = math.floor((tonumber(v) or 3) + 0.5)
-    if v < 1 then v = 1 elseif v > R.LEVELS then v = R.LEVELS end
-    return v
-end
-
--- Dicke eines Rings als Anteil am Radius (aus Media\Rings\Segments.lua)
-function R.Thickness(level)
-    local t = FW.RingThickness
-    return t and t[R.Level(level)] or 0.16
+-- sichtbares Band einer Ebene als Anteil am Radius (Einstellung in Prozent)
+function R.Band(v)
+    v = tonumber(v) or 16
+    if v < R.BAND_MIN then v = R.BAND_MIN elseif v > R.BAND_MAX then v = R.BAND_MAX end
+    return v / 100
 end
 
 ---------------------------------------------------------------------
@@ -183,21 +184,22 @@ function R.Slots(o)
     return list
 end
 
--- Groessen der Ringe und des Portraits (Pixel). Der aeusserste Ring hat die volle Groesse, jeder naechste liegt innerhalb der
--- Dicke des Vorgaengers (plus kleiner Abstand), das Portrait innerhalb des innersten Rings.
+-- Groessen der Scheiben und des Portraits (Pixel). Die aeusserste Scheibe hat die volle Groesse; jede naechste ist so gross, dass vom
+-- Vorgaenger das eingestellte Band sichtbar bleibt (gerechnet ab der Fuellung, die innerhalb der Kontur liegt). Das Portrait
+-- liegt auf der innersten Scheibe und laesst ebenfalls deren Band frei.
 function R.Layout(o)
     local S = o.size or 120
     local lay = { outer = S, diam = {}, slots = R.Slots(o) }
-    local d, lastThick = S, 0.16
+    local d, lastBand = S, 0.16
     for i, key in ipairs(lay.slots) do
         if i > 1 then
             local prev = lay.slots[i - 1]
-            d = math.floor(lay.diam[prev] * FILLK * (1 - R.Thickness(o[prev .. "Thick"]) - 0.03) + 0.5)
+            d = math.floor(lay.diam[prev] * FILLK * (1 - R.Band(o[prev .. "Thick"])) + 0.5)
         end
         lay.diam[key] = d
-        lastThick = R.Thickness(o[key .. "Thick"])
+        lastBand = R.Band(o[key .. "Thick"])
     end
-    lay.portrait = math.floor(d * FILLK * (1 - lastThick - 0.06) + 0.5)
+    lay.portrait = math.floor(d * FILLK * (1 - lastBand) + 0.5)
     return lay
 end
 
@@ -207,17 +209,16 @@ end
 
 local function NewRing(parent)
     local ring = {}
-    ring.frame = G.CreateFrame("Frame", nil, parent)          -- Behaelter in voller Ringgroesse
+    ring.frame = G.CreateFrame("Frame", nil, parent)          -- Behaelter in voller Groesse
+    ring.track = ring.frame:CreateTexture(nil, "BACKGROUND")   -- dunkle, deckende Scheibe (der leere Teil)
+    ring.track:SetAllPoints(ring.frame)
+    ring.track:SetTexture(PATH .. "disc.tga")
+    ring.track:SetVertexColor(0.07, 0.07, 0.09, 0.95)
     ring.fill = G.CreateFrame("Frame", nil, ring.frame)        -- Fuellung, etwas kleiner (innerhalb der Kontur)
     ring.fill:SetPoint("CENTER", ring.frame, "CENTER", 0, 0)
-    ring.track = ring.fill:CreateTexture(nil, "BACKGROUND")
-    ring.track:SetAllPoints(ring.fill)
-    ring.track:SetTexture(PATH .. "ring3.tga")
-    ring.track:SetVertexColor(0.12, 0.12, 0.12, 0.7)
     local cd = G.CreateFrame("Cooldown", nil, ring.fill)
     cd:SetAllPoints(ring.fill)
-    if cd.SetSwipeTexture then cd:SetSwipeTexture(PATH .. "ring3.tga") end
-    ring.level = 3
+    if cd.SetSwipeTexture then cd:SetSwipeTexture(PATH .. "disc.tga") end
     if cd.SetDrawEdge then cd:SetDrawEdge(false) end
     if cd.SetDrawBling then cd:SetDrawBling(false) end
     if cd.SetDrawSwipe then cd:SetDrawSwipe(true) end
@@ -226,12 +227,22 @@ local function NewRing(parent)
     -- Kontur: eigener Frame ueber der Fuellung
     ring.top = G.CreateFrame("Frame", nil, ring.frame)
     ring.top:SetAllPoints(ring.frame)
-    if ring.top.SetFrameLevel and ring.frame.GetFrameLevel then ring.top:SetFrameLevel((ring.frame:GetFrameLevel() or 1) + 20) end
     ring.line = ring.top:CreateTexture(nil, "OVERLAY")
     ring.line:SetAllPoints(ring.top)
     ring.line:SetTexture(PATH .. "frame_white.tga")
     ring.last = -1
     return ring
+end
+
+-- Ebenen-Reihenfolge der Frames: spaetere (innere) Scheiben liegen ueber den aeusseren
+function R.SetFrameLevels(ring, base)
+    if not ring.frame.SetFrameLevel then return end
+    ring.frame:SetFrameLevel(base)
+    ring.fill:SetFrameLevel(base + 1)
+    ring.cd:SetFrameLevel(base + 2)
+    if ring.segs then for _, sb in ipairs(ring.segs) do sb:SetFrameLevel(base + 3) end end
+    ring.top:SetFrameLevel(base + 8)
+    ring.baseLevel = base
 end
 
 -- Kontur-Bild einer Ebene: Leben gruen, Mana blau, Wut rot, Energie gelb; andere Ressourcen: weisse Kontur in der Ressourcenfarbe
@@ -325,7 +336,7 @@ end
 
 -- Anzahl der Stuecke steht in Media\Rings\Segments.lua; zur Laufzeit gelesen (die Datei kann nach dieser geladen werden)
 function R.SegCount()
-    return FW.RingSegments and FW.RingSegments[1] and #FW.RingSegments[1] or 32
+    return FW.RingSegments and #FW.RingSegments or 128
 end
 
 -- Fuellrichtung eines Segments (im Uhrzeigersinn ab 12 Uhr): orientation, reverse
@@ -345,17 +356,18 @@ function R.BuildSegs(ring)
     ring.segs = {}
     for k = 1, R.SegCount() do
         local sb = G.CreateFrame("StatusBar", nil, ring.fill or ring.frame)
-        sb:SetStatusBarTexture(string.format("%sseg%d_%02d.tga", PATH, ring.level or 3, k))
+        sb:SetStatusBarTexture(string.format("%sseg_%03d.tga", PATH, k))
         local orient = R.SegDirection(k)
         sb:SetOrientation(orient)
         sb:Hide()
         ring.segs[k] = sb
     end
+    if ring.baseLevel then R.SetFrameLevels(ring, ring.baseLevel) end
     return ring.segs
 end
 
 function R.LayoutSegs(ring, size)
-    local info = FW.RingSegments and FW.RingSegments[ring.level or 3]
+    local info = FW.RingSegments
     if not ring.segs or not info then return end
     local f = size / (FW.RingSegmentSize or 256)
     for k, sb in ipairs(ring.segs) do
@@ -366,21 +378,7 @@ function R.LayoutSegs(ring, size)
             sb:SetPoint("TOPLEFT", ring.fill or ring.frame, "TOPLEFT", d[1] * f, -d[2] * f)
         end
     end
-    ring.layKey = size .. ":" .. (ring.level or 3)
-end
-
--- Dicke eines Rings umstellen: Hintergrund-, Swipe- und Segment-Bilder tauschen
-function R.SetLevel(ring, level)
-    level = R.Level(level)
-    if ring.level == level then return end
-    ring.level = level
-    ring.last = -1
-    ring.track:SetTexture(PATH .. "ring" .. level .. ".tga")
-    if ring.cd.SetSwipeTexture then ring.cd:SetSwipeTexture(PATH .. "ring" .. level .. ".tga") end
-    if ring.segs then
-        for k, sb in ipairs(ring.segs) do sb:SetStatusBarTexture(string.format("%sseg%d_%02d.tga", PATH, level, k)) end
-        R.LayoutSegs(ring, ring.fsize or ring.size or 100)
-    end
+    ring.layKey = tostring(size)
 end
 
 -- Segmente ein/aus; Wertebereich je Segment (im Uhrzeigersinn): [ (k-1)/n, k/n ] * pmax; gegen den Uhrzeigersinn
@@ -402,7 +400,7 @@ function R.SegMode(ring, on, pmax, ccw)
                 end
             end
         end
-        if ring.layKey ~= (ring.fsize or ring.size or 100) .. ":" .. (ring.level or 3) then R.LayoutSegs(ring, ring.fsize or ring.size or 100) end
+        if ring.layKey ~= tostring(ring.fsize or ring.size or 100) then R.LayoutSegs(ring, ring.fsize or ring.size or 100) end
         if not ring.segOn then
             for _, sb in ipairs(ring.segs) do sb:Show() end
             ring.cd:Hide()
@@ -545,16 +543,16 @@ function R.Apply()
         ring.frame:Hide()
     end
     R.active = lay.slots
-    for _, key in ipairs(lay.slots) do
+    for i, key in ipairs(lay.slots) do
         local ring = R.rings[key]
         local s = lay.diam[key]
-        R.SetLevel(ring, o[key .. "Thick"])
         ring.size = s
         ring.fsize = math.floor(s * FILLK + 0.5)
         ring.fill:SetSize(ring.fsize, ring.fsize)
         ring.frame:SetSize(s, s)
         ring.frame:ClearAllPoints()
         ring.frame:SetPoint("CENTER", f, "CENTER", 0, 0)
+        R.SetFrameLevels(ring, (f.GetFrameLevel and f:GetFrameLevel() or 1) + i * 12)
         ring.frame:Show()
     end
     if o.portrait then
@@ -634,8 +632,8 @@ function R.Debug()
         if cd.GetCooldownTimes then a, b2 = cd:GetCooldownTimes() end
         local nseg, nshown = 0, 0
         if ring.segs then for _, sb in ipairs(ring.segs) do nseg = nseg + 1; if sb:IsShown() then nshown = nshown + 1 end end end
-        P(string.format("%s: Anteil=%.3f Quelle=%s Stufe=%s Groesse=%s | Segmente=%d (sichtbar %d, an=%s) | Swipe=%s Pause=%s | CooldownTimes=%s/%s",
-            key, fr, S(src), S(ring.level), S(ring.size), nseg, nshown, S(ring.segOn), S(cd.SetSwipeTexture ~= nil), S(cd.Pause ~= nil), S(a), S(b2)))
+        P(string.format("%s: Anteil=%.3f Quelle=%s Groesse=%s | Segmente=%d (sichtbar %d, an=%s) | Swipe=%s Pause=%s | CooldownTimes=%s/%s",
+            key, fr, S(src), S(ring.size), nseg, nshown, S(ring.segOn), S(cd.SetSwipeTexture ~= nil), S(cd.Pause ~= nil), S(a), S(b2)))
     end
     do
         local fn = G.UnitHealthPercent
@@ -719,9 +717,9 @@ if UI.RegisterSettingsSection then
                 stack:Add(sl, { height = 20, gap = 2 })
             end
             Slider("size", L.RINGS_SIZE, 60, 300, 5)
-            Slider("dmanaThick", L.RINGS_DMANA_THICK, 1, R.LEVELS, 1)
-            Slider("powerThick", L.RINGS_POWER_THICK, 1, R.LEVELS, 1)
-            Slider("healthThick", L.RINGS_HEALTH_THICK, 1, R.LEVELS, 1)
+            Slider("dmanaThick", L.RINGS_DMANA_THICK, R.BAND_MIN, R.BAND_MAX, 1)
+            Slider("powerThick", L.RINGS_POWER_THICK, R.BAND_MIN, R.BAND_MAX, 1)
+            Slider("healthThick", L.RINGS_HEALTH_THICK, R.BAND_MIN, R.BAND_MAX, 1)
             return f
         end,
     })

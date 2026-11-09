@@ -43,14 +43,15 @@ _G.PlayerFrame = Fake()
 local UI = setmetatable({}, { __index = function() return function() end end })
 local FW = { UI = UI, settings = {}, L = setmetatable({}, { __index = function(_, k) return k end }), AddLocale = function() end,
     RegisterEvent = function() end, Util = { IsSecret = function(v) return v == "secret" or v == "secretwert" end },
-    RingThickness = { 0.06, 0.10, 0.16, 0.22, 0.30, 0.40 } }
+    RingSegments = nil }
 assert(loadfile("UI/UnitRings.lua"))("Freewood-Core", FW)
 local R = FW.UnitRings
 
 -- Standard: alles aus
 local o = R.Opts()
 for _, k in ipairs({ "on", "dmana", "power", "health", "portrait", "hideBlizz", "hideFull", "unlock", "flip", "dmanaRev", "powerRev", "healthRev" }) do eq(o[k], false, "Standard aus: " .. k) end
-eq(o.healthThick, 3, "Standard-Dicke Leben"); eq(o.powerThick, 3, "Standard-Dicke Ressource"); eq(o.dmanaThick, 3, "Standard-Dicke Mana")
+eq(o.healthThick, 16, "Standard-Band Leben"); eq(o.powerThick, 16, "Standard-Band Ressource"); eq(o.dmanaThick, 16, "Standard-Band Mana")
+o.healthThick = 3; eq(R.Opts().healthThick, 16, "alte Stufe (3) wird auf das Standard-Band gesetzt")
 
 near(R.Fraction(50, 100), 0.5, "Anteil"); near(R.Fraction(5, 0), 0, "Max 0"); near(R.Fraction("secret", 10), 0, "secret ignoriert")
 near(R.Fraction(200, 100), 1, "oben begrenzt"); near(R.Fraction(-5, 100), 0, "unten begrenzt")
@@ -60,25 +61,24 @@ near(R.Elapsed(0.25, false, true), 0.25, "flip")
 near(R.Elapsed(0.25, true, true), 0.75, "reverse+flip")
 local r, g = R.HealthColor(1); eq(g > r, true, "voll = gruen")
 r, g = R.HealthColor(0.05); eq(r > g, true, "fast leer = rot")
-eq(R.Level(0), 1, "Stufe unten begrenzt"); eq(R.Level(99), 6, "Stufe oben begrenzt"); eq(R.Level(nil), 3, "Standard 3")
-near(R.Thickness(1), 0.06, "Dicke Stufe 1"); near(R.Thickness(6), 0.40, "Dicke Stufe 6")
+near(R.Band(16), 0.16, "Band 16 %"); near(R.Band(1), 0.04, "Band unten begrenzt"); near(R.Band(99), 0.45, "Band oben begrenzt"); near(R.Band(nil), 0.16, "Band Standard")
 
 -- Ebenen und Groessen
-local function Opt(t) local x = { size = 100, dmanaThick = 3, powerThick = 3, healthThick = 3 }; for k, v in pairs(t) do x[k] = v end; return x end
+local function Opt(t) local x = { size = 100, dmanaThick = 16, powerThick = 16, healthThick = 16 }; for k, v in pairs(t) do x[k] = v end; return x end
 R.druid = false
 local lay = R.Layout(Opt({ power = true, health = true }))
 eq(#lay.slots, 2, "zwei Ebenen"); eq(lay.slots[1], "power", "Ressource aussen"); eq(lay.slots[2], "health", "Leben innen")
-eq(lay.diam.power, 100, "aeusserer Ring volle Groesse"); eq(lay.diam.health, 76, "innerer Ring: Fuellung (x0.936) minus Dicke minus Abstand")
+eq(lay.diam.power, 100, "aeusserer Ring volle Groesse"); eq(lay.diam.health, 79, "innere Scheibe: Fuellung (x0.936) x (1 - Band 0.16)")
 lay = R.Layout(Opt({ dmana = true, power = true, health = true }))
 eq(#lay.slots, 2, "Mana-Ebene nur fuer Druiden")
 R.druid = true
 lay = R.Layout(Opt({ dmana = true, power = true, health = true }))
 eq(#lay.slots, 3, "drei Ebenen fuer Druiden"); eq(lay.slots[1], "dmana", "Mana ganz aussen")
 eq(lay.diam.dmana > lay.diam.power and lay.diam.power > lay.diam.health, true, "von aussen nach innen kleiner")
-local lyB = R.Layout(Opt({ dmana = true, power = true, health = true, dmanaThick = 6 }))
-eq(lyB.diam.power < lay.diam.power, true, "dicker Aussenring -> naechster Ring kleiner")
-local lyC = R.Layout(Opt({ power = true, health = true, healthThick = 6 }))
-eq(lyC.portrait < R.Layout(Opt({ power = true, health = true })).portrait, true, "dicker Innenring -> Portrait kleiner")
+local lyB = R.Layout(Opt({ dmana = true, power = true, health = true, dmanaThick = 40 }))
+eq(lyB.diam.power < lay.diam.power, true, "breiteres Band -> naechste Scheibe kleiner")
+local lyC = R.Layout(Opt({ power = true, health = true, healthThick = 40 }))
+eq(lyC.portrait < R.Layout(Opt({ power = true, health = true })).portrait, true, "breiteres Band innen -> Portrait kleiner")
 lay = R.Layout(Opt({ health = true })); eq(lay.diam.health, 100, "ein Ring volle Groesse")
 R.druid = false
 
@@ -96,7 +96,7 @@ R.Apply(); eq(R.frame, nil, "aus: kein Frame"); eq(PlayerFrame.alpha, 1, "aus: B
 o.on, o.health, o.power = true, true, true
 R.Apply()
 eq(R.frame ~= nil, true, "Frame gebaut"); eq(R.frame.shown, true, "sichtbar")
-eq(R.rings.health.lineKey, P .. "frame_green.tga", "Lebensring: gruene Kontur"); eq(R.rings.health.fsize, 85, "Fuellung etwas kleiner als der Ring (91 x 0.936)"); eq(R.rings.health.frame.shown, true, "Leben sichtbar"); eq(R.rings.power.frame.shown, true, "Ressource sichtbar"); eq(R.rings.dmana.frame.shown, false, "Mana-Ring aus")
+eq(R.rings.health.lineKey, P .. "frame_green.tga", "Lebensring: gruene Kontur"); eq(R.rings.health.fsize, math.floor(R.rings.health.size * 0.936 + 0.5), "Fuellung etwas kleiner als die Scheibe (x 0.936)"); eq(R.rings.health.frame.shown, true, "Leben sichtbar"); eq(R.rings.power.frame.shown, true, "Ressource sichtbar"); eq(R.rings.dmana.frame.shown, false, "Mana-Ring aus")
 local cdH = R.rings.health.cd
 near(cdH.start, 5000 - 0.5 * 1000, "Leben 50% -> Rest 0.5")
 hp = 25; R.Update(); near(cdH.start, 5000 - 0.75 * 1000, "Leben 25% -> abgelaufen 0.75")
@@ -144,18 +144,20 @@ _G.UnitHealthPercent = nil
 fr2, src = R.Read("health"); near(fr2, 0, "secret ohne Ausweg: 0"); eq(src, "secret", "Quelle secret")
 R.force = 0.6; fr2, src = R.Read("health"); near(fr2, 0.6, "Testmodus"); eq(src, "test", "Quelle test"); R.force = nil
 
--- Segment-Ring
-local o1, r1 = R.SegDirection(1); eq(o1, "HORIZONTAL", "Segment 1 (12 Uhr) horizontal"); eq(r1, false, "Segment 1 links nach rechts")
-local o64, r64 = R.SegDirection(1, 64); eq(o64, "HORIZONTAL", "64: Segment 1 horizontal"); eq(r64, false, "64: links nach rechts")
-local o64b, r64b = R.SegDirection(16, 64); eq(o64b, "VERTICAL", "64: Segment 16 (3 Uhr) senkrecht"); eq(r64b, true, "64: oben nach unten")
-local o16, r16 = R.SegDirection(16); eq(o16, "HORIZONTAL", "32: Segment 16 (6 Uhr) waagerecht"); eq(r16, true, "6 Uhr: rechts nach links")
-FW.RingSegments = {}; for l = 1, 6 do FW.RingSegments[l] = {}; for i = 1, 32 do FW.RingSegments[l][i] = { 10, 10, 20, 20 } end end
-local ring = { frame = Fake(), cd = Fake(), track = Fake(), size = 100, level = 3 }
-eq(R.SegMode(ring, true, 100, false), true, "Segmente an"); eq(#ring.segs, 32, "32 Segmente (Test-Daten)")
-near(ring.segs[1].range[1], 0, "Segment 1 von 0"); near(ring.segs[1].range[2], 3.125, "Segment 1 bis 3.125"); near(ring.segs[32].range[2], 100, "Segment 32 bis 100")
+-- Segment-Scheibe
+local o1, r1 = R.SegDirection(1, 128); eq(o1, "HORIZONTAL", "Segment 1 (12 Uhr) horizontal"); eq(r1, false, "links nach rechts")
+local o2, r2 = R.SegDirection(32, 128); eq(o2, "VERTICAL", "Segment 32 (3 Uhr) senkrecht"); eq(r2, true, "3 Uhr: oben nach unten")
+local o3, r3 = R.SegDirection(64, 128); eq(o3, "HORIZONTAL", "Segment 64 (6 Uhr) waagerecht"); eq(r3, true, "6 Uhr: rechts nach links")
+local o4, r4 = R.SegDirection(96, 128); eq(o4, "VERTICAL", "Segment 96 (9 Uhr) senkrecht"); eq(r4, false, "9 Uhr: unten nach oben")
+FW.RingSegments = {}; for i = 1, 128 do FW.RingSegments[i] = { 10, 10, 20, 20 } end
+eq(R.SegCount(), 128, "Anzahl aus den Daten")
+local ring = { frame = Fake(), fill = Fake(), cd = Fake(), track = Fake(), size = 100, fsize = 94 }
+eq(R.SegMode(ring, true, 100, false), true, "Segmente an"); eq(#ring.segs, 128, "128 Segmente")
+near(ring.segs[1].range[1], 0, "Segment 1 von 0"); near(ring.segs[1].range[2], 100 / 128, "Segment 1 bis 1/128"); near(ring.segs[128].range[2], 100, "Segment 128 bis 100")
+near(ring.segs[65].range[1], 50, "Segment 65 beginnt bei 50")
 local revCw = ring.segs[1].rev
 R.SegMode(ring, true, 100, true)
-near(ring.segs[1].range[1], 96.875, "gegen den Uhrzeigersinn: Segment 1 bekommt den letzten Bereich"); near(ring.segs[32].range[1], 0, "Segment 32 beginnt bei 0")
+near(ring.segs[1].range[1], 100 - 100 / 128, "gegen den Uhrzeigersinn: Segment 1 bekommt den letzten Bereich"); near(ring.segs[128].range[1], 0, "Segment 128 beginnt bei 0")
 eq(ring.segs[1].rev, not revCw, "Fuellrichtung gedreht")
 _G.UnitHealthPercent = function() return "secretwert" end
 _G.CurveConstants = { ScaleTo100 = 1 }
@@ -163,17 +165,11 @@ eq(R.FeedSegs(ring, "health", 0.2, 0.8, 0.2, false), true, "Segmente gefuettert"
 R.SegMode(ring, false); eq(ring.segOn, false, "Segmente aus")
 _G.UnitHealthPercent = nil; _G.CurveConstants = nil
 
--- 64 Stuecke: Anzahl kommt aus den Daten (auch wenn sie erst nach dem Laden der Datei da sind)
-FW.RingSegments = {}; for l = 1, 6 do FW.RingSegments[l] = {}; for i = 1, 64 do FW.RingSegments[l][i] = { 10, 10, 20, 20 } end end
-eq(R.SegCount(), 64, "Anzahl aus Daten")
-local ring64 = { frame = Fake(), cd = Fake(), track = Fake(), size = 100, level = 3 }
-R.SegMode(ring64, true, 100, false); eq(#ring64.segs, 64, "64 Segmente gebaut"); near(ring64.segs[33].range[1], 50, "Segment 33 beginnt bei 50"); near(ring64.segs[64].range[2], 100, "Segment 64 endet bei 100")
-
--- Dicke umstellen
-local tr = { frame = Fake(), cd = Fake(), track = Fake(), size = 100, level = 3 }
-local texCalls = {}; tr.track.SetTexture = function(_, p) table.insert(texCalls, p) end
-R.SetLevel(tr, 5); eq(tr.level, 5, "Stufe gesetzt"); eq(texCalls[1], "Interface\\AddOns\\Freewood-Core\\Media\\Rings\\ring5.tga", "Hintergrund-Bild der Stufe")
-local before = #texCalls; R.SetLevel(tr, 5); eq(#texCalls, before, "gleiche Stufe: nichts neu setzen")
+-- Frame-Ebenen: innere Scheiben liegen ueber den aeusseren
+local lv = {}
+local function LevelFake() local f = Fake(); f.SetFrameLevel = function(self, l) self.level = l end; return f end
+local rg = { frame = LevelFake(), fill = LevelFake(), cd = LevelFake(), top = LevelFake(), track = Fake() }
+R.SetFrameLevels(rg, 30); eq(rg.frame.level, 30, "Behaelter"); eq(rg.top.level > rg.cd.level, true, "Kontur ueber der Fuellung"); eq(rg.cd.level > rg.fill.level, true, "Cooldown ueber der Fuellflaeche")
 
 local msgs = {}; FW.Print = function(_, t) table.insert(msgs, t) end
 R.Debug(); eq(#msgs >= 3, true, "Debug gibt Zeilen aus")
