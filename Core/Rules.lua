@@ -419,7 +419,7 @@ if ticker and ticker.SetScript then
         acc = acc + (elapsed or 0)
         if acc < 2 then return end
         acc = 0
-        if R.ActiveCount() > 0 then pcall(R.Step) end
+        if R.ActiveCount() > 0 then FW.Perf.Call("Herausforderungen Schritt", R.Step) end
     end)
 end
 

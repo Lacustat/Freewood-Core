@@ -1443,11 +1443,11 @@ function W.Build()
         if W.importAt and not W.imported and now >= W.importAt then
             if not pcall(W.ImportHistory) or not W.imported then W.importAt = now + 2 end
         end
-        if dirty and now - dirtyAt >= 0.15 then pcall(W.Draw); pcall(RefreshTabs); tabsDirty = false
+        if dirty and now - dirtyAt >= 0.15 then FW.Perf.Call("Chatfenster zeichnen", W.Draw); FW.Perf.Call("Chatfenster Reiter", RefreshTabs); tabsDirty = false
         elseif tabsDirty then tabsDirty = false; pcall(RefreshTabs) end
         if now - lastCheck >= 2 then
             lastCheck = now
-            if W.Opts().main then pcall(W.ApplyMain) end
+            if W.Opts().main then FW.Perf.Call("Chatfenster ApplyMain", W.ApplyMain) end
             if W.inputTestUntil and now >= W.inputTestUntil then W.inputTestUntil = nil; W.UpdateInputVisibility() end
         end
     end)

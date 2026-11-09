@@ -430,7 +430,7 @@ function R.Build()
         acc = acc + (dt or 0)
         if acc < 0.05 then return end
         acc = 0
-        R.Update()
+        if FW.Perf then FW.Perf.Call("Ringe aktualisieren", R.Update) else R.Update() end
     end)
     R.frame = f
     return f

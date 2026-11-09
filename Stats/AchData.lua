@@ -380,6 +380,6 @@ if ticker and ticker.SetScript then
         if acc < 20 or startedAt < 12 then return end
         acc = 0
         if G.InCombatLockdown and G.InCombatLockdown() then return end
-        pcall(A.Check)
+        FW.Perf.Call("Erfolge pruefen", A.Check)
     end)
 end

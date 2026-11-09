@@ -319,11 +319,11 @@ ticker:SetScript("OnUpdate", function(_, elapsed)
     local dt = acc
     acc = 0
     if dt > 5 then dt = 1 end        -- nach Pausen (Ladebildschirm) nicht aufholen
-    pcall(Tick, dt)
+    FW.Perf.Call("Statistik Tick", Tick, dt)
     local now = Clock()
     if now - state.snapAt > 60 then
         state.snapAt = now
-        pcall(Stats.Snapshot)
+        FW.Perf.Call("Statistik Momentaufnahme", Stats.Snapshot)
     end
 end)
 

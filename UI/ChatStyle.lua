@@ -371,7 +371,7 @@ local function UnderTick(_, elapsed)
     local nwin = tonumber(G.NUM_CHAT_WINDOWS) or 10
     for i = 1, nwin do
         local cf = G["ChatFrame" .. i]
-        if cf and cf.IsShown and cf:IsShown() then pcall(S.UpdateUnder, cf) end
+        if cf and cf.IsShown and cf:IsShown() then FW.Perf.Call("Chatstil Unterstreichung", S.UpdateUnder, cf) end
     end
 end
 

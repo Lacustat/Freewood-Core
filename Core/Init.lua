@@ -63,6 +63,42 @@ local function SafeCall(fn, ...)
 end
 FW.SafeCall = SafeCall
 
+-- Leichter Zeitmesser fuer Ruckler-Suche: je Marke Anzahl, Summe und laengster Aufruf (ms). Anzeige: /fwcpu (Dev-Modul).
+-- Aufrufe ueber SLOW_MS landen zusaetzlich in FW.Perf.slow (letzte 30) und werden dem Dev-Log gemeldet (FW.Perf.OnSlow).
+local Perf = { stats = {}, slow = {} }
+FW.Perf = Perf
+local SLOW_MS = 50
+local function Prof() return debugprofilestop and debugprofilestop() or 0 end
+function Perf.Note(label, dt)
+    local st = Perf.stats[label]
+    if not st then st = { calls = 0, total = 0, max = 0 } Perf.stats[label] = st end
+    st.calls = st.calls + 1
+    st.total = st.total + dt
+    if dt > st.max then st.max = dt end
+    if dt >= SLOW_MS then
+        local s = Perf.slow
+        s[#s + 1] = { label = label, ms = dt, at = GetTime and GetTime() or 0 }
+        if #s > 30 then table.remove(s, 1) end
+        if Perf.OnSlow then pcall(Perf.OnSlow, label, dt) end
+    end
+end
+-- Ruft pcall(fn, ...) und misst die Zeit
+function Perf.Call(label, fn, ...)
+    local t0 = Prof()
+    local ok, err = pcall(fn, ...)
+    Perf.Note(label, Prof() - t0)
+    return ok, err
+end
+-- Umhuellt fn (fuer Skripte wie OnUpdate): liefert die Funktion mit Zeitmessung
+function Perf.Wrap(label, fn)
+    return function(...)
+        local t0 = Prof()
+        local a, b, c = fn(...)
+        Perf.Note(label, Prof() - t0)
+        return a, b, c
+    end
+end
+
 ------------------------------------------------------------------------
 -- Interne Nachrichten (Ereignissystem des Cores)
 ------------------------------------------------------------------------
@@ -101,11 +137,13 @@ function FW:Fire(event, ...)
     end
     for i = 1, #snapshot do
         local cb = snapshot[i]
+        local t0 = Prof()
         if cb.owner then
             SafeCall(cb.fn, cb.owner, ...)
         else
             SafeCall(cb.fn, ...)
         end
+        Perf.Note("FW:" .. tostring(event), Prof() - t0)
     end
 end
 
@@ -158,11 +196,13 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     end
     for i = 1, #snapshot do
         local h = snapshot[i]
+        local t0 = Prof()
         if h.owner then
             SafeCall(h.fn, h.owner, ...)
         else
             SafeCall(h.fn, ...)
         end
+        Perf.Note(tostring(event), Prof() - t0)
     end
 end)
 
