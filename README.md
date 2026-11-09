@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.2 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.37.2 DE:** Ring-Anzeige: Fehlersuche, weil im Kampf die Farben fehlten. Neu `/fwring` (gibt aus, was der Client kann: Swipe-Textur, Pause, Werte secret oder normal, Cooldown-Zeiten) und `/fwring test 60` (zwingt die Ringe auf 60 %, `/fwring test` beendet es). Sind Leben/Ressource im Kampf „secret“, wird die Prozent-Funktion des Spiels (`UnitHealthPercent`) versucht. **EN:** Unit rings: troubleshooting because the colours were missing in combat. New `/fwring` (prints what the client supports: swipe texture, pause, values secret or normal, cooldown times) and `/fwring test 60` (forces the rings to 60 %, `/fwring test` ends it). If life/resource are secret in combat, the game's percent function (`UnitHealthPercent`) is tried.
 
 **0.37.1 DE:** Neues Greifen-Bild „Magier_Affe“ (`Media\Greifen\magier_affe.tga`, 512x256 mit Transparenz); es steht in der Bilderauswahl der Greifen. **EN:** New gryphon image "Magier_Affe" (`Media\Greifen\magier_affe.tga`, 512x256 with transparency); it appears in the gryphon image selection.
 

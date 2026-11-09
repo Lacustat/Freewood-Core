@@ -271,25 +271,96 @@ function R.Apply()
     R.Update()
 end
 
+local function IsSecret(v)
+    return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) and true or false
+end
+
+-- Anteil lesen: erst cur/max; sind die Werte "secret" (im Kampf), dann die Prozent-Funktion des Spiels versuchen.
+-- Rueckgabe: Anteil, Quelle ("wert", "prozent", "secret", "test")
+function R.Read(kind)
+    if R.force then return R.force, "test" end
+    local cur, max
+    if kind == "health" then
+        cur = G.UnitHealth and G.UnitHealth("player"); max = G.UnitHealthMax and G.UnitHealthMax("player")
+    else
+        cur = G.UnitPower and G.UnitPower("player"); max = G.UnitPowerMax and G.UnitPowerMax("player")
+    end
+    if Num(cur) and Num(max) then return R.Fraction(cur, max), "wert" end
+    local fn = kind == "health" and G.UnitHealthPercent or G.UnitPowerPercent
+    if fn then
+        local scale = G.CurveConstants and G.CurveConstants.ScaleTo100
+        local ok, v = pcall(fn, "player", kind ~= "health" and nil or true, scale)
+        if not ok or not Num(v) then ok, v = pcall(fn, "player") end
+        v = ok and Num(v) or nil
+        if v then
+            if v > 1.0001 then v = v / 100 end
+            return R.Fraction(v, 1), "prozent"
+        end
+    end
+    return 0, "secret"
+end
+
 function R.Update()
     local o = R.Opts()
     local f = R.frame
     if not o.on or not f then return end
     local hfrac, pfrac = 1, 1
     if R.healthRing then
-        hfrac = R.Fraction(G.UnitHealth and G.UnitHealth("player"), G.UnitHealthMax and G.UnitHealthMax("player"))
+        hfrac, R.hsrc = R.Read("health")
         local r, g, b = R.HealthColor(hfrac)
         R.SetRing(R.healthRing, hfrac, r, g, b, o)
     end
     if R.powerRing then
         local ptype = G.UnitPowerType and G.UnitPowerType("player")
-        pfrac = R.Fraction(G.UnitPower and G.UnitPower("player"), G.UnitPowerMax and G.UnitPowerMax("player"))
+        pfrac, R.psrc = R.Read("power")
         local r, g, b = R.PowerColor(Num(ptype))
         R.SetRing(R.powerRing, pfrac, r, g, b, o)
     end
     local full = (not R.healthRing or hfrac >= 0.999) and (not R.powerRing or pfrac >= 0.999)
     if o.hideFull and full and not o.unlock then f:SetAlpha(0) else f:SetAlpha(1) end
     R.ApplyBlizz()
+end
+
+-- Fehlersuche: /fwring debug   |   /fwring test 60  (beide Ringe auf 60 % zwingen)   |   /fwring test  (zurueck)
+function R.Debug()
+    local function S(v) return tostring(v) end
+    local function P(t) if FW.Print then FW:Print(t) else print(t) end end
+    local o = R.Opts()
+    P("Ringe: an=" .. tostring(o.on) .. " Leben=" .. tostring(o.health) .. " Ressource=" .. tostring(o.power) .. " Groesse=" .. tostring(o.size))
+    local f = R.frame
+    if not f then P("kein Frame gebaut (Ringe aus?)"); return end
+    P(string.format("Frame: sichtbar=%s alpha=%s Groesse=%s", S(f:IsShown()), S(f:GetAlpha()), S(f:GetWidth())))
+    for _, kind in ipairs({ "health", "power" }) do
+        local ring = kind == "health" and R.healthRing or R.powerRing
+        if ring then
+            local fr, src = R.Read(kind)
+            local cd = ring.cd
+            local a, b2
+            if cd.GetCooldownTimes then a, b2 = cd:GetCooldownTimes() end
+            P(string.format("%s: Anteil=%.3f Quelle=%s | SetSwipeTexture=%s Pause=%s SetSwipeColor=%s | CooldownTimes=%s/%s | Cooldown sichtbar=%s",
+                kind, fr, tostring(src), tostring(cd.SetSwipeTexture ~= nil), tostring(cd.Pause ~= nil), tostring(cd.SetSwipeColor ~= nil),
+                tostring(a), tostring(b2), S(cd:IsShown())))
+        end
+    end
+    P("UnitHealth=" .. tostring(IsSecret(G.UnitHealth and G.UnitHealth("player")) and "secret" or "normal")
+        .. " UnitHealthPercent=" .. tostring(G.UnitHealthPercent ~= nil) .. " CreateMaskTexture=" .. tostring(f.CreateMaskTexture ~= nil))
+end
+
+if G.SlashCmdList then
+    G.SLASH_FWRING1 = "/fwring"
+    G.SlashCmdList["FWRING"] = function(msg)
+        msg = tostring(msg or "")
+        local cmd, arg = msg:match("^(%S*)%s*(%S*)")
+        if cmd == "test" then
+            local v = tonumber(arg)
+            R.force = v and math.max(0, math.min(1, v / 100)) or nil
+            for _, ring in ipairs({ R.outer, R.inner }) do if ring then ring.last = -1 end end
+            R.Update()
+            if FW.Print then FW:Print(R.force and ("Ring-Test: " .. arg .. " %") or "Ring-Test aus") end
+        else
+            R.Debug()
+        end
+    end
 end
 
 FW:RegisterEvent("PLAYER_ENTERING_WORLD", function()

@@ -78,5 +78,16 @@ o.hideBlizz = true; R.Apply(); o.on = false; R.Apply(); eq(PlayerFrame.alpha, 1,
 
 -- Position
 o.on = true; o.x, o.y = 40, -10; R.Apply(); eq(R.frame.point[4], 40, "Lage x"); eq(R.frame.point[5], -10, "Lage y")
+
+-- secret-Werte und Testmodus
+o.on, o.health, o.power, o.hideFull = true, true, false, false; R.Apply()
+_G.UnitHealth = function() return "secret" end
+_G.UnitHealthPercent = function() return 0.4 end
+local fr, src = R.Read("health"); near(fr, 0.4, "secret: Prozent-Funktion"); eq(src, "prozent", "Quelle Prozent")
+_G.UnitHealthPercent = nil
+fr, src = R.Read("health"); near(fr, 0, "secret ohne Ausweg: 0"); eq(src, "secret", "Quelle secret")
+R.force = 0.6; fr, src = R.Read("health"); near(fr, 0.6, "Testmodus"); eq(src, "test", "Quelle test"); R.force = nil
+local msgs = {}; FW.Print = function(_, t) table.insert(msgs, t) end
+R.Debug(); eq(#msgs >= 3, true, "Debug gibt Zeilen aus")
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)
