@@ -397,5 +397,14 @@ do -- Pfeil-Abfrage: Ereignis und Abfrage derselben Taste zaehlen einmal, Abfrag
     eq(box.t, "eins", "Abfrage allein geht eine Eintragung zurueck")
     eq(#W.arrowLog, 3, "Pfeilprotokoll")
 end
+do -- "kein Spieler ... online" wird nicht angezeigt
+    eq(W.IsNotFoundText("Momentan ist kein Spieler mit dem Namen 'Banka Nahl' online."), true, "offline deutsch")
+    eq(W.IsNotFoundText("|cffffff00Momentan ist kein Spieler mit dem Namen 'X' online.|r"), true, "mit Farbe")
+    eq(W.IsNotFoundText("No player named 'Bob' is currently playing."), true, "offline englisch")
+    eq(W.IsNotFoundText("Ihr erhaltet Beute: [Leichtes Leder]"), false, "andere Meldung")
+    local before = #W.lines
+    W.AddSystem("Momentan ist kein Spieler mit dem Namen 'Talon' online.", "system")
+    eq(#W.lines, before, "nicht in die Zeilen")
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

@@ -1445,7 +1445,26 @@ function W.ImportHistory()
     return true
 end
 
+-- "Momentan ist kein Spieler mit dem Namen 'X' online." (ERR_CHAT_PLAYER_NOT_FOUND_S) nach einem Fluestern an einen Offline-Spieler: ausblenden
+local function NotFoundPattern()
+    local f = G.ERR_CHAT_PLAYER_NOT_FOUND_S
+    if type(f) ~= "string" or f == "" then return nil end
+    local i, j = string.find(f, "%%%d*%$?s")
+    if not i then return nil end
+    return "^" .. string.gsub(string.sub(f, 1, i - 1), "%W", "%%%0") .. ".+" .. string.gsub(string.sub(f, j + 1), "%W", "%%%0") .. "$"
+end
+function W.IsNotFoundText(text)
+    if type(text) ~= "string" or text == "" or Secret(text) then return false end
+    local plain = string.gsub(string.gsub(text, "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
+    local pat = NotFoundPattern()
+    if pat and string.find(plain, pat) then return true end
+    if string.find(plain, "^Momentan ist kein Spieler mit dem Namen .+ online%.?$") then return true end
+    if string.find(plain, "^No player named .+ is currently playing%.?$") then return true end
+    return false
+end
+
 function W.AddSystem(text, kind)
+    if W.IsNotFoundText(text) then return end
     if type(text) ~= "string" or text == "" or Secret(text) then return end
     kind = kind or "system"
     local plain = string.gsub(string.gsub(string.gsub(text, "\124H.-\124h(.-)\124h", "%1"), "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
