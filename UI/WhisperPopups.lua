@@ -167,6 +167,27 @@ local function Create(name)
         if delta > 0 then self:ScrollUp() else self:ScrollDown() end
     end)
     win.log = log
+    -- Verlinkte Items, Zauber usw. anklickbar: Klick zeigt das Fenster des Spiels, Umschalt+Klick fuegt den Link ins Eingabefeld ein,
+    -- Maus darueber zeigt den Tooltip
+    if log.SetHyperlinksEnabled then pcall(log.SetHyperlinksEnabled, log, true) end
+    log:SetScript("OnHyperlinkClick", function(self, link, text, button)
+        if not link then return end
+        if G.IsShiftKeyDown and G.IsShiftKeyDown() and win.edit and text and win.edit.Insert then
+            win.edit:Insert(text)
+            win.edit:SetFocus()
+            return
+        end
+        if G.SetItemRef then pcall(G.SetItemRef, link, text, button or "LeftButton", self) end
+    end)
+    log:SetScript("OnHyperlinkEnter", function(self, link)
+        if not (link and G.GameTooltip) then return end
+        if string.find(link, "^item:") or string.find(link, "^spell:") or string.find(link, "^enchant:") or string.find(link, "^quest:")
+            or string.find(link, "^talent:") or string.find(link, "^achievement:") then
+            G.GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+            if pcall(G.GameTooltip.SetHyperlink, G.GameTooltip, link) then G.GameTooltip:Show() else G.GameTooltip:Hide() end
+        end
+    end)
+    log:SetScript("OnHyperlinkLeave", function() if G.GameTooltip then G.GameTooltip:Hide() end end)
 
     local ibox = UI.CreatePanel(win, "bg", "bronze")
     ibox:SetPoint("BOTTOMLEFT", win, "BOTTOMLEFT", 8, 8)

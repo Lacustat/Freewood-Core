@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.36.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.36.1 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.36.1 DE:** Im Flüster-Fenster (Popup mit „Einladen“ und „Chat“) sind verlinkte Items, Zauber und Quests jetzt anklickbar: Klick öffnet das Fenster des Spiels (`SetItemRef`), Umschalt+Klick fügt den Link ins Eingabefeld des Fensters ein, Maus darüber zeigt den Tooltip. Ungeprüft im Spiel (`SetHyperlinksEnabled` am Nachrichtenfeld). **EN:** In the whisper window (popup with "Invite" and "Chat") linked items, spells and quests are now clickable: click opens the game's window (`SetItemRef`), Shift-click inserts the link into the window's input, hovering shows the tooltip. Unchecked in game (`SetHyperlinksEnabled` on the message frame).
 
 **0.36.0 DE:** Einstellungen > Quests und Hinweise: neuer Abschnitt „Quest-Items glitzern“ (neue Datei `UI/QuestGlow.lua`) mit einem Haken. An: setzt `outlineModeShowLootEffectWhenDisabled` auf 1 und `graphicsOutlineMode` auf 0 (wie `/console ...`), damit Quest-Items und Beute glitzern; die alten Werte werden gemerkt und beim Ausschalten zurückgesetzt. Beim Anmelden wird der Wert erneut gesetzt, falls das Spiel ihn zurückgestellt hat. Kennt die Spielversion eine der Einstellungen nicht, wird nichts geändert und es kommt ein Hinweis. Darunter steht der aktuelle Wert beider Einstellungen. Test: `texlua tests/questglow_test.lua`. Ungeprüft im Spiel. **EN:** Settings > Quests and hints: new section "Quest item sparkle" (new file `UI/QuestGlow.lua`) with one checkbox. On: sets `outlineModeShowLootEffectWhenDisabled` to 1 and `graphicsOutlineMode` to 0 (like `/console ...`) so quest items and loot sparkle; the old values are remembered and restored when switched off. On login the value is set again in case the game reset it. If the game version does not know one of the settings, nothing is changed and a note is printed. Below, the current value of both settings is shown. Test: `texlua tests/questglow_test.lua`. Unchecked in game.
 
