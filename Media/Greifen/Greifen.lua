@@ -4,4 +4,8 @@
 local ADDON, FW = ...
 FW.GreifenFiles = {
     "affen_greif",
+    "jaeger_greif",
+    "druiden_greif",
+    "shami_greif",
+    "jaeger2_greif",
 }
