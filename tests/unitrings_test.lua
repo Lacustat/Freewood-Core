@@ -68,7 +68,7 @@ local function Opt(t) local x = { size = 100, dmanaThick = 3, powerThick = 3, he
 R.druid = false
 local lay = R.Layout(Opt({ power = true, health = true }))
 eq(#lay.slots, 2, "zwei Ebenen"); eq(lay.slots[1], "power", "Ressource aussen"); eq(lay.slots[2], "health", "Leben innen")
-eq(lay.diam.power, 100, "aeusserer Ring volle Groesse"); eq(lay.diam.health, 79, "innerer Ring kleiner")
+eq(lay.diam.power, 100, "aeusserer Ring volle Groesse"); eq(lay.diam.health, 76, "innerer Ring: Fuellung (x0.936) minus Dicke minus Abstand")
 lay = R.Layout(Opt({ dmana = true, power = true, health = true }))
 eq(#lay.slots, 2, "Mana-Ebene nur fuer Druiden")
 R.druid = true
@@ -82,6 +82,13 @@ eq(lyC.portrait < R.Layout(Opt({ power = true, health = true })).portrait, true,
 lay = R.Layout(Opt({ health = true })); eq(lay.diam.health, 100, "ein Ring volle Groesse")
 R.druid = false
 
+-- Kontur-Bilder
+local P = "Interface\\AddOns\\Freewood-Core\\Media\\Rings\\"
+eq(R.LineFor("health"), P .. "frame_green.tga", "Leben gruen")
+eq(R.LineFor("dmana"), P .. "frame_blue.tga", "Druiden-Mana blau")
+eq(R.LineFor("power", 0), P .. "frame_blue.tga", "Mana blau"); eq(R.LineFor("power", 1), P .. "frame_red.tga", "Wut rot"); eq(R.LineFor("power", 3), P .. "frame_yellow.tga", "Energie gelb")
+local wp, tint = R.LineFor("power", 6); eq(wp, P .. "frame_white.tga", "andere Ressource: weisse Kontur"); eq(tint, true, "wird eingefaerbt")
+
 -- ausgeschaltet: nichts gebaut, Blizzard unberuehrt
 R.Apply(); eq(R.frame, nil, "aus: kein Frame"); eq(PlayerFrame.alpha, 1, "aus: Blizzard sichtbar")
 
@@ -89,7 +96,7 @@ R.Apply(); eq(R.frame, nil, "aus: kein Frame"); eq(PlayerFrame.alpha, 1, "aus: B
 o.on, o.health, o.power = true, true, true
 R.Apply()
 eq(R.frame ~= nil, true, "Frame gebaut"); eq(R.frame.shown, true, "sichtbar")
-eq(R.rings.health.frame.shown, true, "Leben sichtbar"); eq(R.rings.power.frame.shown, true, "Ressource sichtbar"); eq(R.rings.dmana.frame.shown, false, "Mana-Ring aus")
+eq(R.rings.health.lineKey, P .. "frame_green.tga", "Lebensring: gruene Kontur"); eq(R.rings.health.fsize, 85, "Fuellung etwas kleiner als der Ring (91 x 0.936)"); eq(R.rings.health.frame.shown, true, "Leben sichtbar"); eq(R.rings.power.frame.shown, true, "Ressource sichtbar"); eq(R.rings.dmana.frame.shown, false, "Mana-Ring aus")
 local cdH = R.rings.health.cd
 near(cdH.start, 5000 - 0.5 * 1000, "Leben 50% -> Rest 0.5")
 hp = 25; R.Update(); near(cdH.start, 5000 - 0.75 * 1000, "Leben 25% -> abgelaufen 0.75")
@@ -123,6 +130,8 @@ pt = 3; R.Update()
 eq(R.rings.dmana.frame.shown, true, "Druide in Katzengestalt: Mana-Ring sichtbar")
 near(R.rings.dmana.cd.start, 5000 - 0.6 * 1000, "Mana-Ring zeigt Mana (400/1000)")
 local fr = R.Read("power"); near(fr, 0.5, "Ressourcenring zeigt Energie (30/60)")
+eq(R.rings.power.lineKey, P .. "frame_yellow.tga", "Katzengestalt: gelbe Kontur fuer Energie"); eq(R.rings.dmana.lineKey, P .. "frame_blue.tga", "blaue Kontur fuer Druiden-Mana")
+pt = 1; R.Update(); eq(R.rings.power.lineKey, P .. "frame_red.tga", "Baer: rote Kontur fuer Wut"); pt = 3
 pt = 1; R.Update(); eq(R.rings.dmana.frame.shown, true, "Baer: Mana-Ring sichtbar")
 o.dmana = false; R.druid = false; R.Apply()
 

@@ -1,4 +1,6 @@
 -- Freewood-Core: Ring-Anzeige fuer Leben und Ressourcen neben dem Charakter (Einstellungen > Interface).
+-- Jeder Ring besteht aus einer Kontur (Bild frame_<farbe>.tga, 10 px von 512, gruen=Leben, blau=Mana, rot=Wut, gelb=Energie)
+-- ueber der Fuellung, die knapp innerhalb der Kontur liegt (Dicke einstellbar).
 -- Ebenen von aussen nach innen: 1 Mana-Ring (nur Druide in Katzen-/Baerengestalt), 2 Ressourcenring (Mana, Wut, Energie ...),
 -- 3 Lebensring, 4 Portrait (runde Maske). Jeder Ring ist ein einzelner Kreis mit eigener Dicke, Richtung und eigenem Haken.
 -- Alles ist standardmaessig AUS. Blizzards Spielerfenster ausblenden (nur Transparenz), Verschieben per Ziehen, Groesse per Regler.
@@ -15,6 +17,7 @@ local R = {}
 FW.UnitRings = R
 
 local PATH = "Interface\\AddOns\\Freewood-Core\\Media\\Rings\\"
+local FILLK = 0.936          -- Fuellung liegt innerhalb der Kontur: Durchmesser der Fuellung = Ringgroesse * FILLK
 local DURATION = 1000          -- Laenge der Pseudo-Abklingzeit in Sekunden; der Prozentwert steckt im "Start"
 
 FW:AddLocale("enUS", {
@@ -189,12 +192,12 @@ function R.Layout(o)
     for i, key in ipairs(lay.slots) do
         if i > 1 then
             local prev = lay.slots[i - 1]
-            d = math.floor(lay.diam[prev] * (1 - R.Thickness(o[prev .. "Thick"]) - 0.05) + 0.5)
+            d = math.floor(lay.diam[prev] * FILLK * (1 - R.Thickness(o[prev .. "Thick"]) - 0.03) + 0.5)
         end
         lay.diam[key] = d
         lastThick = R.Thickness(o[key .. "Thick"])
     end
-    lay.portrait = math.floor(d * (1 - lastThick - 0.06) + 0.5)
+    lay.portrait = math.floor(d * FILLK * (1 - lastThick - 0.06) + 0.5)
     return lay
 end
 
@@ -204,13 +207,15 @@ end
 
 local function NewRing(parent)
     local ring = {}
-    ring.frame = G.CreateFrame("Frame", nil, parent)
-    ring.track = ring.frame:CreateTexture(nil, "BACKGROUND")
-    ring.track:SetAllPoints(ring.frame)
+    ring.frame = G.CreateFrame("Frame", nil, parent)          -- Behaelter in voller Ringgroesse
+    ring.fill = G.CreateFrame("Frame", nil, ring.frame)        -- Fuellung, etwas kleiner (innerhalb der Kontur)
+    ring.fill:SetPoint("CENTER", ring.frame, "CENTER", 0, 0)
+    ring.track = ring.fill:CreateTexture(nil, "BACKGROUND")
+    ring.track:SetAllPoints(ring.fill)
     ring.track:SetTexture(PATH .. "ring3.tga")
     ring.track:SetVertexColor(0.12, 0.12, 0.12, 0.7)
-    local cd = G.CreateFrame("Cooldown", nil, ring.frame)
-    cd:SetAllPoints(ring.frame)
+    local cd = G.CreateFrame("Cooldown", nil, ring.fill)
+    cd:SetAllPoints(ring.fill)
     if cd.SetSwipeTexture then cd:SetSwipeTexture(PATH .. "ring3.tga") end
     ring.level = 3
     if cd.SetDrawEdge then cd:SetDrawEdge(false) end
@@ -218,8 +223,34 @@ local function NewRing(parent)
     if cd.SetDrawSwipe then cd:SetDrawSwipe(true) end
     if cd.SetHideCountdownNumbers then cd:SetHideCountdownNumbers(true) end
     ring.cd = cd
+    -- Kontur: eigener Frame ueber der Fuellung
+    ring.top = G.CreateFrame("Frame", nil, ring.frame)
+    ring.top:SetAllPoints(ring.frame)
+    if ring.top.SetFrameLevel and ring.frame.GetFrameLevel then ring.top:SetFrameLevel((ring.frame:GetFrameLevel() or 1) + 20) end
+    ring.line = ring.top:CreateTexture(nil, "OVERLAY")
+    ring.line:SetAllPoints(ring.top)
+    ring.line:SetTexture(PATH .. "frame_white.tga")
     ring.last = -1
     return ring
+end
+
+-- Kontur-Bild einer Ebene: Leben gruen, Mana blau, Wut rot, Energie gelb; andere Ressourcen: weisse Kontur in der Ressourcenfarbe
+function R.LineFor(key, ptype)
+    if key == "health" then return PATH .. "frame_green.tga" end
+    local t = key == "dmana" and 0 or ptype
+    if t == 0 then return PATH .. "frame_blue.tga" end
+    if t == 1 then return PATH .. "frame_red.tga" end
+    if t == 3 then return PATH .. "frame_yellow.tga" end
+    return PATH .. "frame_white.tga", true
+end
+
+function R.SetLine(ring, key, ptype)
+    local path, tint = R.LineFor(key, ptype)
+    local k = path .. (tint and tostring(ptype) or "")
+    if ring.lineKey == k then return end
+    ring.lineKey = k
+    ring.line:SetTexture(path)
+    if tint then ring.line:SetVertexColor(R.PowerColor(ptype)) else ring.line:SetVertexColor(1, 1, 1, 1) end
 end
 
 -- Versteckte Statusleiste als Messgeraet: SetValue/SetMinMaxValues nehmen auch "secret"-Werte an; die Breite der Fuellung ist
@@ -313,7 +344,7 @@ function R.BuildSegs(ring)
     if not FW.RingSegments or not G.CreateFrame then return nil end
     ring.segs = {}
     for k = 1, R.SegCount() do
-        local sb = G.CreateFrame("StatusBar", nil, ring.frame)
+        local sb = G.CreateFrame("StatusBar", nil, ring.fill or ring.frame)
         sb:SetStatusBarTexture(string.format("%sseg%d_%02d.tga", PATH, ring.level or 3, k))
         local orient = R.SegDirection(k)
         sb:SetOrientation(orient)
@@ -332,7 +363,7 @@ function R.LayoutSegs(ring, size)
         if d then
             sb:SetSize(d[3] * f, d[4] * f)
             sb:ClearAllPoints()
-            sb:SetPoint("TOPLEFT", ring.frame, "TOPLEFT", d[1] * f, -d[2] * f)
+            sb:SetPoint("TOPLEFT", ring.fill or ring.frame, "TOPLEFT", d[1] * f, -d[2] * f)
         end
     end
     ring.layKey = size .. ":" .. (ring.level or 3)
@@ -348,7 +379,7 @@ function R.SetLevel(ring, level)
     if ring.cd.SetSwipeTexture then ring.cd:SetSwipeTexture(PATH .. "ring" .. level .. ".tga") end
     if ring.segs then
         for k, sb in ipairs(ring.segs) do sb:SetStatusBarTexture(string.format("%sseg%d_%02d.tga", PATH, level, k)) end
-        R.LayoutSegs(ring, ring.size or 100)
+        R.LayoutSegs(ring, ring.fsize or ring.size or 100)
     end
 end
 
@@ -371,7 +402,7 @@ function R.SegMode(ring, on, pmax, ccw)
                 end
             end
         end
-        if ring.layKey ~= (ring.size or 100) .. ":" .. (ring.level or 3) then R.LayoutSegs(ring, ring.size or 100) end
+        if ring.layKey ~= (ring.fsize or ring.size or 100) .. ":" .. (ring.level or 3) then R.LayoutSegs(ring, ring.fsize or ring.size or 100) end
         if not ring.segOn then
             for _, sb in ipairs(ring.segs) do sb:Show() end
             ring.cd:Hide()
@@ -519,6 +550,8 @@ function R.Apply()
         local s = lay.diam[key]
         R.SetLevel(ring, o[key .. "Thick"])
         ring.size = s
+        ring.fsize = math.floor(s * FILLK + 0.5)
+        ring.fill:SetSize(ring.fsize, ring.fsize)
         ring.frame:SetSize(s, s)
         ring.frame:ClearAllPoints()
         ring.frame:SetPoint("CENTER", f, "CENTER", 0, 0)
@@ -568,6 +601,7 @@ function R.Update()
             local frac, src = R.Read(key)
             R.src[key] = src
             local r, g, b = RingColor(key, frac)
+            R.SetLine(ring, key, G.UnitPowerType and Num((G.UnitPowerType("player"))))
             if src == "secret" and R.FeedSegs(ring, key, key == "health" and 0.2 or r, key == "health" and 0.85 or g, key == "health" and 0.2 or b, ccw) then
                 frac = 0.5   -- Wert unbekannt: gilt als "nicht voll"
             else

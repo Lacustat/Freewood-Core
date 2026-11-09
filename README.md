@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.38.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.39.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.39.0 DE:** Ring-Anzeige mit Konturen: Jeder Ring hat jetzt eine eigene Kontur (deine Bilder, 512 px mit 10 px Rand) über der Füllung: grün für Leben, blau für Mana (auch der Druiden-Mana-Ring), rot für Wut, gelb für Energie; andere Ressourcen (Fokus, Runenmacht …) bekommen eine weiße Kontur in der Ressourcenfarbe. Beim Ressourcenring wechselt die Kontur mit der Ressource (Druide: Katze gelb, Bär rot, Zauberform blau). Die Füllung sitzt knapp innerhalb der Kontur (Dicke wie bisher einstellbar), der nächste Ring und das Porträt liegen innerhalb der Füllung. Neue Dateien `Media\Rings\frame_green|blue|red|yellow|white.tga`. Ungeprüft im Spiel. **EN:** Unit rings with outlines: every ring now has its own outline (your images, 512 px with a 10 px border) above the fill: green for life, blue for mana (also the druid mana ring), red for rage, yellow for energy; other resources (focus, runic power ...) get a white outline in the resource colour. On the resource ring the outline changes with the resource (druid: cat yellow, bear red, caster form blue). The fill sits just inside the outline (thickness adjustable as before); the next ring and the portrait sit inside the fill. New files `Media\Rings\frame_green|blue|red|yellow|white.tga`. Unchecked in game.
 
 **0.38.1 DE:** Ring-Anzeige: Fehler behoben, durch den die Ringe nur zur Hälfte (rechts, 12 bis 6 Uhr) gefüllt waren. Die Ring-Daten (`Segments.lua`) wurden nach der Ring-Datei geladen, deshalb rechnete das Addon mit 32 statt 64 Stücken. Die Anzahl wird jetzt zur Laufzeit gelesen, und `Segments.lua` steht in der `.toc` vor `UnitRings.lua`. **EN:** Unit rings: fixed a bug that left the rings only half filled (right side, 12 to 6 o'clock). The ring data (`Segments.lua`) was loaded after the ring file, so the addon counted 32 instead of 64 pieces. The count is now read at run time, and `Segments.lua` comes before `UnitRings.lua` in the `.toc`.
 
