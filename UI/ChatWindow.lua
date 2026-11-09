@@ -1078,9 +1078,12 @@ function W.Build()
         if t == "" then ihint:Show() else ihint:Hide() end
     end)
     if input.SetAltArrowKeyMode then pcall(input.SetAltArrowKeyMode, input, false) end   -- Pfeiltasten ohne Alt
-    input:SetScript("OnArrowPressed", HistKey)
-    input:SetScript("OnKeyDown", HistKey)
-    input:SetScript("OnEditFocusGained", function() W.UpdateInputVisibility() end)
+    input:SetScript("OnArrowPressed", function(self, key) W.HistKey(self, key, "Pfeil") end)
+    input:SetScript("OnKeyDown", function(self, key) W.HistKey(self, key, "Taste") end)
+    input:SetScript("OnEditFocusGained", function(self)
+        if self.SetAltArrowKeyMode then pcall(self.SetAltArrowKeyMode, self, false) end
+        W.UpdateInputVisibility()
+    end)
     input:SetScript("OnEditFocusLost", function() W.UpdateInputVisibility() end)
     built.input = input
 
@@ -1247,7 +1250,12 @@ function W.HistNav(dir, current)
     end
 end
 
-local function HistKey(self, key)
+W.keyLog = {}
+local function HistKey(self, key, source)
+    -- die letzten Tastenereignisse merken (zeigt /fwchatwin probe), damit man sieht, was der Client an das Feld meldet
+    local log = W.keyLog
+    log[#log + 1] = tostring(source or "?") .. ":" .. tostring(key)
+    if #log > 12 then table.remove(log, 1) end
     if key ~= "UP" and key ~= "DOWN" then return end
     local now = G.GetTime and G.GetTime() or 0
     if W.hKeyAt and now - W.hKeyAt < 0.03 and W.hKey == key then return end    -- OnArrowPressed und OnKeyDown fuer dieselbe Taste
@@ -1757,6 +1765,14 @@ function W.Probe()
         local ok, k1, k2 = pcall(G.GetBindingKey, "OPENCHAT")
         lines[#lines + 1] = "Taste OPENCHAT: " .. tostring(ok and k1 or "?") .. " " .. tostring(ok and k2 or "")
     end
+    local ib = built and built.input
+    local alt = "?"
+    if ib and ib.GetAltArrowKeyMode then
+        local ok, v = pcall(ib.GetAltArrowKeyMode, ib)
+        alt = ok and tostring(v) or "Fehler"
+    elseif ib then alt = "Funktion fehlt" end
+    lines[#lines + 1] = "Verlauf: " .. tostring(#(W.Opts().hist or {})) .. " Eintraege, Alt-Pfeilmodus: " .. alt
+        .. ", letzte Tasten im Feld: " .. (#W.keyLog > 0 and table.concat(W.keyLog, " ") or "keine")
     lines[#lines + 1] = "Eingabe: " .. (W.UseBlizz() and "Feld des Spiels im Freewood-Design (Weg B)" or "eigenes Feld (Weg A)")
         .. ", Tastenabfrage: " .. ((G.SetOverrideBindingClick and "Bindungen ja") or "Bindungen nein")
     for _, l in ipairs(lines) do if FW.Print then FW:Print(l) end end
