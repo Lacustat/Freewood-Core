@@ -1232,6 +1232,9 @@ end
 
 -- Befehl an das Chatsystem des Spiels weiterreichen (alles, was wir nicht selbst kennen)
 function W.Forward(text)
+    -- deutsche Kurzformen fuers Wuerfeln gehen als /roll an das Spiel
+    text = string.gsub(text, "^/[Rr][Oo][Ll][Ll][Ee][Nn]%f[%s%z]", "/roll")
+    text = string.gsub(text, "^/[Ww]\195\188[Rr][Ff][Ee][Ll][Nn]%f[%s%z]", "/roll")
     local dc = G.DEFAULT_CHAT_FRAME
     local eb = (dc and dc.editBox) or G.ChatFrame1EditBox
     if not (eb and eb.SetText and G.ChatEdit_SendText) then return false end
@@ -1428,7 +1431,7 @@ function W.AddSystem(text, kind)
     kind = kind or "system"
     local plain = string.gsub(string.gsub(string.gsub(text, "\124H.-\124h(.-)\124h", "%1"), "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
     local now = G.GetTime and G.GetTime() or 0
-    local key = kind .. plain
+    local key = plain          -- gleicher Text aus Ereignis und Spiel-Chat zaehlt einmal, auch bei verschiedener Art
     local last = recentSys[key]
     if last and now - last < 1 then return end
     recentN = recentN + 1
@@ -1441,6 +1444,45 @@ for e, k in pairs(EVENT_KIND) do
     FW:RegisterEvent(e, function(text) W.AddSystem(text, k) end)
 end
 
+-- Wuerfelmeldungen: /roll und Beute-Wuerfe. Je nach Spielstand kommen sie als eigenes Ereignis, als Systemmeldung oder nur als
+-- Zeile im Spiel-Chat; darum erkennen wir sie zusaetzlich an den Textvorlagen des Spiels (RANDOM_ROLL_RESULT, LOOT_ROLL_*).
+local ROLL_GLOBALS = { "RANDOM_ROLL_RESULT", "LOOT_ROLL_ROLLED_NEED", "LOOT_ROLL_ROLLED_GREED", "LOOT_ROLL_ROLLED_DE",
+    "LOOT_ROLL_NEED", "LOOT_ROLL_NEED_SELF", "LOOT_ROLL_GREED", "LOOT_ROLL_GREED_SELF", "LOOT_ROLL_DISENCHANT", "LOOT_ROLL_DISENCHANT_SELF",
+    "LOOT_ROLL_PASSED", "LOOT_ROLL_PASSED_AUTO", "LOOT_ROLL_PASSED_AUTO_FEMALE", "LOOT_ROLL_PASSED_SELF", "LOOT_ROLL_PASSED_SELF_AUTO",
+    "LOOT_ROLL_ALL_PASSED", "LOOT_ROLL_WON", "LOOT_ROLL_YOU_WON", "LOOT_ROLL_WON_NO_SPAM_NEED", "LOOT_ROLL_WON_NO_SPAM_GREED",
+    "LOOT_ROLL_WON_NO_SPAM_DE", "LOOT_ROLL_ROLLED_NEED_ROLE_BONUS" }
+
+local rollPatterns
+local function RollPatterns()
+    if rollPatterns then return rollPatterns end
+    rollPatterns = {}
+    for _, name in ipairs(ROLL_GLOBALS) do
+        local f = G[name]
+        if type(f) == "string" and f ~= "" then
+            local pat, pos = "", 1
+            while true do
+                local i, j, kind = string.find(f, "%%%d*%$?([sd])", pos)
+                if not i then break end
+                pat = pat .. string.gsub(string.sub(f, pos, i - 1), "%W", "%%%0") .. (kind == "d" and "%d+" or ".+")
+                pos = j + 1
+            end
+            pat = "^" .. pat .. string.gsub(string.sub(f, pos), "%W", "%%%0") .. "$"
+            rollPatterns[#rollPatterns + 1] = pat
+        end
+    end
+    return rollPatterns
+end
+
+function W.IsRollText(text)
+    if type(text) ~= "string" or text == "" or Secret(text) then return false end
+    local plain = string.gsub(string.gsub(string.gsub(text, "\124H.-\124h(.-)\124h", "%1"), "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
+    for _, pat in ipairs(RollPatterns()) do
+        if string.find(plain, pat) then return true end
+    end
+    return false
+end
+function W.ResetRollPatterns() rollPatterns = nil end
+
 -- Ausgaben anderer Addons (print) gehen ohne Farbangabe an den Spiel-Chat
 function W.HookPrints()
     if W.printHooked then return end
@@ -1448,7 +1490,10 @@ function W.HookPrints()
     if not (cf and G.hooksecurefunc and cf.AddMessage) then return end
     W.printHooked = true
     pcall(G.hooksecurefunc, cf, "AddMessage", function(_, text, r)
-        if r ~= nil then return end
+        if r ~= nil then
+            if W.IsRollText(text) then W.AddSystem(text, "system") end
+            return
+        end
         W.AddSystem(text, "addon")
     end)
 end

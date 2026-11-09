@@ -356,5 +356,35 @@ do
     W.StartWhisper("Emil"); eq(opened, "", "ohne Text leeres Feld"); eq(W.target, "Emil", "Ziel Emil")
     eq(W.StartWhisper("Geheim"), true, "normaler Name")
 end
+-- Wuerfelmeldungen
+do
+    _G.RANDOM_ROLL_RESULT = "%s rolls %d (%d-%d)"
+    _G.LOOT_ROLL_ROLLED_NEED = "Need Roll - %d for %s by %s"
+    _G.LOOT_ROLL_WON = "%s won: %s"
+    W.ResetRollPatterns()
+    eq(W.IsRollText("Anna rolls 45 (1-100)"), true, "/roll erkannt")
+    eq(W.IsRollText("|cffffff00Anna rolls 45 (1-100)|r"), true, "mit Farbcode")
+    eq(W.IsRollText("Need Roll - 87 for |Hitem:1:0|h[Schwert]|h by Bert"), true, "Beute-Wurf")
+    eq(W.IsRollText("Bert won: |Hitem:1:0|h[Schwert]|h"), true, "Gewinner")
+    eq(W.IsRollText("Anna rolls many dice"), false, "kein Wurf")
+    eq(W.IsRollText("Hallo Welt"), false, "normaler Text"); eq(W.IsRollText(42), false, "kein Text")
+    -- deutsche Vorlage mit nummerierten Platzhaltern
+    _G.RANDOM_ROLL_RESULT = "%1$s würfelt. Ergebnis: %2$d (%3$d-%4$d)"
+    W.ResetRollPatterns()
+    eq(W.IsRollText("Anna würfelt. Ergebnis: 45 (1-100)"), true, "deutsche Vorlage")
+    -- doppelt (Ereignis und Spiel-Chat) zaehlt einmal
+    local before = #W.lines
+    W.AddSystem("Anna würfelt. Ergebnis: 12 (1-100)", "system")
+    W.AddSystem("Anna würfelt. Ergebnis: 12 (1-100)", "loot")
+    eq(#W.lines - before, 1, "gleiche Meldung nur einmal")
+end
+do -- /rollen und /würfeln gehen als /roll an das Spiel
+    local sent = {}
+    _G.ChatFrame1EditBox = { SetText = function(_, t) if t ~= "" then sent[#sent + 1] = t end end }
+    _G.DEFAULT_CHAT_FRAME = nil
+    _G.ChatEdit_SendText = function() end
+    W.Forward("/rollen 50"); W.Forward("/würfeln"); W.Forward("/rollenx")
+    eq(sent[1], "/roll 50", "/rollen -> /roll"); eq(sent[2], "/roll", "/würfeln -> /roll"); eq(sent[3], "/rollenx", "kein falscher Treffer")
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)
