@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.36.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.37.0 DE:** Neu: Ring-Anzeige für Leben und Ressource (Einstellungen > Interface > „Ring-Anzeige“). Innen ein Lebensring (grün → orange → rot), außen ein Ressourcenring (Mana blau, Wut rot, Energie gelb …), jeder einzeln oder beide zusammen; optional ein Porträt im Inneren, Blizzards Spielerfenster ausblenden (nur Transparenz), „nur anzeigen, wenn nicht voll“, Verschieben per Ziehen und ein Größenregler. Gezeichnet werden die Ringe als Abklingzeit-Frames mit eigener Ring-Textur (`Media\Rings`), angehalten auf dem Prozentwert. **Alle Haken sind standardmäßig aus.** Falls der Ring den falschen Teil füllt oder rückwärts läuft: „Füllung vertauschen“ und „Gegen den Uhrzeigersinn“. Ungeprüft im Spiel. **EN:** New: rings for life and resource (Settings > Interface > "Unit rings"). A life ring inside (green → orange → red), a resource ring outside (mana blue, rage red, energy yellow ...), each alone or both together; optional portrait inside, hide Blizzard's player frame (transparency only), "only show when not full", drag to move and a size slider. The rings are cooldown frames with their own ring texture (`Media\Rings`), paused at the percentage. **All checkboxes are off by default.** If the ring fills the wrong part or runs backwards: "Swap fill" and "Counter-clockwise". Unchecked in game.
 
 **0.36.1 DE:** Im Flüster-Fenster (Popup mit „Einladen“ und „Chat“) sind verlinkte Items, Zauber und Quests jetzt anklickbar: Klick öffnet das Fenster des Spiels (`SetItemRef`), Umschalt+Klick fügt den Link ins Eingabefeld des Fensters ein, Maus darüber zeigt den Tooltip. Ungeprüft im Spiel (`SetHyperlinksEnabled` am Nachrichtenfeld). **EN:** In the whisper window (popup with "Invite" and "Chat") linked items, spells and quests are now clickable: click opens the game's window (`SetItemRef`), Shift-click inserts the link into the window's input, hovering shows the tooltip. Unchecked in game (`SetHyperlinksEnabled` on the message frame).
 
