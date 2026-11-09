@@ -1,10 +1,10 @@
--- Freewood-Core: Ring-Anzeige fuer Leben und Ressource (Mana, Wut, Energie ...) neben dem Charakter (Einstellungen > Interface).
--- Die Ringe sind Abklingzeit-Frames (Cooldown) mit eigener Ring-Textur (Media\Rings\ring<stufe>.tga), angehalten auf dem Prozentwert.
--- Alles ist standardmaessig AUS. Innen ein Lebensring, aussen ein Ressourcenring; optional Portrait im Inneren (runde Maske),
--- Blizzards Spielerfenster ausblenden (nur Transparenz, jederzeit umkehrbar), Verschieben per Ziehen, Groesse per Regler.
+-- Freewood-Core: Ring-Anzeige fuer Leben und Ressourcen neben dem Charakter (Einstellungen > Interface).
+-- Ebenen von aussen nach innen: 1 Mana-Ring (nur Druide in Katzen-/Baerengestalt), 2 Ressourcenring (Mana, Wut, Energie ...),
+-- 3 Lebensring, 4 Portrait (runde Maske). Jeder Ring ist ein einzelner Kreis mit eigener Dicke, Richtung und eigenem Haken.
+-- Alles ist standardmaessig AUS. Blizzards Spielerfenster ausblenden (nur Transparenz), Verschieben per Ziehen, Groesse per Regler.
+-- Zeichnen: sind die Werte lesbar, ein Cooldown-Frame mit Ring-Textur (Media\Rings\ring<stufe>.tga), angehalten auf dem Prozentwert.
 -- Sind die Werte "secret" (Spieler auf Forever), nimmt ein Ring aus 64 Statusleisten ihren Platz (siehe Segment-Ring).
--- UNGEPRUEFT im Spiel: ob Cooldown:SetSwipeTexture / Pause / Masken auf Forever laufen und in welche Richtung der Swipe fuellt
--- (dafuer die Haken "Füllung vertauschen" und "Gegen den Uhrzeigersinn").
+-- UNGEPRUEFT im Spiel: Druiden-Mana-Ring, Richtung je Ring, die Richtung des Swipes (Haken "Füllung vertauschen").
 
 local ADDON, FW = ...
 
@@ -18,43 +18,55 @@ local PATH = "Interface\\AddOns\\Freewood-Core\\Media\\Rings\\"
 local DURATION = 1000          -- Laenge der Pseudo-Abklingzeit in Sekunden; der Prozentwert steckt im "Start"
 
 FW:AddLocale("enUS", {
-    RINGS_HEALTH_THICK = "Life ring thickness: %d",
-    RINGS_POWER_THICK = "Resource ring thickness: %d",
-    RINGS_TITLE = "Unit rings (life and resource)",
-    RINGS_NOTE = "Shows your life and your resource (mana, rage, energy ...) as rings next to the character. Everything is off by default. Drag the rings with the mouse while \"Move\" is on.",
+    RINGS_TITLE = "Unit rings (life and resources)",
+    RINGS_NOTE = "Shows your life and your resources as rings next to the character. Layers from the outside in: 1 druid mana (only in cat or bear form), 2 resource (mana, rage, energy ...), 3 life, 4 portrait. Everything is off by default. Drag the rings with the mouse while \"Move\" is on.",
     RINGS_ON = "Show rings",
-    RINGS_HEALTH = "Life ring",
-    RINGS_POWER = "Resource ring (outside the life ring)",
-    RINGS_PORTRAIT = "Portrait inside the ring",
+    RINGS_DMANA = "Layer 1: druid mana ring (only in cat or bear form)",
+    RINGS_POWER = "Layer 2: resource ring (mana, rage, energy ...)",
+    RINGS_HEALTH = "Layer 3: life ring",
+    RINGS_PORTRAIT = "Layer 4: portrait inside the rings",
+    RINGS_DMANA_REV = "Druid mana ring counter-clockwise",
+    RINGS_POWER_REV = "Resource ring counter-clockwise",
+    RINGS_HEALTH_REV = "Life ring counter-clockwise",
     RINGS_HIDEBLIZZ = "Hide Blizzard's player frame",
     RINGS_HIDEFULL = "Only show when not full",
     RINGS_UNLOCK = "Move (drag the rings)",
-    RINGS_FLIP = "Swap fill (if the ring shows the wrong part)",
-    RINGS_REVERSE = "Counter-clockwise",
+    RINGS_FLIP = "Swap fill (if a smooth ring shows the wrong part)",
     RINGS_SIZE = "Size: %d",
+    RINGS_DMANA_THICK = "Druid mana ring thickness: %d",
+    RINGS_POWER_THICK = "Resource ring thickness: %d",
+    RINGS_HEALTH_THICK = "Life ring thickness: %d",
 })
 FW:AddLocale("deDE", {
-    RINGS_HEALTH_THICK = "Dicke Lebensring: %d",
-    RINGS_POWER_THICK = "Dicke Ressourcenring: %d",
-    RINGS_TITLE = "Ring-Anzeige (Leben und Ressource)",
-    RINGS_NOTE = "Zeigt dein Leben und deine Ressource (Mana, Wut, Energie ...) als Ringe neben dem Charakter. Alles ist standardmäßig aus. Mit \"Verschieben\" kannst du die Ringe mit der Maus ziehen.",
+    RINGS_TITLE = "Ring-Anzeige (Leben und Ressourcen)",
+    RINGS_NOTE = "Zeigt dein Leben und deine Ressourcen als Ringe neben dem Charakter. Ebenen von außen nach innen: 1 Druiden-Mana (nur in Katzen- oder Bärengestalt), 2 Ressource (Mana, Wut, Energie ...), 3 Leben, 4 Porträt. Alles ist standardmäßig aus. Mit \"Verschieben\" kannst du die Ringe mit der Maus ziehen.",
     RINGS_ON = "Ringe anzeigen",
-    RINGS_HEALTH = "Lebensring",
-    RINGS_POWER = "Ressourcenring (außen um den Lebensring)",
-    RINGS_PORTRAIT = "Porträt im Ring",
+    RINGS_DMANA = "Ebene 1: Druiden-Mana-Ring (nur in Katzen- oder Bärengestalt)",
+    RINGS_POWER = "Ebene 2: Ressourcenring (Mana, Wut, Energie ...)",
+    RINGS_HEALTH = "Ebene 3: Lebensring",
+    RINGS_PORTRAIT = "Ebene 4: Porträt in den Ringen",
+    RINGS_DMANA_REV = "Druiden-Mana-Ring gegen den Uhrzeigersinn",
+    RINGS_POWER_REV = "Ressourcenring gegen den Uhrzeigersinn",
+    RINGS_HEALTH_REV = "Lebensring gegen den Uhrzeigersinn",
     RINGS_HIDEBLIZZ = "Blizzards Spielerfenster ausblenden",
     RINGS_HIDEFULL = "Nur anzeigen, wenn nicht voll",
     RINGS_UNLOCK = "Verschieben (Ringe ziehen)",
-    RINGS_FLIP = "Füllung vertauschen (falls der Ring den falschen Teil zeigt)",
-    RINGS_REVERSE = "Gegen den Uhrzeigersinn",
+    RINGS_FLIP = "Füllung vertauschen (falls ein glatter Ring den falschen Teil zeigt)",
     RINGS_SIZE = "Größe: %d",
+    RINGS_DMANA_THICK = "Dicke Druiden-Mana-Ring: %d",
+    RINGS_POWER_THICK = "Dicke Ressourcenring: %d",
+    RINGS_HEALTH_THICK = "Dicke Lebensring: %d",
 })
 
 local DEFAULTS = {
-    on = false, health = false, power = false, portrait = false, hideBlizz = false, hideFull = false,
-    unlock = false, flip = false, reverse = false, size = 120, x = 160, y = 0,
-    healthThick = 3, powerThick = 3,   -- Dicke je Ring, Stufe 1 (duenn) bis 6 (dick); 3 = bisheriges Aussehen
+    on = false, dmana = false, power = false, health = false, portrait = false, hideBlizz = false, hideFull = false,
+    unlock = false, flip = false, size = 120, x = 160, y = 0,
+    dmanaThick = 3, powerThick = 3, healthThick = 3,   -- Dicke je Ring, Stufe 1 (duenn) bis 6 (dick); 3 = bisheriges Aussehen
+    dmanaRev = false, powerRev = false, healthRev = false,   -- true = gegen den Uhrzeigersinn
 }
+
+-- Ebenen von aussen nach innen
+R.ORDER = { "dmana", "power", "health" }
 
 function R.Opts()
     local s = FW.settings
@@ -72,6 +84,10 @@ local function Num(v)
     if FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) then return nil end
     if type(v) ~= "number" then return nil end
     return v
+end
+
+local function IsSecret(v)
+    return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) and true or false
 end
 
 -- Anteil 0..1 aus aktuellem und maximalem Wert
@@ -133,26 +149,53 @@ function R.Thickness(level)
     return t and t[R.Level(level)] or 0.16
 end
 
--- Groessen der beiden Ringe und des Portraits (Pixel). Zwei Ringe: aussen Ressource, innen Leben; der innere Ring liegt
--- innerhalb der Dicke des aeusseren (plus kleiner Abstand), das Portrait innerhalb des innersten Rings.
+---------------------------------------------------------------------
+-- Druide und Ebenen
+---------------------------------------------------------------------
+
+function R.IsDruid()
+    if R.druid == nil then
+        local _, token = nil, nil
+        if G.UnitClassBase then token = G.UnitClassBase("player")
+        elseif G.UnitClass then _, token = G.UnitClass("player") end
+        if token == nil then return false end   -- noch nicht bekannt: spaeter nochmal fragen
+        R.druid = (token == "DRUID")
+    end
+    return R.druid
+end
+
+-- Druide in Katzen-/Baerengestalt: die Hauptressource ist nicht Mana, das Mana soll trotzdem zu sehen sein
+function R.DruidManaActive()
+    if not R.IsDruid() then return false end
+    local pt = G.UnitPowerType and Num((G.UnitPowerType("player")))
+    return pt ~= nil and pt ~= 0
+end
+
+-- Eingeschaltete Ebenen von aussen nach innen (die Druiden-Ebene nur fuer Druiden; ihr Platz bleibt auch ausserhalb der Gestalt frei)
+function R.Slots(o)
+    local list = {}
+    for _, key in ipairs(R.ORDER) do
+        if o[key] and (key ~= "dmana" or R.IsDruid()) then list[#list + 1] = key end
+    end
+    return list
+end
+
+-- Groessen der Ringe und des Portraits (Pixel). Der aeusserste Ring hat die volle Groesse, jeder naechste liegt innerhalb der
+-- Dicke des Vorgaengers (plus kleiner Abstand), das Portrait innerhalb des innersten Rings.
 function R.Layout(o)
     local S = o.size or 120
-    local both = o.health and o.power
-    local outer = S
-    local inner = S
-    local innerThick
-    if both then
-        inner = math.floor(S * (1 - R.Thickness(o.powerThick) - 0.05) + 0.5)
-        innerThick = R.Thickness(o.healthThick)
-    elseif o.health then
-        innerThick = R.Thickness(o.healthThick)
-    elseif o.power then
-        innerThick = R.Thickness(o.powerThick)
-    else
-        innerThick = 0.16
+    local lay = { outer = S, diam = {}, slots = R.Slots(o) }
+    local d, lastThick = S, 0.16
+    for i, key in ipairs(lay.slots) do
+        if i > 1 then
+            local prev = lay.slots[i - 1]
+            d = math.floor(lay.diam[prev] * (1 - R.Thickness(o[prev .. "Thick"]) - 0.05) + 0.5)
+        end
+        lay.diam[key] = d
+        lastThick = R.Thickness(o[key .. "Thick"])
     end
-    local portrait = math.floor(inner * (1 - innerThick - 0.06) + 0.5)
-    return { outer = outer, inner = inner, portrait = portrait, both = both and true or false }
+    lay.portrait = math.floor(d * (1 - lastThick - 0.06) + 0.5)
+    return lay
 end
 
 ---------------------------------------------------------------------
@@ -177,6 +220,71 @@ local function NewRing(parent)
     ring.cd = cd
     ring.last = -1
     return ring
+end
+
+-- Versteckte Statusleiste als Messgeraet: SetValue/SetMinMaxValues nehmen auch "secret"-Werte an; die Breite der Fuellung ist
+-- dann (vermutlich) eine normale Zahl. Auf Forever liefert das nil; bleibt als Versuch.
+local BAR_W = 1000
+local function Gauge(key)
+    R.gauges = R.gauges or {}
+    local g = R.gauges[key]
+    if g then return g end
+    if not G.CreateFrame then return nil end
+    local ok, sb = pcall(G.CreateFrame, "StatusBar", nil, G.UIParent)
+    if not ok or not sb then return nil end
+    sb:SetSize(BAR_W, 10)
+    sb:SetPoint("TOPLEFT", G.UIParent, "TOPLEFT", -5000, 0)
+    sb:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+    g = sb
+    R.gauges[key] = g
+    return g
+end
+
+local function GaugeRead(key, cur, max)
+    local sb = Gauge(key)
+    if not sb then return nil end
+    local ok = pcall(function() sb:SetMinMaxValues(0, max); sb:SetValue(cur) end)
+    if not ok then return nil end
+    local tex = sb.GetStatusBarTexture and sb:GetStatusBarTexture()
+    if not tex then return nil end
+    local ok2, w = pcall(tex.GetWidth, tex)
+    w = ok2 and Num(w) or nil
+    if not w then return nil end
+    return R.Fraction(w, BAR_W)
+end
+
+-- Rohwerte (aktuell, maximal) einer Ebene
+local function RawValues(kind)
+    if kind == "health" then
+        return G.UnitHealth and G.UnitHealth("player"), G.UnitHealthMax and G.UnitHealthMax("player")
+    elseif kind == "dmana" then
+        return G.UnitPower and G.UnitPower("player", 0), G.UnitPowerMax and G.UnitPowerMax("player", 0)
+    end
+    return G.UnitPower and G.UnitPower("player"), G.UnitPowerMax and G.UnitPowerMax("player")
+end
+
+-- Anteil lesen: erst cur/max; sind die Werte "secret" (Spieler auf Forever), dann die Prozent-Funktion, dann das Messgeraet.
+-- Rueckgabe: Anteil, Quelle ("wert", "prozent", "balken", "secret", "test")
+function R.Read(kind)
+    if R.force then return R.force, "test" end
+    local cur, max = RawValues(kind)
+    if Num(cur) and Num(max) then return R.Fraction(cur, max), "wert" end
+    local fn = kind == "health" and G.UnitHealthPercent or G.UnitPowerPercent
+    if fn then
+        local scale = G.CurveConstants and G.CurveConstants.ScaleTo100
+        local ok, v = pcall(fn, "player", false, scale)
+        if kind ~= "health" then ok, v = pcall(fn, "player", kind == "dmana" and 0 or nil, false, scale) end
+        v = ok and Num(v) or nil
+        if v then
+            if v > 1.0001 then v = v / 100 end
+            return R.Fraction(v, 1), "prozent"
+        end
+    end
+    if cur ~= nil and max ~= nil then
+        local f = GaugeRead(kind, cur, max)
+        if f then return f, "balken" end
+    end
+    return 0, "secret"
 end
 
 ---------------------------------------------------------------------
@@ -205,9 +313,8 @@ function R.BuildSegs(ring)
     for k = 1, R.SEG_N do
         local sb = G.CreateFrame("StatusBar", nil, ring.frame)
         sb:SetStatusBarTexture(string.format("%sseg%d_%02d.tga", PATH, ring.level or 3, k))
-        local orient, rev = R.SegDirection(k)
+        local orient = R.SegDirection(k)
         sb:SetOrientation(orient)
-        if sb.SetReverseFill then sb:SetReverseFill(rev) end
         sb:Hide()
         ring.segs[k] = sb
     end
@@ -243,20 +350,31 @@ function R.SetLevel(ring, level)
     end
 end
 
--- Segmente ein/aus; Wertebereich je Segment: [ (k-1)/n, k/n ] * pmax
-function R.SegMode(ring, on, pmax)
+-- Segmente ein/aus; Wertebereich je Segment (im Uhrzeigersinn): [ (k-1)/n, k/n ] * pmax; gegen den Uhrzeigersinn
+-- werden die Bereiche gespiegelt und die Fuellrichtung jedes Stuecks umgedreht.
+function R.SegMode(ring, on, pmax, ccw)
     if on then
         if not R.BuildSegs(ring) then return false end
-        if ring.segMax ~= pmax then
-            ring.segMax = pmax
+        local key = tostring(pmax) .. (ccw and "c" or "n")
+        if ring.segKey ~= key then
+            ring.segKey = key
+            local n = R.SEG_N
             for k, sb in ipairs(ring.segs) do
-                sb:SetMinMaxValues((k - 1) / R.SEG_N * pmax, k / R.SEG_N * pmax)
+                local j = ccw and (n - k + 1) or k
+                sb:SetMinMaxValues((j - 1) / n * pmax, j / n * pmax)
+                if sb.SetReverseFill then
+                    local _, rev = R.SegDirection(k)
+                    if ccw then rev = not rev end
+                    sb:SetReverseFill(rev)
+                end
             end
         end
         if ring.layKey ~= (ring.size or 100) .. ":" .. (ring.level or 3) then R.LayoutSegs(ring, ring.size or 100) end
-        for _, sb in ipairs(ring.segs) do sb:Show() end
-        ring.cd:Hide()
-        ring.segOn = true
+        if not ring.segOn then
+            for _, sb in ipairs(ring.segs) do sb:Show() end
+            ring.cd:Hide()
+            ring.segOn = true
+        end
     elseif ring.segOn then
         for _, sb in ipairs(ring.segs) do sb:Hide() end
         ring.cd:Show()
@@ -272,15 +390,16 @@ function R.SecretPercent(kind)
     if not fn then return nil end
     local scale = G.CurveConstants and G.CurveConstants.ScaleTo100
     local ok, v
-    if kind == "health" then ok, v = pcall(fn, "player", false, scale) else ok, v = pcall(fn, "player", nil, false, scale) end
+    if kind == "health" then ok, v = pcall(fn, "player", false, scale)
+    else ok, v = pcall(fn, "player", kind == "dmana" and 0 or nil, false, scale) end
     if not ok or v == nil then return nil end
     return v, scale and 100 or 1
 end
 
-function R.FeedSegs(ring, kind, r, g, b)
+function R.FeedSegs(ring, kind, r, g, b, ccw)
     local v, pmax = R.SecretPercent(kind)
     if v == nil then return false end
-    if not R.SegMode(ring, true, pmax) then return false end
+    if not R.SegMode(ring, true, pmax, ccw) then return false end
     for _, sb in ipairs(ring.segs) do
         pcall(sb.SetValue, sb, v)
         if r then sb:SetStatusBarColor(r, g, b) end
@@ -288,12 +407,12 @@ function R.FeedSegs(ring, kind, r, g, b)
     return true
 end
 
-function R.SetRing(ring, frac, r, g, b, o)
+function R.SetRing(ring, frac, r, g, b, o, ccw)
     if not ring or not ring.cd then return end
     local cd = ring.cd
     if cd.SetSwipeColor then cd:SetSwipeColor(r or 1, g or 1, b or 1, 1) end
-    if cd.SetReverse then cd:SetReverse(o.reverse and true or false) end
-    local key = math.floor(frac * 500 + 0.5) .. (o.reverse and "r" or "n") .. (o.flip and "f" or "n")
+    if cd.SetReverse then cd:SetReverse(ccw and true or false) end
+    local key = math.floor(frac * 500 + 0.5) .. (ccw and "r" or "n") .. (o.flip and "f" or "n")
     if key == ring.last then return end
     ring.last = key
     if frac <= 0.001 then
@@ -301,7 +420,7 @@ function R.SetRing(ring, frac, r, g, b, o)
         return
     end
     if frac > 0.998 then frac = 0.998 end
-    local el = R.Elapsed(frac, o.reverse, o.flip)
+    local el = R.Elapsed(frac, ccw, o.flip)
     local now = G.GetTime and G.GetTime() or 0
     cd:SetCooldown(now - el * DURATION, DURATION)
     if cd.Pause then cd:Pause() end
@@ -326,8 +445,8 @@ function R.Build()
         f.portrait:AddMaskTexture(m)
         f.mask = m
     end
-    R.outer = NewRing(f)
-    R.inner = NewRing(f)
+    R.rings = {}
+    for _, key in ipairs(R.ORDER) do R.rings[key] = NewRing(f) end
     f:SetScript("OnDragStart", function(self) if R.Opts().unlock then self:StartMoving() end end)
     f:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
@@ -386,20 +505,22 @@ function R.Apply()
     f:EnableMouse(o.unlock and true or false)
     if o.unlock then f.hl:Show() else f.hl:Hide() end
 
-    -- Zuordnung: zwei Ringe -> aussen Ressource, innen Leben; ein Ring -> volle Groesse
-    R.healthRing = o.health and (lay.both and R.inner or R.outer) or nil
-    R.powerRing = o.power and R.outer or nil
-    if R.healthRing then R.SetLevel(R.healthRing, o.healthThick) end
-    if R.powerRing then R.SetLevel(R.powerRing, o.powerThick) end
-    for _, ring in ipairs({ R.outer, R.inner }) do ring.last = -1; ring.segMax = nil; ring.frame:Hide() end
-    if R.healthRing then
-        local s = lay.both and lay.inner or lay.outer
-        R.healthRing.size = s; R.healthRing.frame:SetSize(s, s); R.healthRing.frame:ClearAllPoints(); R.healthRing.frame:SetPoint("CENTER", f, "CENTER", 0, 0)
-        R.healthRing.frame:Show()
+    for _, key in ipairs(R.ORDER) do
+        local ring = R.rings[key]
+        ring.segKey = nil
+        ring.last = -1
+        ring.frame:Hide()
     end
-    if R.powerRing then
-        R.powerRing.size = lay.outer; R.powerRing.frame:SetSize(lay.outer, lay.outer); R.powerRing.frame:ClearAllPoints(); R.powerRing.frame:SetPoint("CENTER", f, "CENTER", 0, 0)
-        R.powerRing.frame:Show()
+    R.active = lay.slots
+    for _, key in ipairs(lay.slots) do
+        local ring = R.rings[key]
+        local s = lay.diam[key]
+        R.SetLevel(ring, o[key .. "Thick"])
+        ring.size = s
+        ring.frame:SetSize(s, s)
+        ring.frame:ClearAllPoints()
+        ring.frame:SetPoint("CENTER", f, "CENTER", 0, 0)
+        ring.frame:Show()
     end
     if o.portrait then
         f.portrait:SetSize(lay.portrait, lay.portrait)
@@ -415,134 +536,80 @@ function R.Apply()
     R.Update()
 end
 
-local function IsSecret(v)
-    return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) and true or false
-end
-
--- Versteckte Statusleiste als Messgeraet: SetValue/SetMinMaxValues nehmen auch "secret"-Werte an; die Breite der Fuellung ist
--- dann (vermutlich) eine normale Zahl. UNGEPRUEFT: ob das Spiel die Breite freigibt.
-local BAR_W = 1000
-local function Gauge(key)
-    R.gauges = R.gauges or {}
-    local g = R.gauges[key]
-    if g then return g end
-    if not G.CreateFrame then return nil end
-    local ok, sb = pcall(G.CreateFrame, "StatusBar", nil, G.UIParent)
-    if not ok or not sb then return nil end
-    sb:SetSize(BAR_W, 10)
-    sb:SetPoint("TOPLEFT", G.UIParent, "TOPLEFT", -5000, 0)
-    sb:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
-    g = sb
-    R.gauges[key] = g
-    return g
-end
-
-local function GaugeRead(key, cur, max)
-    local sb = Gauge(key)
-    if not sb then return nil end
-    local ok = pcall(function() sb:SetMinMaxValues(0, max); sb:SetValue(cur) end)
-    if not ok then return nil end
-    local tex = sb.GetStatusBarTexture and sb:GetStatusBarTexture()
-    if not tex then return nil end
-    local ok2, w = pcall(tex.GetWidth, tex)
-    w = ok2 and Num(w) or nil
-    if not w then return nil end
-    return R.Fraction(w, BAR_W)
-end
-
--- Anteil lesen: erst cur/max; sind die Werte "secret" (im Kampf), dann die Prozent-Funktion des Spiels, dann das Messgeraet.
--- Rueckgabe: Anteil, Quelle ("wert", "prozent", "balken", "secret", "test")
-function R.Read(kind)
-    if R.force then return R.force, "test" end
-    local cur, max
-    if kind == "health" then
-        cur = G.UnitHealth and G.UnitHealth("player"); max = G.UnitHealthMax and G.UnitHealthMax("player")
-    else
-        cur = G.UnitPower and G.UnitPower("player"); max = G.UnitPowerMax and G.UnitPowerMax("player")
-    end
-    if Num(cur) and Num(max) then return R.Fraction(cur, max), "wert" end
-    local fn = kind == "health" and G.UnitHealthPercent or G.UnitPowerPercent
-    if fn then
-        local scale = G.CurveConstants and G.CurveConstants.ScaleTo100
-        local ok, v = pcall(fn, "player", false, scale)
-        if not ok or not Num(v) then ok, v = pcall(fn, "player") end
-        v = ok and Num(v) or nil
-        if v then
-            if v > 1.0001 then v = v / 100 end
-            return R.Fraction(v, 1), "prozent"
-        end
-    end
-    if cur ~= nil and max ~= nil then
-        local f = GaugeRead(kind, cur, max)
-        if f then return f, "balken" end
-    end
-    return 0, "secret"
+-- Farbe einer Ebene (bei lesbarem Anteil frac)
+local function RingColor(key, frac)
+    if key == "health" then return R.HealthColor(frac) end
+    if key == "dmana" then return R.PowerColor(0) end
+    local pt = G.UnitPowerType and Num((G.UnitPowerType("player")))
+    return R.PowerColor(pt)
 end
 
 function R.Update()
     local o = R.Opts()
     local f = R.frame
     if not o.on or not f then return end
-    local hfrac, pfrac = 1, 1
-    if R.healthRing then
-        hfrac, R.hsrc = R.Read("health")
-        local r, g, b = R.HealthColor(hfrac)
-        if R.hsrc == "secret" and R.FeedSegs(R.healthRing, "health", 0.2, 0.85, 0.2) then
-            hfrac = 0.5
+    -- ein Druide wird erst nach dem Anmelden erkannt: dann Ebenen neu aufbauen
+    if R.IsDruid() ~= R.layoutDruid then
+        R.layoutDruid = R.IsDruid()
+        if o.dmana then R.Apply(); return end
+    end
+    local allFull, any = true, false
+    R.src = R.src or {}
+    for _, key in ipairs(R.active or {}) do
+        local ring = R.rings[key]
+        local show = key ~= "dmana" or R.DruidManaActive()
+        if not show then
+            ring.frame:Hide()
         else
-            R.SegMode(R.healthRing, false)
-            R.SetRing(R.healthRing, hfrac, r, g, b, o)
+            ring.frame:Show()
+            local ccw = o[key .. "Rev"] and true or false
+            local frac, src = R.Read(key)
+            R.src[key] = src
+            local r, g, b = RingColor(key, frac)
+            if src == "secret" and R.FeedSegs(ring, key, key == "health" and 0.2 or r, key == "health" and 0.85 or g, key == "health" and 0.2 or b, ccw) then
+                frac = 0.5   -- Wert unbekannt: gilt als "nicht voll"
+            else
+                R.SegMode(ring, false)
+                R.SetRing(ring, frac, r, g, b, o, ccw)
+            end
+            any = true
+            if frac < 0.999 then allFull = false end
         end
     end
-    if R.powerRing then
-        local ptype = G.UnitPowerType and G.UnitPowerType("player")
-        pfrac, R.psrc = R.Read("power")
-        local r, g, b = R.PowerColor(Num(ptype))
-        if R.psrc == "secret" and R.FeedSegs(R.powerRing, "power", r, g, b) then
-            pfrac = 0.5
-        else
-            R.SegMode(R.powerRing, false)
-            R.SetRing(R.powerRing, pfrac, r, g, b, o)
-        end
-    end
-    local full = (not R.healthRing or hfrac >= 0.999) and (not R.powerRing or pfrac >= 0.999)
+    local full = any and allFull
     if o.hideFull and full and not o.unlock then f:SetAlpha(0) else f:SetAlpha(1) end
     R.ApplyBlizz()
 end
 
--- Fehlersuche: /fwring debug   |   /fwring test 60  (beide Ringe auf 60 % zwingen)   |   /fwring test  (zurueck)
+-- Fehlersuche: /fwring debug   |   /fwring test 60  (alle Ringe auf 60 % zwingen)   |   /fwring test  (zurueck)
 function R.Debug()
     local function S(v) return tostring(v) end
     local function P(t) if FW.Print then FW:Print(t) else print(t) end end
     local o = R.Opts()
-    P("Ringe: an=" .. tostring(o.on) .. " Leben=" .. tostring(o.health) .. " Ressource=" .. tostring(o.power) .. " Groesse=" .. tostring(o.size))
+    P("Ringe: an=" .. S(o.on) .. " Druide=" .. S(R.IsDruid()) .. " Mana-Ring=" .. S(o.dmana) .. " Ressource=" .. S(o.power) .. " Leben=" .. S(o.health) .. " Groesse=" .. S(o.size))
     local f = R.frame
     if not f then P("kein Frame gebaut (Ringe aus?)"); return end
     P(string.format("Frame: sichtbar=%s alpha=%s Groesse=%s", S(f:IsShown()), S(f:GetAlpha()), S(f:GetWidth())))
-    for _, kind in ipairs({ "health", "power" }) do
-        local ring = kind == "health" and R.healthRing or R.powerRing
-        if ring then
-            local fr, src = R.Read(kind)
-            local cd = ring.cd
-            local a, b2
-            if cd.GetCooldownTimes then a, b2 = cd:GetCooldownTimes() end
-            P(string.format("%s: Anteil=%.3f Quelle=%s | SetSwipeTexture=%s Pause=%s SetSwipeColor=%s | CooldownTimes=%s/%s | Cooldown sichtbar=%s",
-                kind, fr, tostring(src), tostring(cd.SetSwipeTexture ~= nil), tostring(cd.Pause ~= nil), tostring(cd.SetSwipeColor ~= nil),
-                tostring(a), tostring(b2), S(cd:IsShown())))
-        end
+    for _, key in ipairs(R.active or {}) do
+        local ring = R.rings[key]
+        local fr, src = R.Read(key)
+        local cd = ring.cd
+        local a, b2
+        if cd.GetCooldownTimes then a, b2 = cd:GetCooldownTimes() end
+        local nseg, nshown = 0, 0
+        if ring.segs then for _, sb in ipairs(ring.segs) do nseg = nseg + 1; if sb:IsShown() then nshown = nshown + 1 end end end
+        P(string.format("%s: Anteil=%.3f Quelle=%s Stufe=%s Groesse=%s | Segmente=%d (sichtbar %d, an=%s) | Swipe=%s Pause=%s | CooldownTimes=%s/%s",
+            key, fr, S(src), S(ring.level), S(ring.size), nseg, nshown, S(ring.segOn), S(cd.SetSwipeTexture ~= nil), S(cd.Pause ~= nil), S(a), S(b2)))
     end
     do
         local fn = G.UnitHealthPercent
         local scale = G.CurveConstants and G.CurveConstants.ScaleTo100
         local ok, v = false, nil
         if fn then ok, v = pcall(fn, "player", false, scale) end
-        local hp, hm = G.UnitHealth and G.UnitHealth("player"), G.UnitHealthMax and G.UnitHealthMax("player")
-        local gauge = (hp ~= nil and hm ~= nil) and GaugeRead("health", hp, hm) or nil
-        P("Prozent-Funktion: ok=" .. S(ok) .. " Ergebnis=" .. (IsSecret(v) and "secret" or S(type(v) == "number" and v or type(v)))
-            .. " | Messgeraet (Statusleiste): " .. S(gauge) .. " | ScaleTo100=" .. S(scale ~= nil))
+        P("Prozent-Funktion: ok=" .. S(ok) .. " Ergebnis=" .. (IsSecret(v) and "secret" or S(type(v) == "number" and v or type(v))) .. " | ScaleTo100=" .. S(scale ~= nil))
     end
-    P("UnitHealth=" .. tostring(IsSecret(G.UnitHealth and G.UnitHealth("player")) and "secret" or "normal")
-        .. " UnitHealthPercent=" .. tostring(G.UnitHealthPercent ~= nil) .. " CreateMaskTexture=" .. tostring(f.CreateMaskTexture ~= nil))
+    P("UnitHealth=" .. (IsSecret(G.UnitHealth and G.UnitHealth("player")) and "secret" or "normal")
+        .. " UnitHealthPercent=" .. S(G.UnitHealthPercent ~= nil) .. " CreateMaskTexture=" .. S(f.CreateMaskTexture ~= nil))
 end
 
 if G.SlashCmdList then
@@ -553,7 +620,7 @@ if G.SlashCmdList then
         if cmd == "test" then
             local v = tonumber(arg)
             R.force = v and math.max(0, math.min(1, v / 100)) or nil
-            for _, ring in ipairs({ R.outer, R.inner }) do if ring then ring.last = -1 end end
+            for _, ring in pairs(R.rings or {}) do ring.last = -1 end
             R.Update()
             if FW.Print then FW:Print(R.force and ("Ring-Test: " .. arg .. " %") or "Ring-Test aus") end
         else
@@ -581,7 +648,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("unit-rings", {
         category = "interface",
         order = 20,
-        height = 560,
+        height = 800,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.RINGS_TITLE)
@@ -592,14 +659,17 @@ if UI.RegisterSettingsSection then
                     function(v) R.Opts()[key] = v and true or false; pcall(R.Apply) end), { fit = true, gap = 4 })
             end
             Check("on", L.RINGS_ON)
-            Check("health", L.RINGS_HEALTH)
+            Check("dmana", L.RINGS_DMANA)
             Check("power", L.RINGS_POWER)
+            Check("health", L.RINGS_HEALTH)
             Check("portrait", L.RINGS_PORTRAIT)
+            Check("dmanaRev", L.RINGS_DMANA_REV)
+            Check("powerRev", L.RINGS_POWER_REV)
+            Check("healthRev", L.RINGS_HEALTH_REV)
             Check("hideBlizz", L.RINGS_HIDEBLIZZ)
             Check("hideFull", L.RINGS_HIDEFULL)
             Check("unlock", L.RINGS_UNLOCK)
             Check("flip", L.RINGS_FLIP)
-            Check("reverse", L.RINGS_REVERSE)
             local function Slider(key, label, lo, hi, step)
                 local lab = UI.CreateLabel(f, "", { size = 12 })
                 stack:Add(lab, { height = 16, gap = 8 })
@@ -613,8 +683,9 @@ if UI.RegisterSettingsSection then
                 stack:Add(sl, { height = 20, gap = 2 })
             end
             Slider("size", L.RINGS_SIZE, 60, 300, 5)
-            Slider("healthThick", L.RINGS_HEALTH_THICK, 1, R.LEVELS, 1)
+            Slider("dmanaThick", L.RINGS_DMANA_THICK, 1, R.LEVELS, 1)
             Slider("powerThick", L.RINGS_POWER_THICK, 1, R.LEVELS, 1)
+            Slider("healthThick", L.RINGS_HEALTH_THICK, 1, R.LEVELS, 1)
             return f
         end,
     })

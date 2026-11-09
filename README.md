@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.7 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.38.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.38.0 DE:** Ring-Anzeige in vier Ebenen, von außen nach innen: 1 Mana-Ring (nur Druide in Katzen- oder Bärengestalt, damit man sein Mana sieht), 2 Ressourcenring (Mana, Wut, Energie ...; beim Druiden in Eulen-/Baumgestalt also das Mana), 3 Lebensring, 4 Porträt. Jede Ebene hat einen eigenen Haken, eine eigene Dicke (Stufe 1–6) und eine eigene Richtung (Haken „gegen den Uhrzeigersinn“ je Ring; der alte gemeinsame Haken entfällt). Der Platz der Druiden-Ebene bleibt auch außerhalb der Gestalt frei, damit die Ringe nicht springen. `/fwring` zeigt jetzt je Ring Quelle, Stufe, Segmente und Größe. Ungeprüft im Spiel. **EN:** Unit rings in four layers, from the outside in: 1 mana ring (druids in cat or bear form only, so you can see your mana), 2 resource ring (mana, rage, energy ...; for a druid in owl/tree form that is mana), 3 life ring, 4 portrait. Each layer has its own checkbox, its own thickness (level 1-6) and its own direction ("counter-clockwise" checkbox per ring; the old shared checkbox is gone). The druid layer's slot stays free outside the form so the rings do not jump. `/fwring` now shows source, level, segments and size per ring. Unchecked in game.
 
 **0.37.7 DE:** Ring-Anzeige: runder. Der Segment-Ring besteht jetzt aus 64 statt 32 Stücken (feinere Stufen beim Füllen), und die Ring-Bilder sind mit achtfacher statt vierfacher Glättung gerechnet (weichere Ränder). Die Anzahl steht in `Media\Rings\Segments.lua`. Zum Übernehmen das Spiel neu starten. Ungeprüft im Spiel. **EN:** Unit rings: rounder. The segment ring now has 64 instead of 32 pieces (finer steps while filling) and the ring images are rendered with eight-fold instead of four-fold smoothing (softer edges). The count is in `Media\Rings\Segments.lua`. Restart the game to apply. Unchecked in game.
 
