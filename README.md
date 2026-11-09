@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.40.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.40.1 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.40.1 DE:** Neu: `/fwprobe` (Probe für geheime Werte, ändert nichts am Spiel). Es prüft im Spiel, welche Abfragen die Lebenswerte des Spielers lesbar machen (`UnitHealth`, `UnitHealthPercent` in mehreren Formen, das Blizzard-Spielerfenster, eine eigene Statusleiste, Kurven und Zeitobjekte des Spiels) und was man einem geheimen Wert als Argument geben darf (Transparenz, Breite, Drehung, Abklingzeit, Linie, Text). Ausgabe im Chat und unter `ringProbe` in den gespeicherten Einstellungen. Am besten einmal außerhalb und einmal im Kampf ausführen. **EN:** New: `/fwprobe` (probe for secret values, changes nothing in the game). It checks in game which queries make the player's life values readable (`UnitHealth`, `UnitHealthPercent` in several forms, Blizzard's player frame, a status bar of our own, curves and duration objects of the game) and what a secret value may be passed to as an argument (alpha, width, rotation, cooldown, line, text). Output in chat and under `ringProbe` in the saved settings. Best run once out of combat and once in combat.
 
 **0.40.0 DE:** Ring-Anzeige als Scheiben: Jede Ebene ist jetzt eine volle, geschlossene Scheibe, die sich im oder gegen den Uhrzeigersinn füllt; die Scheiben liegen übereinander, die kleineren oben, und das Porträt auf der innersten. Sichtbar bleibt von jeder Scheibe das Band am Rand, dessen Breite man je Ebene in Prozent einstellt (4–45 %, Standard 16 %; ersetzt die Dickenstufen 1–6). Der leere Teil jeder Scheibe ist dunkel und deckend. Die Segment-Scheibe für geheime Werte hat jetzt 128 Stücke (feinerer Schnitt, weniger kantig; `seg_001…128.tga`, Scheibe `disc.tga`); die alten `ring<N>.tga`/`seg<N>_NN.tga` entfallen. Gespeicherte Dicken der Version 0.38/0.39 werden auf 16 % zurückgesetzt. Ungeprüft im Spiel. **EN:** Unit rings as discs: every layer is now a full, closed disc that fills clockwise or counter-clockwise; the discs lie on top of each other, the smaller ones above, and the portrait on the innermost. What stays visible of each disc is the band at its edge, whose width you set per layer in percent (4-45 %, default 16 %; replaces thickness levels 1-6). The empty part of each disc is dark and opaque. The segment disc for secret values now has 128 pieces (finer cut, less angular; `seg_001..128.tga`, disc `disc.tga`); the old `ring<N>.tga`/`seg<N>_NN.tga` are gone. Saved thicknesses from versions 0.38/0.39 are reset to 16 %. Unchecked in game.
 
