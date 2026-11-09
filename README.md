@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.1 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.37.1 DE:** Neues Greifen-Bild „Magier_Affe“ (`Media\Greifen\magier_affe.tga`, 512x256 mit Transparenz); es steht in der Bilderauswahl der Greifen. **EN:** New gryphon image "Magier_Affe" (`Media\Greifen\magier_affe.tga`, 512x256 with transparency); it appears in the gryphon image selection.
 
 **0.37.0 DE:** Neu: Ring-Anzeige für Leben und Ressource (Einstellungen > Interface > „Ring-Anzeige“). Innen ein Lebensring (grün → orange → rot), außen ein Ressourcenring (Mana blau, Wut rot, Energie gelb …), jeder einzeln oder beide zusammen; optional ein Porträt im Inneren, Blizzards Spielerfenster ausblenden (nur Transparenz), „nur anzeigen, wenn nicht voll“, Verschieben per Ziehen und ein Größenregler. Gezeichnet werden die Ringe als Abklingzeit-Frames mit eigener Ring-Textur (`Media\Rings`), angehalten auf dem Prozentwert. **Alle Haken sind standardmäßig aus.** Falls der Ring den falschen Teil füllt oder rückwärts läuft: „Füllung vertauschen“ und „Gegen den Uhrzeigersinn“. Ungeprüft im Spiel. **EN:** New: rings for life and resource (Settings > Interface > "Unit rings"). A life ring inside (green → orange → red), a resource ring outside (mana blue, rage red, energy yellow ...), each alone or both together; optional portrait inside, hide Blizzard's player frame (transparency only), "only show when not full", drag to move and a size slider. The rings are cooldown frames with their own ring texture (`Media\Rings`), paused at the percentage. **All checkboxes are off by default.** If the ring fills the wrong part or runs backwards: "Swap fill" and "Counter-clockwise". Unchecked in game.
 
