@@ -102,6 +102,8 @@ fr, src = R.Read("health"); near(fr, 0.3, "Messgeraet"); eq(src, "balken", "Quel
 _G.CreateFrame = realCF
 
 -- Segment-Ring
+local o64, r64 = R.SegDirection(1, 64); eq(o64, "HORIZONTAL", "64 Segmente: Segment 1 horizontal"); eq(r64, false, "64 Segmente: links nach rechts")
+local o64b, r64b = R.SegDirection(16, 64); eq(o64b, "VERTICAL", "64 Segmente: Segment 16 (3 Uhr) senkrecht"); eq(r64b, true, "64: oben nach unten")
 local o1, r1 = R.SegDirection(1); eq(o1, "HORIZONTAL", "Segment 1 (12 Uhr) horizontal"); eq(r1, false, "Segment 1 links nach rechts")
 local o8, r8 = R.SegDirection(8); eq(o8, "VERTICAL", "Segment 8 (3 Uhr) senkrecht"); eq(r8, true, "3 Uhr: oben nach unten")
 local o16, r16 = R.SegDirection(16); eq(o16, "HORIZONTAL", "Segment 16 (6 Uhr)"); eq(r16, true, "6 Uhr: rechts nach links")

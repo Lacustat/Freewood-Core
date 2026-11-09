@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.6 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.7 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.37.7 DE:** Ring-Anzeige: runder. Der Segment-Ring besteht jetzt aus 64 statt 32 Stücken (feinere Stufen beim Füllen), und die Ring-Bilder sind mit achtfacher statt vierfacher Glättung gerechnet (weichere Ränder). Die Anzahl steht in `Media\Rings\Segments.lua`. Zum Übernehmen das Spiel neu starten. Ungeprüft im Spiel. **EN:** Unit rings: rounder. The segment ring now has 64 instead of 32 pieces (finer steps while filling) and the ring images are rendered with eight-fold instead of four-fold smoothing (softer edges). The count is in `Media\Rings\Segments.lua`. Restart the game to apply. Unchecked in game.
 
 **0.37.6 DE:** Ring-Anzeige: Die Dicke jedes Rings ist einstellbar (Einstellungen > Interface > Ring-Anzeige: „Dicke Lebensring“ und „Dicke Ressourcenring“, Stufe 1 bis 6, Standard 3 wie bisher). Der innere Ring und das Porträt passen sich der Dicke an. Dafür gibt es die Ring-Bilder jetzt in sechs Dicken (`ring1…6.tga`, `seg<stufe>_01…32.tga`); die alten Dateien `ring.tga` und `seg_NN.tga` entfallen. Ungeprüft im Spiel. **EN:** Unit rings: the thickness of each ring is adjustable (Settings > Interface > Unit rings: "Life ring thickness" and "Resource ring thickness", level 1 to 6, default 3 as before). The inner ring and the portrait adapt to the thickness. The ring images now come in six thicknesses (`ring1..6.tga`, `seg<level>_01..32.tga`); the old files `ring.tga` and `seg_NN.tga` are gone. Unchecked in game.\n\n**0.37.5 DE:** Segment-Ring: Die Stücke überlappen jetzt um 1,5°, damit an den Nahtstellen keine feinen Striche mehr zu sehen sind. Der Ring füllt sich auf Forever (secret-Werte) bereits von selbst. **EN:** Segment ring: the pieces now overlap by 1.5° so no fine lines show at the seams. The ring already fills by itself on Forever (secret values).
 

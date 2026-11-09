@@ -2,7 +2,7 @@
 -- Die Ringe sind Abklingzeit-Frames (Cooldown) mit eigener Ring-Textur (Media\Rings\ring<stufe>.tga), angehalten auf dem Prozentwert.
 -- Alles ist standardmaessig AUS. Innen ein Lebensring, aussen ein Ressourcenring; optional Portrait im Inneren (runde Maske),
 -- Blizzards Spielerfenster ausblenden (nur Transparenz, jederzeit umkehrbar), Verschieben per Ziehen, Groesse per Regler.
--- Sind die Werte "secret" (Spieler auf Forever), nimmt ein Ring aus 32 Statusleisten ihren Platz (siehe Segment-Ring).
+-- Sind die Werte "secret" (Spieler auf Forever), nimmt ein Ring aus 64 Statusleisten ihren Platz (siehe Segment-Ring).
 -- UNGEPRUEFT im Spiel: ob Cooldown:SetSwipeTexture / Pause / Masken auf Forever laufen und in welche Richtung der Swipe fuellt
 -- (dafuer die Haken "Füllung vertauschen" und "Gegen den Uhrzeigersinn").
 
@@ -180,11 +180,12 @@ local function NewRing(parent)
 end
 
 ---------------------------------------------------------------------
--- Segment-Ring fuer "secret"-Werte: 32 kleine Statusleisten, jede mit einem Stueck des Rings und eigenem Wertebereich.
+-- Segment-Ring fuer "secret"-Werte: 64 kleine Statusleisten, jede mit einem Stueck des Rings und eigenem Wertebereich.
 -- Statusleisten nehmen secret-Werte an und schneiden die Fuellung selbst zu, ganz ohne Rechnen im Addon.
 ---------------------------------------------------------------------
 
-R.SEG_N = 32
+-- Anzahl der Stuecke steht in Media\Rings\Segments.lua (muss vor dieser Datei geladen sein)
+R.SEG_N = FW.RingSegments and FW.RingSegments[1] and #FW.RingSegments[1] or 32
 
 -- Fuellrichtung eines Segments (im Uhrzeigersinn ab 12 Uhr): orientation, reverse
 function R.SegDirection(k, n)
