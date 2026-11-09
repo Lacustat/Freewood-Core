@@ -153,6 +153,33 @@ end
 
 local function NoteUnit(unit) pcall(NoteUnitRaw, unit) end
 
+-- Klasse und Stufe eines Absenders herausfinden, wenn noch nicht gemerkt: zuerst in der Gruppe suchen, dann den Namen als Einheit probieren
+-- (geht bei Spielern in der Naehe). Fehler und geheime Werte werden verschluckt.
+function CL.NoteByName(name)
+    if not Str(name) then return end
+    local cls, lv = CL.Info(name)
+    if cls and lv then return end
+    local function Try()
+        local me = G.UnitName and G.UnitName("player")
+        if name == me then NoteUnitRaw("player") return end
+        local i = 1
+        while i <= 4 do
+            local u = "party" .. i
+            if G.UnitExists and G.UnitExists(u) and G.UnitName(u) == name then NoteUnitRaw(u) return end
+            i = i + 1
+        end
+        local n = (G.GetNumGroupMembers and G.IsInRaid and G.IsInRaid() and G.GetNumGroupMembers()) or (G.GetNumRaidMembers and G.GetNumRaidMembers()) or 0
+        i = 1
+        while i <= n do
+            local u = "raid" .. i
+            if G.UnitExists and G.UnitExists(u) and G.UnitName(u) == name then NoteUnitRaw(u) return end
+            i = i + 1
+        end
+        NoteUnitRaw(name)
+    end
+    pcall(Try)
+end
+
 local function GroupSize()
     if G.IsInRaid and G.IsInRaid() then return (G.GetNumGroupMembers and G.GetNumGroupMembers()) or 0, true end
     if G.GetNumRaidMembers and (G.GetNumRaidMembers() or 0) > 0 then return G.GetNumRaidMembers(), true end
@@ -378,6 +405,7 @@ function CL.Add(key, sender, text, out)
     if not (CL.viewVisible and CL.viewKey == key) then
         CL.unread[key] = (CL.unread[key] or 0) + 1
     end
+    if sender then CL.NoteByName(sender) end
     if sender and not out and not vol then CL.Ask(sender) end
     CL.version = CL.version + 1
     local bub = FW.ChatBubbles
@@ -495,8 +523,17 @@ FW:RegisterEvent("GUILD_ROSTER_UPDATE", function() CL.RefreshGuild() end)
 FW:RegisterEvent("WHO_LIST_UPDATE", OnWho)
 FW:RegisterEvent("PLAYER_TARGET_CHANGED", function() NoteUnit("target") end)
 FW:RegisterEvent("UPDATE_MOUSEOVER_UNIT", function() NoteUnit("mouseover") end)
-FW:RegisterEvent("PARTY_MEMBERS_CHANGED", function() CL.ScanGroup() end)
-FW:RegisterEvent("GROUP_ROSTER_UPDATE", function() CL.ScanGroup() end)
+-- Gruppe einlesen; Angaben zu neuen Mitgliedern kommen oft erst spaeter an, darum noch zwei Wiederholungen
+local function RescanGroup()
+    CL.ScanGroup()
+    local t = G.C_Timer
+    if t and t.After then
+        pcall(t.After, 2, function() CL.ScanGroup() end)
+        pcall(t.After, 6, function() CL.ScanGroup() end)
+    end
+end
+FW:RegisterEvent("PARTY_MEMBERS_CHANGED", RescanGroup)
+FW:RegisterEvent("GROUP_ROSTER_UPDATE", RescanGroup)
 FW:RegisterEvent("PLAYER_ENTERING_WORLD", function()
     CL.Prune()
     CL.RequestGuild()
