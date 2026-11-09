@@ -1520,6 +1520,9 @@ end
 -- Eingabe von aussen oeffnen (Enter, "/", Antworten ...)
 function W.OpenInput(text)
     if not (built and built.input) then return false end
+    -- direkt nach dem Laden (z. B. /reload per Enter) nicht oeffnen: die Enter-Taste von eben darf kein Eingabefeld aufmachen
+    local now0 = G.GetTime and G.GetTime() or 0
+    if W.loadGuardUntil and now0 < W.loadGuardUntil then return false end
     W.UpdateInputVisibility(true)
     built.input:SetText(type(text) == "string" and text or "")
     W.openedAt = G.GetTime and G.GetTime() or 0
@@ -2127,8 +2130,21 @@ end
 FW:On("FW_DB_READY", function()
     if W.Opts().enabled then pcall(W.Build) end
 end)
+-- Nach dem Laden (auch /reload) ist das Eingabefeld zu und bleibt es fuer 2,5 Sekunden
+function W.CloseAfterLoad()
+    W.loadGuardUntil = (G.GetTime and G.GetTime() or 0) + 2.5
+    if built and built.input then
+        if built.input.HasFocus and built.input:HasFocus() then built.input:ClearFocus() end
+        built.input:SetText("")
+        W.UpdateInputVisibility()
+    end
+    local eb = W.BlizzEditBox and W.BlizzEditBox()
+    if eb and not W.UseBlizz() and W.MainActive() and G.ChatEdit_DeactivateChat then pcall(G.ChatEdit_DeactivateChat, eb) end
+end
+
 FW:RegisterEvent("PLAYER_ENTERING_WORLD", function()
     if W.Opts().enabled then pcall(W.Build) end
+    pcall(W.CloseAfterLoad)
     pcall(W.InstallHooks)
     pcall(W.HookPrints)
     if not W.imported and not W.importAt then W.importAt = (G.GetTime and G.GetTime() or 0) + 1.5 end

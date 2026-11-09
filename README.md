@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.34.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.34.2 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.34.2 DE:** Nach `/reload` (oder Ladebildschirm) war das Freewood-Eingabefeld offen. Vermutete Ursache: die Enter-Taste, mit der der Befehl abgeschickt wurde, wirkt im neu geladenen Fenster noch als „Chat öffnen“. Jetzt wird beim Betreten der Welt das Feld geschlossen (Fokus weg, Text leer, Feld des Spiels zu), und für 2,5 Sekunden öffnet weder Enter noch `/` noch ein Spiel-Aufruf das Feld. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel. **EN:** After `/reload` (or a loading screen) the Freewood input was open. Suspected cause: the Enter key that sent the command still counts as "open chat" in the freshly loaded UI. Now the field is closed on entering the world (focus gone, text cleared, the game's own box closed), and for 2.5 seconds neither Enter nor `/` nor a game call opens it. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game.
 
 **0.34.1 DE:** Rechtsklick auf einen Namen im Freewood-Chat (Blase, Zeile oder Avatar) öffnet das Spielermenü: zuerst das Menü des Spiels (`SetItemRef` mit rechter Maustaste, sonst `FriendsFrame_ShowDropdown`); öffnet sich keines, erscheint ein eigenes kleines Menü mit Flüstern, In Gruppe einladen, Freund hinzufügen, Ignorieren, Wer (nur die Punkte, deren Funktion es gibt). In den Chat-Einstellungen lässt sich das eigene Menü fest wählen. Der eigene Name öffnet kein Menü. Linksklick setzt weiter das Flüsterziel. `/fwchatwin probe` zeigt, welche Menü-Funktionen der Client hat. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel (ob das Menü des Spiels sich so öffnen lässt). **EN:** Right-clicking a name in the Freewood chat (bubble, line or avatar) opens the player menu: first the game's menu (`SetItemRef` with right button, else `FriendsFrame_ShowDropdown`); if none opens, a small own menu appears with Whisper, Invite to group, Add friend, Ignore, Who (only the entries whose function exists). The chat settings can force the own menu. Your own name opens no menu. Left-click still sets the whisper target. `/fwchatwin probe` shows which menu functions the client has. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game (whether the game's menu opens this way).
 

@@ -16,6 +16,7 @@ local FW = { UI = UI, settings = {}, L = setmetatable({}, { __index = function(_
     Whisper = { SelfName = function() return "Pinky Freewood" end } }
 assert(loadfile("UI/ChatWindow.lua"))("Freewood-Core", FW)
 local W = FW.ChatWindow
+local RealOpenInput = W.OpenInput
 assert(loadfile("UI/ChatWindowTabs.lua"))("Freewood-Core", FW)
 
 local k, x = W.Classify("guild"); eq(k, "guild", "Gilde")
@@ -425,6 +426,22 @@ do -- Spielermenue
     W.Opts().ownMenu = true; ref = nil
     W.ShowPlayerMenu("Bert"); eq(ref, nil, "eigenes Menue statt Spiel-Menue")
     W.Opts().ownMenu = false; _G.SetItemRef = nil; _G.DropDownList1 = nil
+end
+do -- nach dem Laden bleibt das Eingabefeld zu
+    local focus, txt = false, "x"
+    local box = { HasFocus = function() return focus end, SetFocus = function() focus = true end, ClearFocus = function() focus = false end,
+        SetText = function(_, t) txt = t end, GetText = function() return txt end }
+    W.SetInputForTest(box)
+    local t = 500
+    _G.GetTime = function() return t end
+    W.OpenInput = RealOpenInput
+    W.CloseAfterLoad()
+    eq(W.OpenInput(""), false, "kurz nach dem Laden kein Oeffnen"); eq(focus, false, "kein Fokus")
+    t = 503
+    eq(W.OpenInput(""), true, "spaeter geht es"); eq(focus, true, "Fokus da")
+    focus = true; txt = "alt"; W.CloseAfterLoad()
+    eq(focus, false, "Fokus nach Laden weg"); eq(txt, "", "Text geleert")
+    W.loadGuardUntil = nil
 end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)
