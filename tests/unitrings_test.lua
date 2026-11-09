@@ -30,6 +30,7 @@ local FW = { UI = UI, settings = {}, L = setmetatable({}, { __index = function(_
     RegisterEvent = function() end, Util = { IsSecret = function(v) return v == "secret" end } }
 assert(loadfile("UI/UnitRings.lua"))("Freewood-Core", FW)
 local R = FW.UnitRings
+FW.RingThickness = { 0.06, 0.10, 0.16, 0.22, 0.30, 0.40 }
 
 -- Standard: alles aus
 local o = R.Opts()
@@ -43,7 +44,7 @@ near(R.Elapsed(0.25, false, true), 0.25, "flip")
 near(R.Elapsed(0.25, true, true), 0.75, "reverse+flip")
 local r, g = R.HealthColor(1); eq(g > r, true, "voll = gruen")
 r, g = R.HealthColor(0.05); eq(r > g, true, "fast leer = rot")
-local lay = R.Layout({ size = 100, health = true, power = true }); eq(lay.both, true, "zwei Ringe"); eq(lay.inner, 78, "innerer Ring kleiner"); eq(lay.outer, 100, "aeusserer Ring")
+local lay = R.Layout({ size = 100, health = true, power = true }); eq(lay.both, true, "zwei Ringe"); eq(lay.inner, 79, "innerer Ring kleiner"); eq(lay.outer, 100, "aeusserer Ring")
 lay = R.Layout({ size = 100, health = true, power = false }); eq(lay.inner, 100, "ein Ring volle Groesse")
 
 -- ausgeschaltet: nichts gebaut, Blizzard unberuehrt
@@ -105,7 +106,7 @@ local o1, r1 = R.SegDirection(1); eq(o1, "HORIZONTAL", "Segment 1 (12 Uhr) horiz
 local o8, r8 = R.SegDirection(8); eq(o8, "VERTICAL", "Segment 8 (3 Uhr) senkrecht"); eq(r8, true, "3 Uhr: oben nach unten")
 local o16, r16 = R.SegDirection(16); eq(o16, "HORIZONTAL", "Segment 16 (6 Uhr)"); eq(r16, true, "6 Uhr: rechts nach links")
 local o24, r24 = R.SegDirection(24); eq(o24, "VERTICAL", "Segment 24 (9 Uhr)"); eq(r24, false, "9 Uhr: unten nach oben")
-FW.RingSegments = {}; for i = 1, 32 do FW.RingSegments[i] = { 10, 10, 20, 20 } end
+FW.RingSegments = {}; for l = 1, 6 do FW.RingSegments[l] = {}; for i = 1, 32 do FW.RingSegments[l][i] = { 10, 10, 20, 20 } end end
 local ranges, values = {}, {}
 local realCF2 = _G.CreateFrame
 _G.CreateFrame = function(kind, ...)
@@ -125,6 +126,20 @@ eq(R.FeedSegs(ring, "health", 0.2, 0.8, 0.2), true, "Segmente gefuettert"); eq(#
 R.SegMode(ring, false); eq(ring.segOn, false, "Segmente aus")
 _G.UnitHealthPercent = nil; _G.CurveConstants = nil
 _G.CreateFrame = realCF2
+
+-- Dicke je Ring
+eq(R.Level(0), 1, "Stufe unten begrenzt"); eq(R.Level(99), 6, "Stufe oben begrenzt"); eq(R.Level(nil), 3, "Standard 3"); eq(R.Level(2.6), 3, "gerundet")
+near(R.Thickness(1), 0.06, "Dicke Stufe 1"); near(R.Thickness(6), 0.40, "Dicke Stufe 6")
+local lyA = R.Layout({ size = 100, health = true, power = true, healthThick = 3, powerThick = 3 })
+local lyB = R.Layout({ size = 100, health = true, power = true, healthThick = 3, powerThick = 6 })
+eq(lyB.inner < lyA.inner, true, "dicker Aussenring -> innerer Ring kleiner")
+local lyC = R.Layout({ size = 100, health = true, power = true, healthThick = 6, powerThick = 3 })
+eq(lyC.portrait < lyA.portrait, true, "dicker Innenring -> Portrait kleiner")
+eq(R.Opts().healthThick, 3, "Standard-Dicke Leben"); eq(R.Opts().powerThick, 3, "Standard-Dicke Ressource")
+local tr = { frame = Fake(), cd = Fake(), track = Fake(), size = 100, level = 3 }
+local texCalls = {}; tr.track.SetTexture = function(_, p) table.insert(texCalls, p) end
+R.SetLevel(tr, 5); eq(tr.level, 5, "Stufe gesetzt"); eq(texCalls[1], "Interface\\AddOns\\Freewood-Core\\Media\\Rings\\ring5.tga", "Hintergrund-Bild der Stufe")
+local before = #texCalls; R.SetLevel(tr, 5); eq(#texCalls, before, "gleiche Stufe: nichts neu setzen")
 local msgs = {}; FW.Print = function(_, t) table.insert(msgs, t) end
 R.Debug(); eq(#msgs >= 3, true, "Debug gibt Zeilen aus")
 print(string.format("%d Pruefungen, %d Fehler", n, fails))

@@ -1,5 +1,5 @@
 -- Freewood-Core: Ring-Anzeige fuer Leben und Ressource (Mana, Wut, Energie ...) neben dem Charakter (Einstellungen > Interface).
--- Die Ringe sind Abklingzeit-Frames (Cooldown) mit eigener Ring-Textur (Media\Rings\ring.tga), angehalten auf dem Prozentwert.
+-- Die Ringe sind Abklingzeit-Frames (Cooldown) mit eigener Ring-Textur (Media\Rings\ring<stufe>.tga), angehalten auf dem Prozentwert.
 -- Alles ist standardmaessig AUS. Innen ein Lebensring, aussen ein Ressourcenring; optional Portrait im Inneren (runde Maske),
 -- Blizzards Spielerfenster ausblenden (nur Transparenz, jederzeit umkehrbar), Verschieben per Ziehen, Groesse per Regler.
 -- Sind die Werte "secret" (Spieler auf Forever), nimmt ein Ring aus 32 Statusleisten ihren Platz (siehe Segment-Ring).
@@ -18,6 +18,8 @@ local PATH = "Interface\\AddOns\\Freewood-Core\\Media\\Rings\\"
 local DURATION = 1000          -- Laenge der Pseudo-Abklingzeit in Sekunden; der Prozentwert steckt im "Start"
 
 FW:AddLocale("enUS", {
+    RINGS_HEALTH_THICK = "Life ring thickness: %d",
+    RINGS_POWER_THICK = "Resource ring thickness: %d",
     RINGS_TITLE = "Unit rings (life and resource)",
     RINGS_NOTE = "Shows your life and your resource (mana, rage, energy ...) as rings next to the character. Everything is off by default. Drag the rings with the mouse while \"Move\" is on.",
     RINGS_ON = "Show rings",
@@ -32,6 +34,8 @@ FW:AddLocale("enUS", {
     RINGS_SIZE = "Size: %d",
 })
 FW:AddLocale("deDE", {
+    RINGS_HEALTH_THICK = "Dicke Lebensring: %d",
+    RINGS_POWER_THICK = "Dicke Ressourcenring: %d",
     RINGS_TITLE = "Ring-Anzeige (Leben und Ressource)",
     RINGS_NOTE = "Zeigt dein Leben und deine Ressource (Mana, Wut, Energie ...) als Ringe neben dem Charakter. Alles ist standardmäßig aus. Mit \"Verschieben\" kannst du die Ringe mit der Maus ziehen.",
     RINGS_ON = "Ringe anzeigen",
@@ -49,6 +53,7 @@ FW:AddLocale("deDE", {
 local DEFAULTS = {
     on = false, health = false, power = false, portrait = false, hideBlizz = false, hideFull = false,
     unlock = false, flip = false, reverse = false, size = 120, x = 160, y = 0,
+    healthThick = 3, powerThick = 3,   -- Dicke je Ring, Stufe 1 (duenn) bis 6 (dick); 3 = bisheriges Aussehen
 }
 
 function R.Opts()
@@ -114,13 +119,39 @@ function R.PowerColor(ptype)
     return c[1], c[2], c[3]
 end
 
--- Groessen der beiden Ringe und des Portraits (Pixel). Zwei Ringe: aussen Ressource, innen Leben.
+R.LEVELS = 6
+
+function R.Level(v)
+    v = math.floor((tonumber(v) or 3) + 0.5)
+    if v < 1 then v = 1 elseif v > R.LEVELS then v = R.LEVELS end
+    return v
+end
+
+-- Dicke eines Rings als Anteil am Radius (aus Media\Rings\Segments.lua)
+function R.Thickness(level)
+    local t = FW.RingThickness
+    return t and t[R.Level(level)] or 0.16
+end
+
+-- Groessen der beiden Ringe und des Portraits (Pixel). Zwei Ringe: aussen Ressource, innen Leben; der innere Ring liegt
+-- innerhalb der Dicke des aeusseren (plus kleiner Abstand), das Portrait innerhalb des innersten Rings.
 function R.Layout(o)
     local S = o.size or 120
     local both = o.health and o.power
     local outer = S
-    local inner = both and math.floor(S * 0.78 + 0.5) or S
-    local portrait = math.floor(inner * 0.70 + 0.5)
+    local inner = S
+    local innerThick
+    if both then
+        inner = math.floor(S * (1 - R.Thickness(o.powerThick) - 0.05) + 0.5)
+        innerThick = R.Thickness(o.healthThick)
+    elseif o.health then
+        innerThick = R.Thickness(o.healthThick)
+    elseif o.power then
+        innerThick = R.Thickness(o.powerThick)
+    else
+        innerThick = 0.16
+    end
+    local portrait = math.floor(inner * (1 - innerThick - 0.06) + 0.5)
     return { outer = outer, inner = inner, portrait = portrait, both = both and true or false }
 end
 
@@ -133,11 +164,12 @@ local function NewRing(parent)
     ring.frame = G.CreateFrame("Frame", nil, parent)
     ring.track = ring.frame:CreateTexture(nil, "BACKGROUND")
     ring.track:SetAllPoints(ring.frame)
-    ring.track:SetTexture(PATH .. "ring.tga")
+    ring.track:SetTexture(PATH .. "ring3.tga")
     ring.track:SetVertexColor(0.12, 0.12, 0.12, 0.7)
     local cd = G.CreateFrame("Cooldown", nil, ring.frame)
     cd:SetAllPoints(ring.frame)
-    if cd.SetSwipeTexture then cd:SetSwipeTexture(PATH .. "ring.tga") end
+    if cd.SetSwipeTexture then cd:SetSwipeTexture(PATH .. "ring3.tga") end
+    ring.level = 3
     if cd.SetDrawEdge then cd:SetDrawEdge(false) end
     if cd.SetDrawBling then cd:SetDrawBling(false) end
     if cd.SetDrawSwipe then cd:SetDrawSwipe(true) end
@@ -167,12 +199,11 @@ end
 
 function R.BuildSegs(ring)
     if ring.segs then return ring.segs end
-    local info = FW.RingSegments
-    if not info or not G.CreateFrame then return nil end
+    if not FW.RingSegments or not G.CreateFrame then return nil end
     ring.segs = {}
     for k = 1, R.SEG_N do
         local sb = G.CreateFrame("StatusBar", nil, ring.frame)
-        sb:SetStatusBarTexture(string.format("%sseg_%02d.tga", PATH, k))
+        sb:SetStatusBarTexture(string.format("%sseg%d_%02d.tga", PATH, ring.level or 3, k))
         local orient, rev = R.SegDirection(k)
         sb:SetOrientation(orient)
         if sb.SetReverseFill then sb:SetReverseFill(rev) end
@@ -183,7 +214,7 @@ function R.BuildSegs(ring)
 end
 
 function R.LayoutSegs(ring, size)
-    local info = FW.RingSegments
+    local info = FW.RingSegments and FW.RingSegments[ring.level or 3]
     if not ring.segs or not info then return end
     local f = size / (FW.RingSegmentSize or 256)
     for k, sb in ipairs(ring.segs) do
@@ -193,6 +224,21 @@ function R.LayoutSegs(ring, size)
             sb:ClearAllPoints()
             sb:SetPoint("TOPLEFT", ring.frame, "TOPLEFT", d[1] * f, -d[2] * f)
         end
+    end
+    ring.layKey = size .. ":" .. (ring.level or 3)
+end
+
+-- Dicke eines Rings umstellen: Hintergrund-, Swipe- und Segment-Bilder tauschen
+function R.SetLevel(ring, level)
+    level = R.Level(level)
+    if ring.level == level then return end
+    ring.level = level
+    ring.last = -1
+    ring.track:SetTexture(PATH .. "ring" .. level .. ".tga")
+    if ring.cd.SetSwipeTexture then ring.cd:SetSwipeTexture(PATH .. "ring" .. level .. ".tga") end
+    if ring.segs then
+        for k, sb in ipairs(ring.segs) do sb:SetStatusBarTexture(string.format("%sseg%d_%02d.tga", PATH, level, k)) end
+        R.LayoutSegs(ring, ring.size or 100)
     end
 end
 
@@ -206,7 +252,7 @@ function R.SegMode(ring, on, pmax)
                 sb:SetMinMaxValues((k - 1) / R.SEG_N * pmax, k / R.SEG_N * pmax)
             end
         end
-        R.LayoutSegs(ring, ring.size or 100)
+        if ring.layKey ~= (ring.size or 100) .. ":" .. (ring.level or 3) then R.LayoutSegs(ring, ring.size or 100) end
         for _, sb in ipairs(ring.segs) do sb:Show() end
         ring.cd:Hide()
         ring.segOn = true
@@ -342,6 +388,8 @@ function R.Apply()
     -- Zuordnung: zwei Ringe -> aussen Ressource, innen Leben; ein Ring -> volle Groesse
     R.healthRing = o.health and (lay.both and R.inner or R.outer) or nil
     R.powerRing = o.power and R.outer or nil
+    if R.healthRing then R.SetLevel(R.healthRing, o.healthThick) end
+    if R.powerRing then R.SetLevel(R.powerRing, o.powerThick) end
     for _, ring in ipairs({ R.outer, R.inner }) do ring.last = -1; ring.segMax = nil; ring.frame:Hide() end
     if R.healthRing then
         local s = lay.both and lay.inner or lay.outer
@@ -532,7 +580,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("unit-rings", {
         category = "interface",
         order = 20,
-        height = 470,
+        height = 560,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.RINGS_TITLE)
@@ -551,16 +599,21 @@ if UI.RegisterSettingsSection then
             Check("unlock", L.RINGS_UNLOCK)
             Check("flip", L.RINGS_FLIP)
             Check("reverse", L.RINGS_REVERSE)
-            local lab = UI.CreateLabel(f, "", { size = 12 })
-            stack:Add(lab, { height = 16, gap = 8 })
-            local sl = UI.CreateSlider(f, 240, {
-                min = 60, max = 300, step = 5,
-                get = function() return R.Opts().size end,
-                set = function(v) R.Opts().size = v; pcall(R.Apply) end,
-            })
-            sl.onText = function(v) lab:SetText(string.format(L.RINGS_SIZE, v)) end
-            sl:Refresh()
-            stack:Add(sl, { height = 20, gap = 2 })
+            local function Slider(key, label, lo, hi, step)
+                local lab = UI.CreateLabel(f, "", { size = 12 })
+                stack:Add(lab, { height = 16, gap = 8 })
+                local sl = UI.CreateSlider(f, 240, {
+                    min = lo, max = hi, step = step,
+                    get = function() return R.Opts()[key] end,
+                    set = function(v) R.Opts()[key] = v; pcall(R.Apply) end,
+                })
+                sl.onText = function(v) lab:SetText(string.format(label, v)) end
+                sl:Refresh()
+                stack:Add(sl, { height = 20, gap = 2 })
+            end
+            Slider("size", L.RINGS_SIZE, 60, 300, 5)
+            Slider("healthThick", L.RINGS_HEALTH_THICK, 1, R.LEVELS, 1)
+            Slider("powerThick", L.RINGS_POWER_THICK, 1, R.LEVELS, 1)
             return f
         end,
     })
