@@ -355,6 +355,53 @@ end
 ------------------------------------------------------------------------
 
 -- Rueckgabe: Art ("say", "yell", "guild", "group", "whisper", "channel"), Ziel, Text; oder nil, Fehlertext
+-- Ist der Name ein bekannter Spieler (Chat-Gedaechtnis, letzte Fluesterkontakte, Gruppe)?
+function W.KnownName(n)
+    if type(n) ~= "string" or n == "" then return false end
+    local d = G.FreewoodDB
+    if type(d) == "table" and type(d.chatPlayers) == "table" and d.chatPlayers[n] then return true end
+    for _, c in ipairs(W.contacts or {}) do if c == n then return true end end
+    if G.UnitName then
+        for i = 1, 4 do
+            local ok, u = pcall(G.UnitName, "party" .. i)
+            if ok and u == n then return true end
+        end
+        if G.IsInRaid and G.IsInRaid() then
+            for i = 1, 40 do
+                local ok, u = pcall(G.UnitName, "raid" .. i)
+                if ok and u == n then return true end
+            end
+        end
+    end
+    return false
+end
+
+-- Fluesterziel aus dem Text nach "/w ". Spielernamen haben auf Forever Vor- UND Nachnamen ("Jinxer Darktide"), daher:
+-- 1. "Name" in Anfuehrungszeichen, 2. bekannter Name aus zwei Woertern, 3. bekannter Einzelname, 4. sonst zwei Woerter.
+-- final = Eingabe ist zu Ende (Enter): der zweite Name darf das letzte Wort sein.
+-- Rueckgabe: Ziel, Nachricht (kann leer sein); nil, solange das Ziel noch nicht feststeht (es fehlt der Nachname)
+function W.SplitWhisper(rest, final)
+    if type(rest) ~= "string" then return nil end
+    local q, qm = string.match(rest, '^"([^"]+)"%s+(.*)$')
+    if q then return q, qm end
+    q = string.match(rest, '^"([^"]+)"%s*$')
+    if q and final then return q, "" end
+    local w1, r1 = string.match(rest, "^(%S+)%s+(.*)$")
+    if not w1 then return nil end
+    local w2, r2 = string.match(r1, "^(%S+)%s+(.*)$")
+    if not w2 and final then
+        w2 = string.match(r1, "^(%S+)$")
+        r2 = ""
+    end
+    if w2 then
+        local two = w1 .. " " .. w2
+        if W.KnownName(two) then return two, r2 end
+    end
+    if W.KnownName(w1) then return w1, r1 end
+    if w2 then return w1 .. " " .. w2, r2 end
+    return nil
+end
+
 function W.ParseInput(text, tabKey, target, channel)
     if type(text) ~= "string" then return nil end
     text = string.gsub(text, "^%s+", "")
@@ -368,8 +415,8 @@ function W.ParseInput(text, tabKey, target, channel)
         if cmd == "g" or cmd == "gilde" or cmd == "guild" then return "guild", nil, rest, true end
         if cmd == "p" or cmd == "party" or cmd == "gruppe" or cmd == "ra" or cmd == "raid" then return "group", nil, rest, true end
         if cmd == "w" or cmd == "whisper" or cmd == "t" or cmd == "tell" then
-            local who, msg = string.match(rest, "^(%S+)%s+(.+)$")
-            if who then return "whisper", who, msg end
+            local who, msg = W.SplitWhisper(rest, true)
+            if who and msg and msg ~= "" then return "whisper", who, msg end
             return nil, "usage"
         end
         if cmd == "r" or cmd == "reply" or cmd == "antwort" then
@@ -392,11 +439,13 @@ end
 -- Rueckgabe: neuer Text, Aenderung { kind=, target=, channel= }; nil, wenn nichts zu tun ist
 function W.ConsumePrefix(text)
     if type(text) ~= "string" then return nil end
-    local c1, who, rest = string.match(text, "^/(%a+)%s+(%S+)%s(.*)$")
+    local c1, wrest = string.match(text, "^/(%a+)%s+(.*)$")
     if c1 then
         c1 = string.lower(c1)
         if c1 == "w" or c1 == "whisper" or c1 == "t" or c1 == "tell" then
-            return rest, { kind = "whisper", target = who }
+            local who, rest = W.SplitWhisper(wrest, false)
+            if who then return rest, { kind = "whisper", target = who } end
+            return nil   -- Nachname fehlt noch: weitertippen
         end
     end
     local cmd, tail = string.match(text, "^/(%w+)%s(.*)$")

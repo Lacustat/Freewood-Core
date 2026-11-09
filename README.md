@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.35.3 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.35.4 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.35.4 DE:** Flüstern mit Doppelnamen (Vor- und Nachname, z. B. `/w Jinxer Darktide hallo`): Das Feld schaltete bisher nach dem Vornamen auf „Flüstern an Jinxer“ um und der Nachname landete im Text. Jetzt wird erst nach dem zweiten Wort umgeschaltet. Reihenfolge: Name in Anführungszeichen (`/w "Bob" hallo`, für Einzelnamen), bekannter Doppelname, bekannter Einzelname (Chat-Gedächtnis, letzte Flüsterkontakte, Gruppe), sonst werden zwei Wörter als Name genommen. Gilt beim Tippen (Umschalten des Ziels) und beim Abschicken mit Enter. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel. **EN:** Whispering two-part names (first and last name, e.g. `/w Jinxer Darktide hello`): the field used to switch to "whisper to Jinxer" after the first name and the last name ended up in the text. Now it only switches after the second word. Order: name in quotes (`/w "Bob" hello`, for single names), known two-part name, known single name (chat memory, recent whisper contacts, group), otherwise two words are taken as the name. Applies while typing (target switch) and when sending with Enter. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game.
 
 **0.35.3 DE:** Vier weitere Greifen-Bilder: `paladin_affe`, `krieger_affe`, `schurken_affe`, `hexer_affe` (Format wie `affen_greif`: 512x256, 32 Bit, unkomprimierte TGA, transparent, Figur eingepasst). Sie stehen in `Greifen.lua` und in der Auswahl der Greifen-Einstellungen; für neue Dateien ist ein kompletter Spielneustart nötig. Ungeprüft im Spiel. **EN:** Four more gryphon images: `paladin_affe`, `krieger_affe`, `schurken_affe`, `hexer_affe` (same format as `affen_greif`: 512x256, 32-bit, uncompressed TGA, transparent, figure fitted). They are listed in `Greifen.lua` and in the gryphon settings choices; new files need a full game restart. Unchecked in game.
 

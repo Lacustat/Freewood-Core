@@ -101,6 +101,7 @@ for i = 1, 500 do W.Push("guild", "A", "m" .. i, false) end
 eq(#W.msgs <= 345, true, "Speicher begrenzt")
 
 -- Eingabe
+_G.FreewoodDB = _G.FreewoodDB or {}; _G.FreewoodDB.chatPlayers = _G.FreewoodDB.chatPlayers or {}; _G.FreewoodDB.chatPlayers["Anna"] = { c = "MAGE" }   -- bekannter Einzelname
 local kind, target, text = W.ParseInput("/g Hallo Welt", "all", nil); eq(kind, "guild", "/g"); eq(text, "Hallo Welt", "/g Text")
 kind = W.ParseInput("/s hi", "guild", nil); eq(kind, "say", "/s")
 kind = W.ParseInput("/y hi", "all", nil); eq(kind, "yell", "/y")
@@ -475,6 +476,30 @@ do -- Schrift je Schriftart des Textes
     local n0 = #set
     W.FontFor(fs, "Привет!", 11); eq(#set, n0, "gleiche Schriftart und Groesse: nichts neu setzen")
     W.FontFor(fs, "Hallo", 11); eq(fs.fwScript, "latin", "zurueck auf Spielschrift")
+end
+do -- Doppelnamen (Vor- und Nachname) beim Fluestern
+    local db = _G.FreewoodDB.chatPlayers
+    local k, t, x = W.ParseInput("/w Jinxer Darktide hallo du", "all", nil)
+    eq(k, "whisper", "Doppelname Art"); eq(t, "Jinxer Darktide", "Doppelname Ziel"); eq(x, "hallo du", "Doppelname Text")
+    local rest, ch = W.ConsumePrefix("/w Jinxer ")
+    eq(rest, nil, "nach dem Vornamen noch nicht umschalten"); eq(ch, nil, "keine Aenderung nach dem Vornamen")
+    rest, ch = W.ConsumePrefix("/w Jinxer Darktide ")
+    eq(ch and ch.target, "Jinxer Darktide", "nach dem Nachnamen umschalten"); eq(rest, "", "Feld danach leer")
+    rest, ch = W.ConsumePrefix("/w Jinxer Darktide hi")
+    eq(ch and ch.target, "Jinxer Darktide", "Ziel mit Text"); eq(rest, "hi", "Rest")
+    -- bekannter Doppelname gewinnt, auch wenn der Vorname allein ebenfalls bekannt ist
+    db["Anna Sturm"] = {}
+    k, t, x = W.ParseInput("/w Anna Sturm moin", "all", nil); eq(t, "Anna Sturm", "bekannter Doppelname vor Einzelname"); eq(x, "moin", "Text bleibt")
+    db["Anna Sturm"] = nil
+    k, t, x = W.ParseInput("/w Anna Sturm moin", "all", nil); eq(t, "Anna", "bekannter Einzelname Anna"); eq(x, "Sturm moin", "Rest als Text")
+    -- Anfuehrungszeichen fuer unbekannte Einzelnamen
+    k, t, x = W.ParseInput('/w "Bob" hallo', "all", nil); eq(t, "Bob", "Anfuehrungszeichen Ziel"); eq(x, "hallo", "Anfuehrungszeichen Text")
+    rest, ch = W.ConsumePrefix('/w "Bob" hallo'); eq(ch and ch.target, "Bob", "Anfuehrungszeichen beim Tippen")
+    k, t = W.ParseInput("/w Jinxer Darktide", "all", nil); eq(t, "usage", "nur Name ohne Text")
+    -- Gruppenmitglied wird erkannt
+    _G.UnitName = function(u) if u == "party1" then return "Karl" end end
+    eq(W.KnownName("Karl"), true, "Gruppenmitglied bekannt")
+    _G.UnitName = function() return "Pinky" end
 end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)
