@@ -275,8 +275,39 @@ local function IsSecret(v)
     return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) and true or false
 end
 
--- Anteil lesen: erst cur/max; sind die Werte "secret" (im Kampf), dann die Prozent-Funktion des Spiels versuchen.
--- Rueckgabe: Anteil, Quelle ("wert", "prozent", "secret", "test")
+-- Versteckte Statusleiste als Messgeraet: SetValue/SetMinMaxValues nehmen auch "secret"-Werte an; die Breite der Fuellung ist
+-- dann (vermutlich) eine normale Zahl. UNGEPRUEFT: ob das Spiel die Breite freigibt.
+local BAR_W = 1000
+local function Gauge(key)
+    R.gauges = R.gauges or {}
+    local g = R.gauges[key]
+    if g then return g end
+    if not G.CreateFrame then return nil end
+    local ok, sb = pcall(G.CreateFrame, "StatusBar", nil, G.UIParent)
+    if not ok or not sb then return nil end
+    sb:SetSize(BAR_W, 10)
+    sb:SetPoint("TOPLEFT", G.UIParent, "TOPLEFT", -5000, 0)
+    sb:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+    g = sb
+    R.gauges[key] = g
+    return g
+end
+
+local function GaugeRead(key, cur, max)
+    local sb = Gauge(key)
+    if not sb then return nil end
+    local ok = pcall(function() sb:SetMinMaxValues(0, max); sb:SetValue(cur) end)
+    if not ok then return nil end
+    local tex = sb.GetStatusBarTexture and sb:GetStatusBarTexture()
+    if not tex then return nil end
+    local ok2, w = pcall(tex.GetWidth, tex)
+    w = ok2 and Num(w) or nil
+    if not w then return nil end
+    return R.Fraction(w, BAR_W)
+end
+
+-- Anteil lesen: erst cur/max; sind die Werte "secret" (im Kampf), dann die Prozent-Funktion des Spiels, dann das Messgeraet.
+-- Rueckgabe: Anteil, Quelle ("wert", "prozent", "balken", "secret", "test")
 function R.Read(kind)
     if R.force then return R.force, "test" end
     local cur, max
@@ -289,13 +320,17 @@ function R.Read(kind)
     local fn = kind == "health" and G.UnitHealthPercent or G.UnitPowerPercent
     if fn then
         local scale = G.CurveConstants and G.CurveConstants.ScaleTo100
-        local ok, v = pcall(fn, "player", kind ~= "health" and nil or true, scale)
+        local ok, v = pcall(fn, "player", false, scale)
         if not ok or not Num(v) then ok, v = pcall(fn, "player") end
         v = ok and Num(v) or nil
         if v then
             if v > 1.0001 then v = v / 100 end
             return R.Fraction(v, 1), "prozent"
         end
+    end
+    if cur ~= nil and max ~= nil then
+        local f = GaugeRead(kind, cur, max)
+        if f then return f, "balken" end
     end
     return 0, "secret"
 end
@@ -341,6 +376,16 @@ function R.Debug()
                 kind, fr, tostring(src), tostring(cd.SetSwipeTexture ~= nil), tostring(cd.Pause ~= nil), tostring(cd.SetSwipeColor ~= nil),
                 tostring(a), tostring(b2), S(cd:IsShown())))
         end
+    end
+    do
+        local fn = G.UnitHealthPercent
+        local scale = G.CurveConstants and G.CurveConstants.ScaleTo100
+        local ok, v = false, nil
+        if fn then ok, v = pcall(fn, "player", false, scale) end
+        local hp, hm = G.UnitHealth and G.UnitHealth("player"), G.UnitHealthMax and G.UnitHealthMax("player")
+        local gauge = (hp ~= nil and hm ~= nil) and GaugeRead("health", hp, hm) or nil
+        P("Prozent-Funktion: ok=" .. S(ok) .. " Ergebnis=" .. (IsSecret(v) and "secret" or S(type(v) == "number" and v or type(v)))
+            .. " | Messgeraet (Statusleiste): " .. S(gauge) .. " | ScaleTo100=" .. S(scale ~= nil))
     end
     P("UnitHealth=" .. tostring(IsSecret(G.UnitHealth and G.UnitHealth("player")) and "secret" or "normal")
         .. " UnitHealthPercent=" .. tostring(G.UnitHealthPercent ~= nil) .. " CreateMaskTexture=" .. tostring(f.CreateMaskTexture ~= nil))

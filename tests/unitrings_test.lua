@@ -87,6 +87,18 @@ local fr, src = R.Read("health"); near(fr, 0.4, "secret: Prozent-Funktion"); eq(
 _G.UnitHealthPercent = nil
 fr, src = R.Read("health"); near(fr, 0, "secret ohne Ausweg: 0"); eq(src, "secret", "Quelle secret")
 R.force = 0.6; fr, src = R.Read("health"); near(fr, 0.6, "Testmodus"); eq(src, "test", "Quelle test"); R.force = nil
+
+-- Messgeraet: Breite der Statusleisten-Fuellung
+_G.UnitHealth = function() return "secret" end
+local realCF = _G.CreateFrame
+_G.CreateFrame = function(kind, ...)
+    local f = realCF(kind, ...)
+    if kind == "StatusBar" then f.GetStatusBarTexture = function() return { GetWidth = function() return 300 end } end end
+    return f
+end
+R.gauges = nil
+fr, src = R.Read("health"); near(fr, 0.3, "Messgeraet"); eq(src, "balken", "Quelle balken")
+_G.CreateFrame = realCF
 local msgs = {}; FW.Print = function(_, t) table.insert(msgs, t) end
 R.Debug(); eq(#msgs >= 3, true, "Debug gibt Zeilen aus")
 print(string.format("%d Pruefungen, %d Fehler", n, fails))

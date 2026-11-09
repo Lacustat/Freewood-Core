@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.2 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.3 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.37.3 DE:** Ring-Anzeige: Leben und Ressource des Spielers sind auf Forever „secret“ (das Debug zeigte `UnitHealth=secret`), deshalb blieben die Ringe leer. Neu als dritter Weg ein Messgerät: eine versteckte Statusleiste nimmt die geheimen Werte an, und die Breite ihrer Füllung wird als normale Zahl gelesen (Quelle „balken“). `/fwring` zeigt jetzt auch das Ergebnis der Prozent-Funktion und des Messgeräts. Ungeprüft im Spiel. **EN:** Unit rings: the player's life and resource are secret on Forever (debug showed `UnitHealth=secret`), so the rings stayed empty. New third way, a gauge: a hidden status bar accepts the secret values and the width of its fill is read as a normal number (source "balken"). `/fwring` now also shows the result of the percent function and of the gauge. Unchecked in game.
 
 **0.37.2 DE:** Ring-Anzeige: Fehlersuche, weil im Kampf die Farben fehlten. Neu `/fwring` (gibt aus, was der Client kann: Swipe-Textur, Pause, Werte secret oder normal, Cooldown-Zeiten) und `/fwring test 60` (zwingt die Ringe auf 60 %, `/fwring test` beendet es). Sind Leben/Ressource im Kampf „secret“, wird die Prozent-Funktion des Spiels (`UnitHealthPercent`) versucht. **EN:** Unit rings: troubleshooting because the colours were missing in combat. New `/fwring` (prints what the client supports: swipe texture, pause, values secret or normal, cooldown times) and `/fwring test 60` (forces the rings to 60 %, `/fwring test` ends it). If life/resource are secret in combat, the game's percent function (`UnitHealthPercent`) is tried.
 
