@@ -123,6 +123,7 @@ FW.ChatLog = { Send = function(kd, tg, tx) sent[#sent + 1] = kd .. ":" .. tx end
 W.Send("guild", nil, "c"); eq(sent[3], "guild:c", "Gilde ueber ChatLog")
 
 -- /r (Antworten) und andere unbekannte Befehle werden weitergereicht, /ra ist Schlachtzug
+W.lastTell = nil
 kind, target = W.ParseInput("/r hallo", "all", nil); eq(kind, nil, "/r wird weitergereicht"); eq(target, "unknown", "/r unbekannt")
 kind = W.ParseInput("/ra hallo", "all", nil); eq(kind, "group", "/ra")
 
@@ -315,6 +316,45 @@ do
     local _, _, post3 = W.ClassicParts({ kind = "guild", s = "Anna" }, CLs, Ls, "hi")
     eq(post3, ": hi", "abgeschaltet")
     W.Opts().showLevel = true
+end
+-- /r, Kontakte, Fluestern von aussen
+do
+    W.lastTell = nil
+    W.contacts = {}
+    eq(select(2, W.ParseInput("/r hallo")), "unknown", "/r ohne Gegenueber unbekannt")
+    W.Add("whisper", "Anna", "huhu", false)
+    eq(W.lastTell, "Anna", "letzter Fluesterer gemerkt")
+    local k, t, m = W.ParseInput("/r hallo")
+    eq(k, "whisper", "/r fluestert"); eq(t, "Anna", "Ziel Anna"); eq(m, "hallo", "Text")
+    eq(select(1, W.ParseInput("/antwort hi")), "whisper", "/antwort")
+    local txt, ch = W.ConsumePrefix("/r wie gehts")
+    eq(txt, "wie gehts", "Kuerzel entfernt"); eq(ch.target, "Anna", "Ziel gesetzt")
+    W.Add("whisper", "Ich", "an Bert", true, "Bert")
+    eq(W.lastTell, "Anna", "eigene Fluesternachricht aendert /r nicht")
+    W.Add("whisper", "Carla", "yo", false)
+    eq(W.contacts[#W.contacts], "Carla", "Kontakte: neuester zuletzt"); eq(#W.contacts, 3, "Anna, Bert, Carla")
+    W.target = nil
+    eq(W.CycleContact(1), "Carla", "Tab: neuester zuerst")
+    W.target = "Carla"; eq(W.CycleContact(1), "Bert", "Tab: naechster")
+    W.target = "Anna"; eq(W.CycleContact(1), "Carla", "Tab: springt herum")
+    W.target = "Carla"; eq(W.CycleContact(-1), "Anna", "Umschalt+Tab: zurueck")
+    W.NoteContact("Anna"); eq(W.contacts[#W.contacts], "Anna", "Wiederholung nach vorn")
+    eq(#W.contacts, 3, "keine Doppelten")
+    for i = 1, 15 do W.NoteContact("P" .. i) end
+    eq(#W.contacts, 10, "hoechstens 10")
+    -- Fluestern von aussen: nur wenn der Haupt-Chat aktiv ist
+    eq(W.StartWhisper(42), false, "kein Name")
+    local box = { text = "", GetText = function(self) return self.text end, SetText = function(self, t) self.text = t end,
+        HasFocus = function() return false end, SetFocus = function() end }
+    W.SetInputForTest(box)
+    W.MainActive = function() return false end
+    eq(W.StartWhisper("Dora"), false, "ohne Haupt-Chat nichts")
+    W.MainActive = function() return true end
+    local opened
+    W.OpenInput = function(t) opened = t; return true end
+    eq(W.StartWhisper("Dora", "Hallo"), true, "mit Haupt-Chat: geoeffnet"); eq(W.target, "Dora", "Ziel gesetzt"); eq(W.sendKind, "whisper", "Art Fluestern"); eq(opened, "Hallo", "Text vorbelegt")
+    W.StartWhisper("Emil"); eq(opened, "", "ohne Text leeres Feld"); eq(W.target, "Emil", "Ziel Emil")
+    eq(W.StartWhisper("Geheim"), true, "normaler Name")
 end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

@@ -254,11 +254,35 @@ local function ListName(kind)
     return "lines"
 end
 
+-- Zuletzt angefluesterte oder anfluesternde Spieler (fuer die Tab-Taste im Eingabefeld), neueste zuletzt, hoechstens 10
+W.contacts = {}
+function W.NoteContact(name)
+    if type(name) ~= "string" or name == "" or name == "?" or Secret(name) then return end
+    local c = W.contacts
+    for i = #c, 1, -1 do if c[i] == name then table.remove(c, i) end end
+    c[#c + 1] = name
+    while #c > 10 do table.remove(c, 1) end
+end
+
+-- Tab-Taste: naechster (dir 1) oder vorheriger (dir -1) Spieler aus der Liste als Fluesterziel; Rueckgabe: Name oder nil
+function W.CycleContact(dir)
+    local c = W.contacts
+    if #c == 0 then return nil end
+    local idx
+    for i, n in ipairs(c) do if n == W.target then idx = i end end
+    if not idx then idx = dir > 0 and 0 or #c + 1 end
+    idx = idx - dir                       -- neueste zuerst: erster Druck waehlt den letzten Eintrag
+    if idx < 1 then idx = #c elseif idx > #c then idx = 1 end
+    return c[idx]
+end
+
 function W.Add(kind, sender, text, out, extra)
     if not kind or type(text) ~= "string" or text == "" or Secret(text) then return end
     if type(sender) ~= "string" or Secret(sender) then sender = "?" end
     if not out and W.CHAT_KIND[kind] and kind ~= "emote" and IsMe and IsMe(sender) then out = true end
     W.seq = W.seq + 1
+    if kind == "whisper" and not out and sender ~= "?" then W.lastTell = sender end    -- fuer /r und die Antworten-Taste
+    if kind == "whisper" then W.NoteContact(out and extra or sender) end
     local msg = { t = Now(), s = sender, m = text, kind = kind, o = out and true or nil, x = extra, q = W.seq }
     local ln = ListName(kind)
     local list = W[ln]
@@ -328,6 +352,10 @@ function W.ParseInput(text, tabKey, target, channel)
             if who then return "whisper", who, msg end
             return nil, "usage"
         end
+        if cmd == "r" or cmd == "reply" or cmd == "antwort" then
+            if W.lastTell and rest ~= "" then return "whisper", W.lastTell, rest end
+            return nil, "unknown"
+        end
         local n = tonumber(cmd)
         if n then return "channel", n, rest end
         return nil, "unknown"
@@ -354,6 +382,7 @@ function W.ConsumePrefix(text)
     local cmd, tail = string.match(text, "^/(%w+)%s(.*)$")
     if not cmd then return nil end
     cmd = string.lower(cmd)
+    if (cmd == "r" or cmd == "reply" or cmd == "antwort") and W.lastTell then return tail, { kind = "whisper", target = W.lastTell } end
     if cmd == "s" or cmd == "say" then return tail, { kind = "say" } end
     if cmd == "y" or cmd == "yell" or cmd == "sch" then return tail, { kind = "yell" } end
     if cmd == "g" or cmd == "gilde" or cmd == "guild" then return tail, { kind = "guild" } end
@@ -867,7 +896,7 @@ function W.CycleSend()
 end
 
 function W.RefreshInput()
-    if not built then return end
+    if not (built and built.target) then return end
     local L = FW.L
     local label, kind
     local k = W.sendKind or "say"
@@ -1079,7 +1108,14 @@ function W.Build()
     end)
     if input.SetAltArrowKeyMode then pcall(input.SetAltArrowKeyMode, input, false) end   -- Pfeiltasten ohne Alt
     input:SetScript("OnArrowPressed", function(self, key) W.HistKey(self, key, "Pfeil") end)
-    input:SetScript("OnKeyDown", function(self, key) W.HistKey(self, key, "Taste") end)
+    input:SetScript("OnKeyDown", function(self, key) W.HistKey(self, key, "Taste"); W.PageKey(key) end)
+    input:SetScript("OnTabPressed", function()
+        local who = W.CycleContact((G.IsShiftKeyDown and G.IsShiftKeyDown()) and -1 or 1)
+        if who then
+            W.target, W.sendKind = who, "whisper"
+            if W.RefreshInput then W.RefreshInput() end
+        end
+    end)
     input:SetScript("OnEditFocusGained", function(self)
         if self.SetAltArrowKeyMode then pcall(self.SetAltArrowKeyMode, self, false) end
         W.UpdateInputVisibility()
@@ -1269,6 +1305,15 @@ local function HistKey(self, key, source)
     end
 end
 W.HistKey = HistKey
+
+-- Bild hoch / Bild runter blaettert den Chat, auch waehrend man tippt (wie im Spiel-Chat)
+function W.PageKey(key)
+    if key ~= "PAGEUP" and key ~= "PAGEDOWN" then return false end
+    local sc = built and built.chat and built.chat.scroll
+    local fn = sc and sc.GetScript and sc:GetScript("OnMouseWheel")
+    if fn then fn(sc, key == "PAGEUP" and 5 or -5) return true end
+    return false
+end
 
 function W.DoSend()
     if not built then return end
@@ -1497,6 +1542,37 @@ function W.OnBlizzOpenChat(text)
     end
 end
 
+-- Fluestern an jemanden beginnen (Gruppensuche "Nachricht senden", Rechtsklick-Menue, Freundesliste, Antworten-Taste):
+-- Ziel setzen und unser Eingabefeld oeffnen. Wirkt nur, wenn unser Fenster den Spiel-Chat ersetzt (Haupt-Chat, Weg A).
+function W.StartWhisper(name, msg)
+    if W.bypass or W.UseBlizz() or not W.MainActive() then return false end
+    if type(name) ~= "string" or name == "" or Secret(name) then return false end
+    if type(msg) ~= "string" or Secret(msg) then msg = nil end
+    -- das Feld des Spiels, das die Funktion eben geoeffnet hat, wieder zu
+    local eb = W.BlizzEditBox()
+    if eb and G.ChatEdit_DeactivateChat then pcall(G.ChatEdit_DeactivateChat, eb) end
+    W.target = name
+    W.sendKind = "whisper"
+    if built and built.input and built.input:HasFocus() and (built.input:GetText() or "") ~= "" and not msg then
+        if W.RefreshInput then W.RefreshInput() end
+        return true
+    end
+    if W.RefreshInput then W.RefreshInput() end
+    W.OpenInput(msg or "")
+    return true
+end
+
+-- Name des letzten Fluesterers (fuer die Antworten-Taste)
+function W.LastTell()
+    if W.lastTell then return W.lastTell end
+    local f = G.ChatEdit_GetLastTellTarget
+    if type(f) == "function" then
+        local ok, v = pcall(f)
+        if ok and type(v) == "string" and v ~= "" and not Secret(v) then return v end
+    end
+    return nil
+end
+
 function W.BlizzEditBox()
     local dc = G.DEFAULT_CHAT_FRAME
     return (dc and dc.editBox) or G.ChatFrame1EditBox
@@ -1554,6 +1630,29 @@ function W.InstallHooks()
     end) then n = n + 1; W.hookActivate = true end
     if G.ChatFrame_OpenChat and pcall(hs, "ChatFrame_OpenChat", function(text) W.OnBlizzOpenChat(text) end) then n = n + 1 end
     if G.ChatEdit_DeactivateChat and pcall(hs, "ChatEdit_DeactivateChat", function(eb) ReleaseBlizzBox(eb) end) then n = n + 1 end
+    -- Fluestern von ueberall im Spiel (Gruppensuche, Rechtsklick-Menue, Freundesliste): Namen und Text uebernehmen
+    local function Tell(name, msg) W.StartWhisper(name, msg) end
+    local function Reply() local who = W.LastTell(); if who then W.StartWhisper(who) end end
+    for _, fname in ipairs({ "ChatFrame_SendTell", "ChatFrame_SendTellWithMessage" }) do
+        if G[fname] and pcall(hs, fname, Tell) then n = n + 1 end
+    end
+    for _, fname in ipairs({ "ChatFrame_ReplyTell", "ChatFrame_ReplyTell2" }) do
+        if G[fname] and pcall(hs, fname, Reply) then n = n + 1 end
+    end
+    if type(G.ChatFrameUtil) == "table" then
+        local U = G.ChatFrameUtil
+        for _, fname in ipairs({ "SendTell", "SendTellWithMessage" }) do
+            if U[fname] and pcall(hs, U, fname, Tell) then n = n + 1 end
+        end
+        for _, fname in ipairs({ "ReplyTell", "ReplyTell2" }) do
+            if U[fname] and pcall(hs, U, fname, Reply) then n = n + 1 end
+        end
+        if U.ActivateChat and pcall(hs, U, "ActivateChat", function(eb)
+            if W.UseBlizz() then pcall(W.StyleBlizzEdit, true) end
+            W.OnBlizzActivate(eb, G.IsShiftKeyDown and G.IsShiftKeyDown() or false)
+        end) then n = n + 1 end
+        if U.OpenChat and pcall(hs, U, "OpenChat", function(text) W.OnBlizzOpenChat(text) end) then n = n + 1 end
+    end
     -- Umschalt+Klick auf Gegenstand, Zauber, Quest usw. Je nach Spielstand laufen die Links ueber ChatEdit_InsertLink (alt) oder
     -- ChatFrameUtil.InsertLink (neu); beide werden abgefangen, W.InsertLink schuetzt vor doppeltem Einfuegen.
     if G.ChatEdit_InsertLink and pcall(hs, "ChatEdit_InsertLink", function(link) W.InsertLink(link) end) then n = n + 1 end
