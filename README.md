@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.40.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.40.2 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.40.2 DE:** Neu: `/fwspin` (Sicht-Probe). Die Probe vom 9. November zeigte: `UnitHealth` und `UnitPower` des Spielers sind geheim, `UnitHealthMax`/`UnitPowerMax` lesbar; `SetAlpha`, `SetRotation`, `SetTexCoord`, `SetVertexColor` und Linien nehmen geheime Werte an, `SetCooldown`/`SetWidth` nicht; eine Kurve des Spiels (`UnitHealthPercent(…, Kurve)`) kann den geheimen Wert in einen Drehwinkel umrechnen. `/fwspin` baut daraus testweise zwei Halbringe, die sich drehen und halbiert beschnitten werden (A: `SetClipsChildren`, B: Masken), oben Variante A, unten B, Spalten 25 %, 60 %, 90 % fest und „live“ mit deinem echten Leben. So sieht man, ob ein glatter Kreis ohne Segmente möglich ist. Neue Bilder `half_ring.tga`, `mask_right.tga`, `mask_left.tga`. **EN:** New: `/fwspin` (visual probe). The 9 November probe showed: the player's `UnitHealth` and `UnitPower` are secret, `UnitHealthMax`/`UnitPowerMax` readable; `SetAlpha`, `SetRotation`, `SetTexCoord`, `SetVertexColor` and lines accept secret values, `SetCooldown`/`SetWidth` do not; a game curve (`UnitHealthPercent(..., curve)`) can turn the secret value into a rotation angle. `/fwspin` builds two rotating half rings from it that are clipped in half (A: `SetClipsChildren`, B: masks), variant A on top, B below, columns 25 %, 60 %, 90 % fixed and "live" with your real life. This shows whether a smooth circle without segments is possible. New images `half_ring.tga`, `mask_right.tga`, `mask_left.tga`.
 
 **0.40.1 DE:** Neu: `/fwprobe` (Probe für geheime Werte, ändert nichts am Spiel). Es prüft im Spiel, welche Abfragen die Lebenswerte des Spielers lesbar machen (`UnitHealth`, `UnitHealthPercent` in mehreren Formen, das Blizzard-Spielerfenster, eine eigene Statusleiste, Kurven und Zeitobjekte des Spiels) und was man einem geheimen Wert als Argument geben darf (Transparenz, Breite, Drehung, Abklingzeit, Linie, Text). Ausgabe im Chat und unter `ringProbe` in den gespeicherten Einstellungen. Am besten einmal außerhalb und einmal im Kampf ausführen. **EN:** New: `/fwprobe` (probe for secret values, changes nothing in the game). It checks in game which queries make the player's life values readable (`UnitHealth`, `UnitHealthPercent` in several forms, Blizzard's player frame, a status bar of our own, curves and duration objects of the game) and what a secret value may be passed to as an argument (alpha, width, rotation, cooldown, line, text). Output in chat and under `ringProbe` in the saved settings. Best run once out of combat and once in combat.
 

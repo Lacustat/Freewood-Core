@@ -188,3 +188,144 @@ if G.SlashCmdList then
         if type(FW.settings) == "table" then FW.settings.ringProbe = res end
     end
 end
+
+---------------------------------------------------------------------
+-- /fwspin: Sicht-Probe fuer einen glatten Kreis mit geheimen Werten.
+-- Zwei Halbringe drehen sich (Texture:SetRotation nimmt geheime Werte an); die Drehwinkel liefert eine Kurve des Spiels aus dem
+-- Lebensanteil, das Addon rechnet nichts. Jede Haelfte wird beschnitten: Variante A mit Frame:SetClipsChildren, Variante B mit
+-- Masken-Texturen. Obere Reihe A, untere Reihe B; Spalten: feste 25 %, 60 %, 90 % und "live" (dein echtes Leben, geheim).
+---------------------------------------------------------------------
+
+local PATH = "Interface\\AddOns\\Freewood-Core\\Media\\Rings\\"
+
+local function Clamp(v, lo, hi) if v < lo then return lo elseif v > hi then return hi end return v end
+
+-- Drehwinkel (im Uhrzeigersinn gefuellt; Rotation in WoW ist gegen den Uhrzeigersinn positiv, daher negativ)
+function P.Angles(frac)
+    local a = frac * 360
+    return -math.rad(Clamp(a, 0, 180)), -math.rad(Clamp(a, 180, 360))
+end
+
+local function BuildSweep(parent, size, method)
+    local root = G.CreateFrame("Frame", nil, parent)
+    root:SetSize(size, size)
+    local obj = { root = root }
+    local bg = root:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(root)
+    bg:SetColorTexture(0, 0, 0, 0.35)
+    for _, side in ipairs({ "R", "L" }) do
+        local tex
+        if method == "A" then
+            local clip = G.CreateFrame("Frame", nil, root)
+            if clip.SetClipsChildren then clip:SetClipsChildren(true) end
+            clip:SetSize(size / 2, size)
+            clip:SetPoint(side == "R" and "TOPRIGHT" or "TOPLEFT", root, side == "R" and "TOPRIGHT" or "TOPLEFT", 0, 0)
+            tex = clip:CreateTexture(nil, "ARTWORK")
+        else
+            tex = root:CreateTexture(nil, "ARTWORK")
+            if root.CreateMaskTexture and tex.AddMaskTexture then
+                local m = root:CreateMaskTexture()
+                m:SetTexture(PATH .. (side == "R" and "mask_right.tga" or "mask_left.tga"), "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+                m:SetAllPoints(root)
+                tex:AddMaskTexture(m)
+            end
+        end
+        tex:SetTexture(PATH .. "half_ring.tga")
+        tex:SetVertexColor(0.2, 0.85, 0.2, 1)
+        tex:SetSize(size, size)
+        tex:SetPoint("CENTER", root, "CENTER", 0, 0)
+        obj["tex" .. side] = tex
+    end
+    return obj
+end
+
+local function Label(parent, text, x, y)
+    local fs = parent:CreateFontString(nil, "OVERLAY")
+    if fs.SetFontObject and G.GameFontNormalSmall then fs:SetFontObject(G.GameFontNormalSmall) end
+    fs:SetPoint("TOP", parent, "TOPLEFT", x, y)
+    fs:SetText(text)
+    return fs
+end
+
+function P.Spin()
+    if P.spin then
+        if P.spin.frame:IsShown() then P.spin.frame:Hide() else P.spin.frame:Show() end
+        return P.spin
+    end
+    local size, gap = 96, 24
+    local f = G.CreateFrame("Frame", "FreewoodRingSpin", G.UIParent)
+    f:SetSize(4 * (size + gap) + gap, 2 * (size + 40) + 30)
+    f:SetPoint("CENTER", G.UIParent, "CENTER", 0, 120)
+    f:SetFrameStrata("DIALOG")
+    local bg = f:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(f); bg:SetColorTexture(0.05, 0.05, 0.08, 0.9)
+    f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+    Label(f, "/fwspin: oben Variante A (Frame beschneiden), unten Variante B (Masken). Ziehen verschiebt, /fwspin schliesst.", f:GetWidth() / 2, -6)
+
+    local sw = { frame = f, items = {} }
+    local fixed = { 0.25, 0.60, 0.90 }
+    for row, method in ipairs({ "A", "B" }) do
+        for col = 1, 4 do
+            local x = gap + (col - 1) * (size + gap)
+            local y = -34 - (row - 1) * (size + 40)
+            local obj = BuildSweep(f, size, method)
+            obj.root:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
+            local name = col <= 3 and (method .. " " .. math.floor(fixed[col] * 100 + 0.5) .. " %") or (method .. " live")
+            Label(f, name, x + size / 2, y - size - 4)
+            if col <= 3 then
+                local rr, rl = P.Angles(fixed[col])
+                obj.texR:SetRotation(rr); obj.texL:SetRotation(rl)
+            else
+                sw.items[#sw.items + 1] = obj
+            end
+        end
+    end
+
+    -- Kurven: Lebensanteil (0..1) -> Drehwinkel; die Kurve rechnet im Spiel, das Addon sieht nur geheime Werte
+    local status = {}
+    if G.C_CurveUtil and G.C_CurveUtil.CreateCurve then
+        local okR, cR = pcall(G.C_CurveUtil.CreateCurve)
+        local okL, cL = pcall(G.C_CurveUtil.CreateCurve)
+        if okR and okL and cR and cL then
+            local a1 = pcall(function() cR:AddPoint(0, 0); cR:AddPoint(0.5, -math.pi); cR:AddPoint(1, -math.pi) end)
+            local a2 = pcall(function() cL:AddPoint(0, -math.pi); cL:AddPoint(0.5, -math.pi); cL:AddPoint(1, -2 * math.pi) end)
+            status[#status + 1] = "Kurven: AddPoint " .. tostring(a1 and a2)
+            sw.curveR, sw.curveL = cR, cL
+        else
+            status[#status + 1] = "Kurven: CreateCurve fehlgeschlagen"
+        end
+    else
+        status[#status + 1] = "Kurven: C_CurveUtil.CreateCurve fehlt"
+    end
+    status[#status + 1] = "SetClipsChildren: " .. tostring(f.SetClipsChildren ~= nil)
+    status[#status + 1] = "MaskTexture: " .. tostring(f.CreateMaskTexture ~= nil)
+    sw.status = status
+    Label(f, table.concat(status, "   "), f:GetWidth() / 2, -f:GetHeight() + 14)
+
+    local acc = 0
+    f:SetScript("OnUpdate", function(_, dt)
+        acc = acc + (dt or 0)
+        if acc < 0.1 then return end
+        acc = 0
+        if not sw.curveR or not G.UnitHealthPercent then return end
+        local ok, rr = pcall(G.UnitHealthPercent, "player", false, sw.curveR)
+        local ok2, rl = pcall(G.UnitHealthPercent, "player", false, sw.curveL)
+        if not ok or not ok2 then return end
+        for _, obj in ipairs(sw.items) do
+            local a = pcall(obj.texR.SetRotation, obj.texR, rr)
+            local b = pcall(obj.texL.SetRotation, obj.texL, rl)
+            if not (a and b) then sw.err = true end
+        end
+    end)
+    P.spin = sw
+    return sw
+end
+
+if G.SlashCmdList then
+    G.SLASH_FWSPIN1 = "/fwspin"
+    G.SlashCmdList["FWSPIN"] = function()
+        local ok, err = pcall(P.Spin)
+        if not ok and FW.Print then FW:Print("fwspin-Fehler: " .. tostring(err)) end
+    end
+end
