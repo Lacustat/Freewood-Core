@@ -26,7 +26,7 @@ W.DEFAULTS = {
     maxW = 78,            -- groesste Breite einer Blase in Prozent des Fensters
     compact = true,       -- kompakte Blasen
     combatMirror = true,  -- Kampflog des Spiels in den Reiter spiegeln
-    ownMenu = false,      -- Rechtsklick auf Namen: eigenes Menue statt des Menues des Spiels
+    gameMenu = false,     -- Rechtsklick auf Namen: zuerst das Menue des Spiels versuchen (sonst immer das eigene Menue)
     classic = false,      -- Aussehen wie der Chat des Spiels: nur Zeilen, schlichter Hintergrund
 }
 
@@ -85,6 +85,25 @@ local KIND_LABEL = { say = "CHATWIN_K_SAY", yell = "CHATWIN_K_YELL", emote = "CH
 
 local function Secret(v)
     return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) or false
+end
+
+-- Hintergrundfarbe der Blasen je Art ("own" = eigene Nachrichten); Standard: Kartenfarbe bzw. Blau fuer eigene
+W.BUBBLE_KEYS = { "own", "say", "yell", "emote", "guild", "group", "whisper", "channel" }
+local BUBBLE_DEFAULT_OWN = { 0.13, 0.27, 0.46 }
+function W.BubbleColor(kind, own)
+    local o = W.Opts()
+    local t = type(o.bubbleBg) == "table" and o.bubbleBg or nil
+    local e = t and t[own and "own" or kind]
+    if type(e) == "table" and tonumber(e[1]) and tonumber(e[2]) and tonumber(e[3]) then return e[1], e[2], e[3] end
+    if own then return BUBBLE_DEFAULT_OWN[1], BUBBLE_DEFAULT_OWN[2], BUBBLE_DEFAULT_OWN[3] end
+    local r, g, b = UI.Color("card")
+    return r, g, b
+end
+function W.SetBubbleColor(key, r, g, b)
+    local o = W.Opts()
+    if type(o.bubbleBg) ~= "table" then o.bubbleBg = {} end
+    if r then o.bubbleBg[key] = { r, g, b } else o.bubbleBg[key] = nil end
+    if W.Dirty then W.Dirty() end
 end
 
 function W.Opts()
@@ -566,12 +585,12 @@ if FW.AddLocale then
     FW:AddLocale("enUS", {
         MENU_WHISPER = "Whisper", MENU_INVITE = "Invite to group", MENU_FRIEND = "Add friend", MENU_IGNORE = "Ignore",
         MENU_WHO = "Who", MENU_CLOSE = "Cancel",
-        CHATWIN_OWN_MENU = "Use Freewood's own player menu on right-click (instead of the game's menu)",
+        CHATWIN_OWN_MENU = "Right-click on a name: try the game's menu first (otherwise Freewood's own menu)",
     })
     FW:AddLocale("deDE", {
         MENU_WHISPER = "Flüstern", MENU_INVITE = "In Gruppe einladen", MENU_FRIEND = "Freund hinzufügen", MENU_IGNORE = "Ignorieren",
         MENU_WHO = "Wer", MENU_CLOSE = "Abbrechen",
-        CHATWIN_OWN_MENU = "Eigenes Spielermenü von Freewood bei Rechtsklick nutzen (statt des Menüs des Spiels)",
+        CHATWIN_OWN_MENU = "Rechtsklick auf Namen: zuerst das Menü des Spiels versuchen (sonst das Menü von Freewood)",
     })
 end
 
@@ -586,27 +605,32 @@ end
 
 function W.MenuEntries(name)
     local L = FW.L
-    local list = { { id = "whisper", label = L.MENU_WHISPER } }
-    if Api({ G.C_PartyInfo, "InviteUnit" }, "InviteUnit") then list[#list + 1] = { id = "invite", label = L.MENU_INVITE } end
-    if Api({ G.C_FriendList, "AddFriend" }, "AddFriend") then list[#list + 1] = { id = "friend", label = L.MENU_FRIEND } end
-    if Api({ G.C_FriendList, "AddIgnore" }, "AddIgnore") then list[#list + 1] = { id = "ignore", label = L.MENU_IGNORE } end
-    if Api({ G.C_FriendList, "SendWho" }, "SendWho") then list[#list + 1] = { id = "who", label = L.MENU_WHO } end
-    return list
+    return {
+        { id = "whisper", label = L.MENU_WHISPER },
+        { id = "invite", label = L.MENU_INVITE },
+        { id = "friend", label = L.MENU_FRIEND },
+        { id = "ignore", label = L.MENU_IGNORE },
+        { id = "who", label = L.MENU_WHO },
+    }
 end
 
+-- Aufruf ueber die Schnittstelle, sonst als Chatbefehl (/invite, /friend, /ignore, /who) ueber das Feld des Spiels
 function W.MenuAction(id, name)
     if type(name) ~= "string" or name == "" then return false end
-    local f
-    if id == "whisper" then W.StartWhisper(name); return true
-    elseif id == "invite" then f = Api({ G.C_PartyInfo, "InviteUnit" }, "InviteUnit")
-    elseif id == "friend" then f = Api({ G.C_FriendList, "AddFriend" }, "AddFriend")
-    elseif id == "ignore" then f = Api({ G.C_FriendList, "AddIgnore" }, "AddIgnore")
+    if id == "whisper" then W.StartWhisper(name); return true end
+    local f, cmd, arg
+    if id == "invite" then f, cmd = Api({ G.C_PartyInfo, "InviteUnit" }, "InviteUnit"), "/invite " .. name
+    elseif id == "friend" then f, cmd = Api({ G.C_FriendList, "AddFriend" }, "AddFriend"), "/friend " .. name
+    elseif id == "ignore" then f, cmd = Api({ G.C_FriendList, "AddIgnore" }, "AddIgnore"), "/ignore " .. name
     elseif id == "who" then
-        f = Api({ G.C_FriendList, "SendWho" }, "SendWho")
-        if f then return pcall(f, "n-\"" .. name .. "\"") end
+        f, cmd = Api({ G.C_FriendList, "SendWho" }, "SendWho"), "/who n-\"" .. name .. "\""
+        arg = "n-\"" .. name .. "\""
+    else return false end
+    if f then
+        local ok = pcall(f, arg or name)
+        if ok then return true end
     end
-    if not f then return false end
-    return (pcall(f, name))
+    return W.Forward(cmd) and true or false
 end
 
 local function BlizzMenuOpen()
@@ -696,7 +720,7 @@ function W.ShowPlayerMenu(name)
     local me = G.UnitName and G.UnitName("player")
     if me and name == me then return false end
     W.HideOwnMenu()
-    if not W.Opts().ownMenu and W.BlizzMenu(name) then return true end
+    if W.Opts().gameMenu and W.BlizzMenu(name) then return true end
     W.OwnMenu(name)
     return true
 end
@@ -869,7 +893,8 @@ function W.Draw()
             local th = (b.text.GetStringHeight and b.text:GetStringHeight()) or 14
             if not th or th < 12 then th = 12 end
             ph = math.floor(th + textY + botPad)
-            if own then b.bg:SetColorTexture(0.13, 0.27, 0.46, 0.95) else b.bg:SetColorTexture(UI.Color("card", 0.95)) end
+            local br, bgc, bb = W.BubbleColor(m.kind, own)
+            b.bg:SetColorTexture(br, bgc, bb, 0.95)
             rowH = math.max(ph, avs + 15)
             if own then
                 b.avBtn:SetPoint("TOPRIGHT", b, "TOPRIGHT", -6, 0)
@@ -2100,7 +2125,7 @@ function W.Probe()
     }
     lines[#lines + 1] = "Spielermenue: SetItemRef " .. (G.SetItemRef and "ja" or "nein") .. ", FriendsFrame_ShowDropdown " .. (G.FriendsFrame_ShowDropdown and "ja" or "nein")
         .. ", UnitPopup_OpenMenu " .. (G.UnitPopup_OpenMenu and "ja" or "nein") .. ", DropDownList1 " .. (G.DropDownList1 and "ja" or "nein")
-        .. ", Menu " .. (G.Menu and "ja" or "nein") .. ", eigenes Menue " .. (W.Opts().ownMenu and "an" or "aus")
+        .. ", Menu " .. (G.Menu and "ja" or "nein") .. ", Spiel-Menue zuerst " .. (W.Opts().gameMenu and "an" or "aus")
     if G.GetBindingKey then
         local ok, k1, k2 = pcall(G.GetBindingKey, "OPENCHAT")
         lines[#lines + 1] = "Taste OPENCHAT: " .. tostring(ok and k1 or "?") .. " " .. tostring(ok and k2 or "")
@@ -2182,8 +2207,8 @@ if UI.RegisterSettingsSection then
                 function() return W.Opts().classic == true end,
                 function(v) W.Opts().classic = v and true or false; stick = true; W.ApplyLook(); W.Dirty() end), { fit = true })
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_OWN_MENU,
-                function() return W.Opts().ownMenu == true end,
-                function(v) W.Opts().ownMenu = v and true or false end), { fit = true })
+                function() return W.Opts().gameMenu == true end,
+                function(v) W.Opts().gameMenu = v and true or false end), { fit = true })
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_SHOW_LEVEL,
                 function() return W.Opts().showLevel == true end,
                 function(v) W.Opts().showLevel = v and true or false; W.Dirty() end), { fit = true })
@@ -2242,6 +2267,46 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateButton(f, L.CHATWIN_TO_GAMECHAT, 260, 24, function() W.Build(); W.MoveToGameChat() end), { height = 24, gap = 10 })
             stack:Add(UI.CreateButton(f, L.CHATWIN_RESET, 260, 24, function() W.Build(); W.ResetPosition() end), { height = 24, gap = 4 })
             stack:Add(UI.CreateButton(f, L.BUBBLE_TEST, 260, 24, function() W.Build(); W.Test() end), { height = 24, gap = 4 })
+            return f
+        end,
+    })
+end
+
+if FW.AddLocale and UI.RegisterSettingsSection then
+    FW:AddLocale("enUS", { BUBBLECOL_TITLE = "Bubble colors", BUBBLECOL_HINT = "Background color of the chat bubbles per chat type.",
+        BUBBLECOL_RESET = "Reset colors", BUBBLECOL_own = "My messages", BUBBLECOL_say = "Say", BUBBLECOL_yell = "Yell", BUBBLECOL_emote = "Emote",
+        BUBBLECOL_guild = "Guild", BUBBLECOL_group = "Group / raid", BUBBLECOL_whisper = "Whisper", BUBBLECOL_channel = "Channels" })
+    FW:AddLocale("deDE", { BUBBLECOL_TITLE = "Blasenfarben", BUBBLECOL_HINT = "Hintergrundfarbe der Chat-Blasen je Chat-Art.",
+        BUBBLECOL_RESET = "Farben zurücksetzen", BUBBLECOL_own = "Meine Nachrichten", BUBBLECOL_say = "Sagen", BUBBLECOL_yell = "Rufen", BUBBLECOL_emote = "Emote",
+        BUBBLECOL_guild = "Gilde", BUBBLECOL_group = "Gruppe / Schlachtzug", BUBBLECOL_whisper = "Flüstern", BUBBLECOL_channel = "Kanäle" })
+    UI:RegisterSettingsSection("chat-bubble-colors", {
+        category = "chat",
+        order = 5.5,
+        height = 330,
+        build = function(parent)
+            local L = FW.L
+            local f, stack = UI.CreateSection(parent, L.BUBBLECOL_TITLE)
+            stack:Add(UI.CreateLabel(f, L.BUBBLECOL_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 4 })
+            local swatches = {}
+            local Swatch = FW.ChatStyle and FW.ChatStyle.Swatch
+            for _, key in ipairs(W.BUBBLE_KEYS) do
+                local row = CreateFrame("Frame", nil, f)
+                row:SetSize(300, 26)
+                local label = UI.CreateLabel(row, L["BUBBLECOL_" .. key], { size = 12 })
+                label:SetPoint("LEFT", row, "LEFT", 0, 0)
+                if Swatch then
+                    local sw = Swatch(row, 64, function() return W.BubbleColor(key, key == "own") end,
+                        function(r, g, b) W.SetBubbleColor(key, r, g, b); if swatches[key] then swatches[key].Paint() end end)
+                    sw:SetPoint("LEFT", row, "LEFT", 190, 0)
+                    swatches[key] = sw
+                end
+                stack:Add(row, { height = 26, gap = 2 })
+            end
+            stack:Add(UI.CreateButton(f, L.BUBBLECOL_RESET, 160, 24, function()
+                W.Opts().bubbleBg = nil
+                for _, sw in pairs(swatches) do sw.Paint() end
+                if W.Dirty then W.Dirty() end
+            end), { height = 24, gap = 8 })
             return f
         end,
     })

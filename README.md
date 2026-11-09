@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.34.2 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.35.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.35.0 DE:** (1) Rechtsklick auf einen Namen öffnet jetzt immer das kleine Menü von Freewood mit Flüstern, In Gruppe einladen, Freund hinzufügen, Ignorieren und Wer; fehlt dem Client die Schnittstelle, wird der Chatbefehl (`/invite`, `/friend`, `/ignore`, `/who`) gesendet. Das Menü des Spiels wird nur noch auf Wunsch zuerst versucht (Chat-Einstellung „Rechtsklick auf Namen: zuerst das Menü des Spiels versuchen“; die alte Einstellung „eigenes Menü“ entfällt, weil das Spiel-Menü sich bei dir nicht zeigte). (2) Blasenfarben: neuer Einstellungsabschnitt „Blasenfarben“ (Chat) mit Farbfeld je Chat-Art (Sagen, Rufen, Emote, Gilde, Gruppe/Schlachtzug, Flüstern, Kanäle) und für eigene Nachrichten, plus „Farben zurücksetzen“. Gilt für die Blasen-Ansicht, nicht für die Zeilen-Ansicht. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel. **EN:** (1) Right-clicking a name now always opens Freewood's small menu with Whisper, Invite to group, Add friend, Ignore and Who; if the client lacks the API, the chat command (`/invite`, `/friend`, `/ignore`, `/who`) is sent. The game's menu is only tried first on request (chat setting "Right-click on a name: try the game's menu first"; the old "own menu" setting is gone because the game menu did not show up for you). (2) Bubble colors: new settings section "Bubble colors" (Chat) with a color swatch per chat type (say, yell, emote, guild, group/raid, whisper, channels) and for your own messages, plus "Reset colors". Applies to the bubble view, not the line view. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game.
 
 **0.34.2 DE:** Nach `/reload` (oder Ladebildschirm) war das Freewood-Eingabefeld offen. Vermutete Ursache: die Enter-Taste, mit der der Befehl abgeschickt wurde, wirkt im neu geladenen Fenster noch als „Chat öffnen“. Jetzt wird beim Betreten der Welt das Feld geschlossen (Fokus weg, Text leer, Feld des Spiels zu), und für 2,5 Sekunden öffnet weder Enter noch `/` noch ein Spiel-Aufruf das Feld. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel. **EN:** After `/reload` (or a loading screen) the Freewood input was open. Suspected cause: the Enter key that sent the command still counts as "open chat" in the freshly loaded UI. Now the field is closed on entering the world (focus gone, text cleared, the game's own box closed), and for 2.5 seconds neither Enter nor `/` nor a game call opens it. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game.
 

@@ -695,6 +695,8 @@ local function Swatch(parent, w, get, set, clear)
     return sw
 end
 
+S.Swatch = Swatch   -- Farbfeld, auch vom Chatfenster fuer die Blasenfarben genutzt
+
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-style", {
         category = "chat",

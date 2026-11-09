@@ -408,24 +408,42 @@ do -- "kein Spieler ... online" wird nicht angezeigt
     eq(#W.lines, before, "nicht in die Zeilen")
 end
 do -- Spielermenue
-    local calls = {}
+    local calls, fwd = {}, {}
     _G.C_PartyInfo = { InviteUnit = function(n) calls[#calls + 1] = "invite:" .. n end }
     _G.C_FriendList = { AddFriend = function(n) calls[#calls + 1] = "friend:" .. n end, SendWho = function(q) calls[#calls + 1] = "who:" .. q end }
     local ids = {}
     for _, e in ipairs(W.MenuEntries("Anna")) do ids[#ids + 1] = e.id end
-    eq(table.concat(ids, ","), "whisper,invite,friend,who", "Menuepunkte (Ignorieren fehlt ohne Funktion)")
+    eq(table.concat(ids, ","), "whisper,invite,friend,ignore,who", "alle Menuepunkte immer")
     eq(W.MenuAction("invite", "Anna"), true, "einladen"); eq(W.MenuAction("friend", "Anna"), true, "Freund")
     W.MenuAction("who", "Anna")
     eq(calls[1], "invite:Anna", "Einladung an Anna"); eq(calls[2], "friend:Anna", "Freund Anna"); eq(calls[3], 'who:n-"Anna"', "Wer-Abfrage")
-    eq(W.MenuAction("ignore", "Anna"), false, "Ignorieren ohne Funktion")
-    -- Spiel-Menue: oeffnet SetItemRef eines, wird kein eigenes gebraucht
+    -- Ignorieren ohne Schnittstelle: Rueckfall auf den Chatbefehl
+    local realFwd = W.Forward
+    W.Forward = function(t) fwd[#fwd + 1] = t; return true end
+    eq(W.MenuAction("ignore", "Anna"), true, "Ignorieren ueber Befehl"); eq(fwd[1], "/ignore Anna", "Befehl /ignore")
+    _G.C_PartyInfo = nil
+    W.MenuAction("invite", "Bert"); eq(fwd[2], "/invite Bert", "Rueckfall /invite")
+    W.Forward = realFwd
+    -- Standard: nur das eigene Menue; Spiel-Menue nur auf Wunsch
     local ref
     _G.SetItemRef = function(link, text, btn) ref = { link, btn }; _G.DropDownList1 = { IsShown = function() return true end } end
+    W.ShowPlayerMenu("Bert"); eq(ref, nil, "Standard: Spiel-Menue wird nicht gerufen")
+    W.Opts().gameMenu = true
     eq(W.ShowPlayerMenu("Bert"), true, "Menue geoeffnet"); eq(ref[1], "player:Bert", "Link"); eq(ref[2], "RightButton", "rechte Taste")
     eq(W.ShowPlayerMenu("Pinky"), false, "eigener Name: kein Menue")
-    W.Opts().ownMenu = true; ref = nil
-    W.ShowPlayerMenu("Bert"); eq(ref, nil, "eigenes Menue statt Spiel-Menue")
-    W.Opts().ownMenu = false; _G.SetItemRef = nil; _G.DropDownList1 = nil
+    W.Opts().gameMenu = false; _G.SetItemRef = nil; _G.DropDownList1 = nil
+end
+do -- Blasenfarben
+    UI.Color = function() return 0.2, 0.2, 0.2, 1 end
+    local r, g, b = W.BubbleColor("guild", false); eq(type(r), "number", "Standardfarbe")
+    r, g, b = W.BubbleColor("say", true); eq(r, 0.13, "eigene Blase blau")
+    W.SetBubbleColor("guild", 0.1, 0.5, 0.2); r, g, b = W.BubbleColor("guild", false)
+    eq(r, 0.1, "Gildenfarbe R"); eq(g, 0.5, "Gildenfarbe G"); eq(b, 0.2, "Gildenfarbe B")
+    r = W.BubbleColor("yell", false); eq(r ~= 0.1, true, "andere Art unveraendert")
+    W.SetBubbleColor("own", 0.9, 0.1, 0.1); eq(W.BubbleColor("guild", true), 0.9, "eigene Farbe gilt fuer eigene Nachrichten")
+    W.SetBubbleColor("guild", nil); eq(W.BubbleColor("guild", false) ~= 0.1, true, "zurueckgesetzt")
+    W.Opts().bubbleBg = { say = "kaputt" }; eq(type(W.BubbleColor("say", false)), "number", "kaputter Wert -> Standard")
+    W.Opts().bubbleBg = nil
 end
 do -- nach dem Laden bleibt das Eingabefeld zu
     local focus, txt = false, "x"
