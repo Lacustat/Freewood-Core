@@ -3,7 +3,7 @@
 ## Notes: Base addon of the Freewood family: data storage, UI kit, export/import and the main window.
 ## Notes-deDE: Basis-Addon der Freewood-Familie: Datenspeicher, UI-Bausteine, Export/Import und Hauptfenster.
 ## Author: Lacustat
-## Version: 0.37.3
+## Version: 0.37.4
 ## SavedVariables: FreewoodDB
 ## SavedVariablesPerCharacter: FreewoodCharDB
 ## IconTexture: Interface\AddOns\Freewood-Core\Media\FreeWood_Logo
@@ -45,6 +45,7 @@ UI\RollWindow.lua
 UI\QuestGlow.lua
 UI\UnitRings.lua
 Media\Greifen\Greifen.lua
+Media\Rings\Segments.lua
 UI\Greifen.lua
 UI\Design.lua
 UI\Watch.lua

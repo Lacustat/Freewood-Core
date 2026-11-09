@@ -99,6 +99,32 @@ end
 R.gauges = nil
 fr, src = R.Read("health"); near(fr, 0.3, "Messgeraet"); eq(src, "balken", "Quelle balken")
 _G.CreateFrame = realCF
+
+-- Segment-Ring
+local o1, r1 = R.SegDirection(1); eq(o1, "HORIZONTAL", "Segment 1 (12 Uhr) horizontal"); eq(r1, false, "Segment 1 links nach rechts")
+local o8, r8 = R.SegDirection(8); eq(o8, "VERTICAL", "Segment 8 (3 Uhr) senkrecht"); eq(r8, true, "3 Uhr: oben nach unten")
+local o16, r16 = R.SegDirection(16); eq(o16, "HORIZONTAL", "Segment 16 (6 Uhr)"); eq(r16, true, "6 Uhr: rechts nach links")
+local o24, r24 = R.SegDirection(24); eq(o24, "VERTICAL", "Segment 24 (9 Uhr)"); eq(r24, false, "9 Uhr: unten nach oben")
+FW.RingSegments = {}; for i = 1, 32 do FW.RingSegments[i] = { 10, 10, 20, 20 } end
+local ranges, values = {}, {}
+local realCF2 = _G.CreateFrame
+_G.CreateFrame = function(kind, ...)
+    local f = realCF2(kind, ...)
+    if kind == "StatusBar" then
+        f.SetMinMaxValues = function(_, lo, hi) table.insert(ranges, { lo, hi }) end
+        f.SetValue = function(_, v) table.insert(values, v) end
+    end
+    return f
+end
+local ring = { frame = Fake(), cd = Fake(), size = 100 }
+eq(R.SegMode(ring, true, 100), true, "Segmente an"); eq(#ring.segs, 32, "32 Segmente")
+near(ranges[1][1], 0, "Segment 1 von 0"); near(ranges[1][2], 3.125, "Segment 1 bis 3.125"); near(ranges[32][2], 100, "Segment 32 bis 100")
+_G.UnitHealthPercent = function() return "secretwert" end
+_G.CurveConstants = { ScaleTo100 = 1 }
+eq(R.FeedSegs(ring, "health", 0.2, 0.8, 0.2), true, "Segmente gefuettert"); eq(#values, 32, "jedes Segment bekommt den Wert"); eq(values[5], "secretwert", "Wert unveraendert durchgereicht")
+R.SegMode(ring, false); eq(ring.segOn, false, "Segmente aus")
+_G.UnitHealthPercent = nil; _G.CurveConstants = nil
+_G.CreateFrame = realCF2
 local msgs = {}; FW.Print = function(_, t) table.insert(msgs, t) end
 R.Debug(); eq(#msgs >= 3, true, "Debug gibt Zeilen aus")
 print(string.format("%d Pruefungen, %d Fehler", n, fails))

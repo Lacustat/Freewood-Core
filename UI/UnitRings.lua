@@ -2,6 +2,7 @@
 -- Die Ringe sind Abklingzeit-Frames (Cooldown) mit eigener Ring-Textur (Media\Rings\ring.tga), angehalten auf dem Prozentwert.
 -- Alles ist standardmaessig AUS. Innen ein Lebensring, aussen ein Ressourcenring; optional Portrait im Inneren (runde Maske),
 -- Blizzards Spielerfenster ausblenden (nur Transparenz, jederzeit umkehrbar), Verschieben per Ziehen, Groesse per Regler.
+-- Sind die Werte "secret" (Spieler auf Forever), nimmt ein Ring aus 32 Statusleisten ihren Platz (siehe Segment-Ring).
 -- UNGEPRUEFT im Spiel: ob Cooldown:SetSwipeTexture / Pause / Masken auf Forever laufen und in welche Richtung der Swipe fuellt
 -- (dafuer die Haken "Füllung vertauschen" und "Gegen den Uhrzeigersinn").
 
@@ -146,6 +147,100 @@ local function NewRing(parent)
     return ring
 end
 
+---------------------------------------------------------------------
+-- Segment-Ring fuer "secret"-Werte: 32 kleine Statusleisten, jede mit einem Stueck des Rings und eigenem Wertebereich.
+-- Statusleisten nehmen secret-Werte an und schneiden die Fuellung selbst zu, ganz ohne Rechnen im Addon.
+---------------------------------------------------------------------
+
+R.SEG_N = 32
+
+-- Fuellrichtung eines Segments (im Uhrzeigersinn ab 12 Uhr): orientation, reverse
+function R.SegDirection(k, n)
+    n = n or R.SEG_N
+    local th = ((k - 0.5) / n) * 2 * math.pi
+    local dx, dy = math.cos(th), -math.sin(th)   -- Laufrichtung im Uhrzeigersinn (x rechts, y oben)
+    if math.abs(dx) >= math.abs(dy) then
+        return "HORIZONTAL", dx < 0
+    end
+    return "VERTICAL", dy < 0
+end
+
+function R.BuildSegs(ring)
+    if ring.segs then return ring.segs end
+    local info = FW.RingSegments
+    if not info or not G.CreateFrame then return nil end
+    ring.segs = {}
+    for k = 1, R.SEG_N do
+        local sb = G.CreateFrame("StatusBar", nil, ring.frame)
+        sb:SetStatusBarTexture(string.format("%sseg_%02d.tga", PATH, k))
+        local orient, rev = R.SegDirection(k)
+        sb:SetOrientation(orient)
+        if sb.SetReverseFill then sb:SetReverseFill(rev) end
+        sb:Hide()
+        ring.segs[k] = sb
+    end
+    return ring.segs
+end
+
+function R.LayoutSegs(ring, size)
+    local info = FW.RingSegments
+    if not ring.segs or not info then return end
+    local f = size / (FW.RingSegmentSize or 256)
+    for k, sb in ipairs(ring.segs) do
+        local d = info[k]
+        if d then
+            sb:SetSize(d[3] * f, d[4] * f)
+            sb:ClearAllPoints()
+            sb:SetPoint("TOPLEFT", ring.frame, "TOPLEFT", d[1] * f, -d[2] * f)
+        end
+    end
+end
+
+-- Segmente ein/aus; Wertebereich je Segment: [ (k-1)/n, k/n ] * pmax
+function R.SegMode(ring, on, pmax)
+    if on then
+        if not R.BuildSegs(ring) then return false end
+        if ring.segMax ~= pmax then
+            ring.segMax = pmax
+            for k, sb in ipairs(ring.segs) do
+                sb:SetMinMaxValues((k - 1) / R.SEG_N * pmax, k / R.SEG_N * pmax)
+            end
+        end
+        R.LayoutSegs(ring, ring.size or 100)
+        for _, sb in ipairs(ring.segs) do sb:Show() end
+        ring.cd:Hide()
+        ring.segOn = true
+    elseif ring.segOn then
+        for _, sb in ipairs(ring.segs) do sb:Hide() end
+        ring.cd:Show()
+        ring.segOn = false
+        ring.last = -1
+    end
+    return true
+end
+
+-- secret-Prozentwert holen (nur an Statusleisten weiterreichen, nicht rechnen!). Rueckgabe: Wert, Maximum der Skala
+function R.SecretPercent(kind)
+    local fn = kind == "health" and G.UnitHealthPercent or G.UnitPowerPercent
+    if not fn then return nil end
+    local scale = G.CurveConstants and G.CurveConstants.ScaleTo100
+    local ok, v
+    if kind == "health" then ok, v = pcall(fn, "player", false, scale) else ok, v = pcall(fn, "player", nil, false, scale) end
+    if not ok or v == nil then return nil end
+    return v, scale and 100 or 1
+end
+
+function R.FeedSegs(ring, kind, r, g, b)
+    local v, pmax = R.SecretPercent(kind)
+    if v == nil then return false end
+    if not R.SegMode(ring, true, pmax) then return false end
+    for _, sb in ipairs(ring.segs) do
+        pcall(sb.SetValue, sb, v)
+        if r then sb:SetStatusBarColor(r, g, b) end
+    end
+    return true
+end
+
 function R.SetRing(ring, frac, r, g, b, o)
     if not ring or not ring.cd then return end
     local cd = ring.cd
@@ -247,14 +342,14 @@ function R.Apply()
     -- Zuordnung: zwei Ringe -> aussen Ressource, innen Leben; ein Ring -> volle Groesse
     R.healthRing = o.health and (lay.both and R.inner or R.outer) or nil
     R.powerRing = o.power and R.outer or nil
-    for _, ring in ipairs({ R.outer, R.inner }) do ring.last = -1; ring.frame:Hide() end
+    for _, ring in ipairs({ R.outer, R.inner }) do ring.last = -1; ring.segMax = nil; ring.frame:Hide() end
     if R.healthRing then
         local s = lay.both and lay.inner or lay.outer
-        R.healthRing.frame:SetSize(s, s); R.healthRing.frame:ClearAllPoints(); R.healthRing.frame:SetPoint("CENTER", f, "CENTER", 0, 0)
+        R.healthRing.size = s; R.healthRing.frame:SetSize(s, s); R.healthRing.frame:ClearAllPoints(); R.healthRing.frame:SetPoint("CENTER", f, "CENTER", 0, 0)
         R.healthRing.frame:Show()
     end
     if R.powerRing then
-        R.powerRing.frame:SetSize(lay.outer, lay.outer); R.powerRing.frame:ClearAllPoints(); R.powerRing.frame:SetPoint("CENTER", f, "CENTER", 0, 0)
+        R.powerRing.size = lay.outer; R.powerRing.frame:SetSize(lay.outer, lay.outer); R.powerRing.frame:ClearAllPoints(); R.powerRing.frame:SetPoint("CENTER", f, "CENTER", 0, 0)
         R.powerRing.frame:Show()
     end
     if o.portrait then
@@ -343,13 +438,23 @@ function R.Update()
     if R.healthRing then
         hfrac, R.hsrc = R.Read("health")
         local r, g, b = R.HealthColor(hfrac)
-        R.SetRing(R.healthRing, hfrac, r, g, b, o)
+        if R.hsrc == "secret" and R.FeedSegs(R.healthRing, "health", 0.2, 0.85, 0.2) then
+            hfrac = 0.5
+        else
+            R.SegMode(R.healthRing, false)
+            R.SetRing(R.healthRing, hfrac, r, g, b, o)
+        end
     end
     if R.powerRing then
         local ptype = G.UnitPowerType and G.UnitPowerType("player")
         pfrac, R.psrc = R.Read("power")
         local r, g, b = R.PowerColor(Num(ptype))
-        R.SetRing(R.powerRing, pfrac, r, g, b, o)
+        if R.psrc == "secret" and R.FeedSegs(R.powerRing, "power", r, g, b) then
+            pfrac = 0.5
+        else
+            R.SegMode(R.powerRing, false)
+            R.SetRing(R.powerRing, pfrac, r, g, b, o)
+        end
     end
     local full = (not R.healthRing or hfrac >= 0.999) and (not R.powerRing or pfrac >= 0.999)
     if o.hideFull and full and not o.unlock then f:SetAlpha(0) else f:SetAlpha(1) end
