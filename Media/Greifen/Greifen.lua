@@ -8,4 +8,8 @@ FW.GreifenFiles = {
     "druiden_greif",
     "shami_greif",
     "jaeger2_greif",
+    "paladin_affe",
+    "krieger_affe",
+    "schurken_affe",
+    "hexer_affe",
 }

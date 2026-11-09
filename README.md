@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.35.2 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.35.3 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.35.3 DE:** Vier weitere Greifen-Bilder: `paladin_affe`, `krieger_affe`, `schurken_affe`, `hexer_affe` (Format wie `affen_greif`: 512x256, 32 Bit, unkomprimierte TGA, transparent, Figur eingepasst). Sie stehen in `Greifen.lua` und in der Auswahl der Greifen-Einstellungen; für neue Dateien ist ein kompletter Spielneustart nötig. Ungeprüft im Spiel. **EN:** Four more gryphon images: `paladin_affe`, `krieger_affe`, `schurken_affe`, `hexer_affe` (same format as `affen_greif`: 512x256, 32-bit, uncompressed TGA, transparent, figure fitted). They are listed in `Greifen.lua` and in the gryphon settings choices; new files need a full game restart. Unchecked in game.
 
 **0.35.2 DE:** Nachrichten und Namen in anderen Schriften (Kyrillisch, Chinesisch, Japanisch, Koreanisch, Polnisch u. a.) erschienen als Kästchen, weil die Spielschrift diese Zeichen nicht hat. Das Chatfenster erkennt jetzt die Schriftart des Textes (UTF-8) und nimmt dafür eine passende Schrift des Spiels: Kyrillisch/Erweitert `ARIALN.TTF` (sonst `FRIZQT___CYR.TTF`), Koreanisch `2002.TTF`, Chinesisch/Japanisch `ARKai_T`/`ARHei`/`bHEI00M`/`bLEI00D`/`2002`; die erste Datei, die sich laden lässt, gilt, sonst die Chat-Schrift des Spiels. Gilt für Blasen, Zeilen, Namen, Messung der Blasenbreite und das Eingabefeld; deutscher und englischer Text bleibt in der gewohnten Schrift. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel (welche Schriftdateien der Client mitbringt). **EN:** Messages and names in other scripts (Cyrillic, Chinese, Japanese, Korean, Polish etc.) showed as boxes because the game font lacks those glyphs. The chat window now detects the script of the text (UTF-8) and uses a matching game font: Cyrillic/extended `ARIALN.TTF` (else `FRIZQT___CYR.TTF`), Korean `2002.TTF`, Chinese/Japanese `ARKai_T`/`ARHei`/`bHEI00M`/`bLEI00D`/`2002`; the first file that loads wins, otherwise the game's chat font. Applies to bubbles, lines, names, bubble width measuring and the input box; German and English text keeps the usual font. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game (which font files the client ships).
 
