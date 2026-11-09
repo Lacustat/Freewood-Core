@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.4 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.37.5 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.37.5 DE:** Segment-Ring: Die Stücke überlappen jetzt um 1,5°, damit an den Nahtstellen keine feinen Striche mehr zu sehen sind. Der Ring füllt sich auf Forever (secret-Werte) bereits von selbst. **EN:** Segment ring: the pieces now overlap by 1.5° so no fine lines show at the seams. The ring already fills by itself on Forever (secret values).
 
 **0.37.4 DE:** Ring-Anzeige für „secret“-Werte: Das Messgerät aus 0.37.3 lieferte `nil`, die Prozent-Funktion gibt ebenfalls einen geheimen Wert. Deshalb nimmt jetzt ein Segment-Ring den Platz ein: 32 kleine Statusleisten (`Media\Rings\seg_01…32.tga`, Lage in `Segments.lua`), jede mit einem Stück des Rings und eigenem Wertebereich. Statusleisten nehmen geheime Werte an und schneiden die Füllung selbst zu, das Addon muss nichts rechnen. Der Ring füllt sich im Uhrzeigersinn ab 12 Uhr in 32 Stufen. Einschränkung: Solange die Werte geheim sind, hat der Lebensring eine feste Farbe (grün); der Ressourcenring behält seine Farbe nach Art. Ungeprüft im Spiel. **EN:** Unit rings for secret values: the gauge from 0.37.3 returned `nil` and the percent function also returns a secret value. A segment ring now takes over: 32 small status bars (`Media\Rings\seg_01..32.tga`, positions in `Segments.lua`), each with one piece of the ring and its own value range. Status bars accept secret values and crop the fill themselves, so the addon does no maths. The ring fills clockwise from 12 o'clock in 32 steps. Limit: while the values are secret the life ring has a fixed colour (green); the resource ring keeps its colour by type. Unchecked in game.\n\n**0.37.3 DE:** Ring-Anzeige: Leben und Ressource des Spielers sind auf Forever „secret“ (das Debug zeigte `UnitHealth=secret`), deshalb blieben die Ringe leer. Neu als dritter Weg ein Messgerät: eine versteckte Statusleiste nimmt die geheimen Werte an, und die Breite ihrer Füllung wird als normale Zahl gelesen (Quelle „balken“). `/fwring` zeigt jetzt auch das Ergebnis der Prozent-Funktion und des Messgeräts. Ungeprüft im Spiel. **EN:** Unit rings: the player's life and resource are secret on Forever (debug showed `UnitHealth=secret`), so the rings stayed empty. New third way, a gauge: a hidden status bar accepts the secret values and the width of its fill is read as a normal number (source "balken"). `/fwring` now also shows the result of the percent function and of the gauge. Unchecked in game.
 
