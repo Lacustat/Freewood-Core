@@ -1465,6 +1465,7 @@ end
 
 function W.AddSystem(text, kind)
     if W.IsNotFoundText(text) then return end
+    if FW.RollWindow and FW.RollWindow.Feed then pcall(FW.RollWindow.Feed, text) end   -- Wuerfelfenster (eigene Doppelpruefung)
     if type(text) ~= "string" or text == "" or Secret(text) then return end
     kind = kind or "system"
     local plain = string.gsub(string.gsub(string.gsub(text, "\124H.-\124h(.-)\124h", "%1"), "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")

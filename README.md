@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.33.4 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.34.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.34.0 DE:** Würfelfenster (neue Datei `UI/RollWindow.lua`). **Beute-Würfe:** Wird um einen Gegenstand gewürfelt, öffnet sich ein kleines Fenster mit einer Zeile je Wurf: Gegenstandssymbol (Maus darüber = Tooltip des Gegenstands), Würfelsymbol, Zahl, Spielername; sortiert nach Bedarf vor Gier vor Entzaubern, dann nach der höchsten Zahl; der Gewinner wird golden markiert, erledigte Gegenstände verschwinden nach 25 Sekunden. **Handwürfe:** Würfelt in einer Gruppe jemand von Hand (`/roll`), öffnet sich ein Fenster mit Würfelsymbol, Zahl und Name, sortiert nach dem besten Wurf (Gleichstand: wer zuerst würfelte; ein neuer Wurf desselben Spielers ersetzt den alten; nach 45 Sekunden Ruhe beginnt eine neue Runde), mit Knöpfen „Würfeln“ (würfelt selbst im Bereich der Runde) und „Schließen“. Beide Fenster sind verschiebbar, einzeln in den Einstellungen (Chat) abschaltbar, und `/fwroll` zeigt ein Beispiel. Die Meldungen werden aus den Chat-Ereignissen und den Textvorlagen des Spiels (`LOOT_ROLL_*`, `RANDOM_ROLL_RESULT`) nach Typ ausgewertet, nicht nach Platzhalter-Reihenfolge. Test: `texlua tests/rollwindow_test.lua`. Ungeprüft im Spiel (Aussehen, Symbole, Tooltip, `RandomRoll`). **EN:** Roll windows (new file `UI/RollWindow.lua`). **Loot rolls:** when an item is rolled for, a small window lists one row per roll: item icon (hover = item tooltip), dice icon, number, player name; sorted need before greed before disenchant, then by highest number; the winner is marked gold, finished items disappear after 25 seconds. **Manual rolls:** when someone in a group rolls by hand (`/roll`), a window opens with dice icon, number and name, sorted by best roll (tie: whoever rolled first; a new roll by the same player replaces the old one; after 45 seconds of quiet a new round starts), with "Roll" (rolls yourself in the round's range) and "Close" buttons. Both windows are movable, can be switched off separately in the settings (Chat), and `/fwroll` shows a demo. Messages are parsed from chat events and the game's text templates (`LOOT_ROLL_*`, `RANDOM_ROLL_RESULT`) by type, not by placeholder order. Test: `texlua tests/rollwindow_test.lua`. Unchecked in game (look, icons, tooltip, `RandomRoll`).
 
 **0.33.4 DE:** Die Systemzeile „Momentan ist kein Spieler mit dem Namen 'X' online.“ (nach dem Flüstern an einen Offline-Spieler) erscheint nicht mehr im Freewood-Chat. Erkannt über die Textvorlage des Spiels (`ERR_CHAT_PLAYER_NOT_FOUND_S`) und als Rückfall deutsch/englisch. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel. **EN:** The system line "No player named 'X' is currently playing" (after whispering an offline player) no longer appears in the Freewood chat. Detected via the game's template (`ERR_CHAT_PLAYER_NOT_FOUND_S`) with German/English fallback. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game.
 
