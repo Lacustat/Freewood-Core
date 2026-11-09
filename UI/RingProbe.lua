@@ -230,7 +230,7 @@ local function BuildSweep(parent, size, method)
                 tex:AddMaskTexture(m)
             end
         end
-        tex:SetTexture(PATH .. "half_ring.tga")
+        tex:SetTexture(PATH .. "half3.tga")
         tex:SetVertexColor(0.2, 0.85, 0.2, 1)
         tex:SetSize(size, size)
         tex:SetPoint("CENTER", root, "CENTER", 0, 0)
