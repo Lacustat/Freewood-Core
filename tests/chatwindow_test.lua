@@ -461,5 +461,20 @@ do -- nach dem Laden bleibt das Eingabefeld zu
     eq(focus, false, "Fokus nach Laden weg"); eq(txt, "", "Text geleert")
     W.loadGuardUntil = nil
 end
+do -- Schrift je Schriftart des Textes
+    eq(W.ScriptOf("Hallo Wörter äöü ß"), "latin", "deutsch bleibt Spielschrift")
+    eq(W.ScriptOf("Привет"), "ext", "kyrillisch")
+    eq(W.ScriptOf("Zażółć"), "ext", "polnisch")
+    eq(W.ScriptOf("你好"), "cjk", "chinesisch"); eq(W.ScriptOf("こんにちは"), "cjk", "japanisch")
+    eq(W.ScriptOf("안녕하세요"), "kr", "koreanisch"); eq(W.ScriptOf(nil), "latin", "kein Text")
+    local set = {}
+    local fs = { SetFont = function(self, path, size) set[#set + 1] = path; return path ~= "Fonts\\ARIALN.TTF" end }
+    W.ResetFontPick()
+    eq(W.FontFor(fs, "Привет", 11), "ext", "Schriftart ext")
+    eq(set[1], "Fonts\\ARIALN.TTF", "erste Wahl probiert"); eq(set[2], "Fonts\\FRIZQT___CYR.TTF", "zweite Wahl, weil erste fehlte")
+    local n0 = #set
+    W.FontFor(fs, "Привет!", 11); eq(#set, n0, "gleiche Schriftart und Groesse: nichts neu setzen")
+    W.FontFor(fs, "Hallo", 11); eq(fs.fwScript, "latin", "zurueck auf Spielschrift")
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

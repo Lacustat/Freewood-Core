@@ -725,6 +725,53 @@ function W.ShowPlayerMenu(name)
     return true
 end
 
+-- Schrift passend zur Schrift des Textes (UTF-8): die Spielschrift hat keine kyrillischen, chinesischen oder koreanischen Zeichen
+-- (sonst Kaestchen). Wir probieren je Schriftart eine Liste von Schriftdateien des Spiels, die erste, die sich laden laesst, gilt.
+function W.ScriptOf(text)
+    if type(text) ~= "string" or text == "" then return "latin" end
+    if string.find(text, "[\234-\237]") then return "kr" end
+    if string.find(text, "[\227-\233]") then return "cjk" end
+    if string.find(text, "[\196-\215]") then return "ext" end
+    return "latin"
+end
+
+W.FONT_CANDIDATES = {
+    ext = { "Fonts\\ARIALN.TTF", "Fonts\\FRIZQT___CYR.TTF" },
+    kr = { "Fonts\\2002.TTF", "Fonts\\2002B.TTF" },
+    cjk = { "Fonts\\ARKai_T.ttf", "Fonts\\ARHei.ttf", "Fonts\\bHEI00M.ttf", "Fonts\\bLEI00D.ttf", "Fonts\\2002.TTF" },
+}
+local fontPick = {}
+function W.ResetFontPick() fontPick = {} end
+
+-- Setzt die Schrift einer Textflaeche passend zum Text; Rueckgabe: Schriftart des Textes
+function W.FontFor(fs, text, size)
+    local script = W.ScriptOf(text)
+    if fs.fwScript == script and fs.fwSize == size then return script end
+    fs.fwScript, fs.fwSize = script, size
+    if script == "latin" then
+        UI.SetFont(fs, "body", size)
+        return script
+    end
+    local path = fontPick[script]
+    if path == nil then
+        path = false
+        for _, cand in ipairs(W.FONT_CANDIDATES[script] or {}) do
+            local ok, res = pcall(fs.SetFont, fs, cand, size, "")
+            if ok and res ~= false then path = cand; break end
+        end
+        if not path and G.ChatFontNormal and fs.SetFontObject then
+            pcall(fs.SetFontObject, fs, G.ChatFontNormal)
+            pcall(fs.SetFont, fs, (select(1, G.ChatFontNormal:GetFont())) or "", size, "")
+        end
+        fontPick[script] = path
+    elseif path then
+        pcall(fs.SetFont, fs, path, size, "")
+    else
+        UI.SetFont(fs, "body", size)
+    end
+    return script
+end
+
 local lastH, lastViewH, stick = 0, 0, true
 
 -- Position (links unten) eines Rahmens in Einheiten von UIParent
@@ -805,7 +852,7 @@ function W.Draw()
     local textY = topPad + fs + 5
     local classic = o.classic == true
     local maxBub = math.floor(areaW * (tonumber(o.maxW) or 78) / 100)
-    if built.fontApplied ~= fs then UI.SetFont(built.measure, "body", fs); built.fontApplied = fs end
+    if built.fontApplied ~= fs then UI.SetFont(built.measure, "body", fs); built.fontApplied = fs; built.measure.fwScript, built.measure.fwSize = "latin", fs end
     local atBottom = stick or (chat.scroll:GetVerticalScroll() >= lastH - lastViewH - 8)
     local y, idx = 4, 0
     for i = first, n do
@@ -816,6 +863,8 @@ function W.Draw()
             UI.SetFont(b.name, "body", fs)
             UI.SetFont(b.text, "body", fs)
             UI.SetFont(b.time, "body", math.max(8, fs - 2))
+            b.name.fwScript, b.text.fwScript = "latin", "latin"
+            b.name.fwSize, b.text.fwSize = fs, fs
             b.fs = fs
         end
         local line = classic or m.raw == true or W.Style(m.kind) == "line"
@@ -825,6 +874,9 @@ function W.Draw()
         local txt = m.m or ""
         local links = ParseLinks(txt)
         local who = m.s or "?"
+        W.FontFor(built.measure, txt .. who, fs)
+        W.FontFor(b.text, txt .. who, fs)
+        W.FontFor(b.name, who, fs)
         built.measure:SetText(Plain(txt))
         local tw = built.measure:GetStringWidth() or 0
         if tw <= 0 then tw = maxBub end
@@ -1272,6 +1324,7 @@ function W.Build()
     input:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
     input:SetScript("OnTextChanged", function(self, user)
         if user and not W.hSetting then W.HistReset() end
+        pcall(W.FontFor, self, self:GetText() or "", 12)
         local t = self:GetText() or ""
         if t == "//" and W.openedAt and (G.GetTime and G.GetTime() or 0) - W.openedAt < 0.3 then self:SetText("/"); return end
         local newText, change = W.ConsumePrefix(t)

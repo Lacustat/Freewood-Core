@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.35.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.35.2 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,8 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.35.2 DE:** Nachrichten und Namen in anderen Schriften (Kyrillisch, Chinesisch, Japanisch, Koreanisch, Polnisch u. a.) erschienen als Kästchen, weil die Spielschrift diese Zeichen nicht hat. Das Chatfenster erkennt jetzt die Schriftart des Textes (UTF-8) und nimmt dafür eine passende Schrift des Spiels: Kyrillisch/Erweitert `ARIALN.TTF` (sonst `FRIZQT___CYR.TTF`), Koreanisch `2002.TTF`, Chinesisch/Japanisch `ARKai_T`/`ARHei`/`bHEI00M`/`bLEI00D`/`2002`; die erste Datei, die sich laden lässt, gilt, sonst die Chat-Schrift des Spiels. Gilt für Blasen, Zeilen, Namen, Messung der Blasenbreite und das Eingabefeld; deutscher und englischer Text bleibt in der gewohnten Schrift. Test: `texlua tests/chatwindow_test.lua`. Ungeprüft im Spiel (welche Schriftdateien der Client mitbringt). **EN:** Messages and names in other scripts (Cyrillic, Chinese, Japanese, Korean, Polish etc.) showed as boxes because the game font lacks those glyphs. The chat window now detects the script of the text (UTF-8) and uses a matching game font: Cyrillic/extended `ARIALN.TTF` (else `FRIZQT___CYR.TTF`), Korean `2002.TTF`, Chinese/Japanese `ARKai_T`/`ARHei`/`bHEI00M`/`bLEI00D`/`2002`; the first file that loads wins, otherwise the game's chat font. Applies to bubbles, lines, names, bubble width measuring and the input box; German and English text keeps the usual font. Test: `texlua tests/chatwindow_test.lua`. Unchecked in game (which font files the client ships).
 
 **0.35.1 DE:** Vier neue Greifen-Bilder im Ordner `Media\Greifen`: `jaeger_greif`, `druiden_greif`, `shami_greif`, `jaeger2_greif` (Affen als Jäger, Druide, Schamane, Jäger sitzend). Format wie `affen_greif`: 512x256, 32 Bit mit Transparenz, unkomprimierte TGA, Figur auf den Rahmen eingepasst. Sie stehen in `Greifen.lua` und damit in der Auswahl der Greifen-Einstellungen (links/rechts, Spiegelung und Größe einstellbar). Namen ohne Umlaute, weil das Spiel Dateipfade sonst unsicher liest. Neustart des Spiels nötig (neue Dateien). Ungeprüft im Spiel. **EN:** Four new gryphon images in `Media\Greifen`: `jaeger_greif`, `druiden_greif`, `shami_greif`, `jaeger2_greif` (monkeys as hunter, druid, shaman, sitting hunter). Same format as `affen_greif`: 512x256, 32-bit with transparency, uncompressed TGA, figure fitted to the frame. They are listed in `Greifen.lua` and thus in the gryphon settings choices (left/right, mirroring and size adjustable). Names without umlauts because the game reads file paths unreliably otherwise. A game restart is needed (new files). Unchecked in game.
 
