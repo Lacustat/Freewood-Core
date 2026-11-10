@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.41.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.41.2 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -120,7 +120,10 @@ GPL-3.0, see `LICENSE`.
 
 
 
-**0.41.1 DE:** Ruckler-Suche: Der Core misst jetzt, welche Ereignisse und Zeitgeber am längsten brauchen (Chatfenster zeichnen, Statistik, Erfolge, Ringe …). Aufrufe über 50 ms landen im Dev-Log, die Übersicht zeigt `/fwcpu` (Dev-Modul). Keine Änderung am Verhalten.
+**0.41.2 DE:** Die Zeitmessung nennt jetzt zu jedem Ereignis-Empfänger die Datei und Zeile, die ihn angemeldet hat (zum Beispiel `CHAT_MSG_COMBAT_XP_GAIN [Freewood-Codex/Codex.lua:3298]`). Damit lässt sich ein langsamer Aufruf einem Modul zuordnen. Meldeschwelle im Dev-Log jetzt 30 ms.
+**EN:** The timing now names the file and line that registered each event listener (for example `CHAT_MSG_COMBAT_XP_GAIN [Freewood-Codex/Codex.lua:3298]`), so a slow call can be tied to a module. Dev log threshold is now 30 ms.
+
+**0.41.1 DE:** Ruckler-Suche: Der Core misst jetzt, welche Ereignisse und Zeitgeber am längsten brauchen (Chatfenster zeichnen, Statistik, Erfolge, Ringe …). Aufrufe über 30 ms landen im Dev-Log, die Übersicht zeigt `/fwcpu` (Dev-Modul). Keine Änderung am Verhalten.
 **EN:** Hitch hunting: the Core now measures which events and timers take longest (chat window drawing, stats, achievements, rings …). Calls over 50 ms go to the Dev log; `/fwcpu` (Dev module) shows the overview. No change in behaviour.
 
 **0.41.0 DE:** Ring-Anzeige mit glattem Zeiger. Die Sicht-Probe `/fwspin` hat bestätigt, dass zwei gedrehte, halbiert beschnittene Halbringe einen sauberen runden Kreis ergeben. Jetzt zeichnen die Ringe damit: ohne Segmente und ohne Treppenstufen, auch bei geheimen Werten (der Drehwinkel kommt dann aus einer Kurve des Spiels, das Addon rechnet nichts). Das Leben bekommt bei geheimem Wert die Farbe ebenfalls aus einer Farbkurve (rot → orange → grün); gelingt das nicht, bleibt es grün. Es entfallen die 64-Segment-Statusleisten, die Scheiben und der Haken „Füllung vertauschen“. Die Ebenen (Druiden-Mana, Ressource, Leben, Porträt), Konturen, Dicke 1–6 und die Richtung je Ring bleiben wie in 0.39. Neue Bilder `half1…6.tga` (Halbringe), `ring1…6.tga`; die Scheiben- und Segment-Bilder sind weg. Ungeprüft im Spiel: Werte unter 100 %, Ressourcen-Kurve, Farbkurve. **EN:** Unit rings with a smooth pointer. The `/fwspin` visual probe confirmed that two rotated, half-clipped half rings give a clean round circle. The rings now draw with it: no segments and no steps, also with secret values (the rotation angle then comes from a game curve, the addon does no maths). With a secret value the life colour also comes from a colour curve (red → orange → green); if that fails it stays green. Gone are the 64-segment status bars, the discs and the "Swap fill" checkbox. The layers (druid mana, resource, life, portrait), outlines, thickness 1-6 and per-ring direction stay as in 0.39. New images `half1..6.tga` (half rings), `ring1..6.tga`; the disc and segment images are gone. Unchecked in game: values below 100 %, resource curve, colour curve.

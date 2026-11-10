@@ -67,7 +67,7 @@ FW.SafeCall = SafeCall
 -- Aufrufe ueber SLOW_MS landen zusaetzlich in FW.Perf.slow (letzte 30) und werden dem Dev-Log gemeldet (FW.Perf.OnSlow).
 local Perf = { stats = {}, slow = {} }
 FW.Perf = Perf
-local SLOW_MS = 50
+local SLOW_MS = 30
 local function Prof() return debugprofilestop and debugprofilestop() or 0 end
 function Perf.Note(label, dt)
     local st = Perf.stats[label]
@@ -103,6 +103,16 @@ end
 -- Interne Nachrichten (Ereignissystem des Cores)
 ------------------------------------------------------------------------
 
+
+-- Herkunft einer Anmeldung (Datei:Zeile des Aufrufers) fuer die Zeitmessung; nur einmal beim Anmelden
+local function Src(level)
+    if not debugstack then return "?" end
+    local s = debugstack((level or 2), 1, 0)
+    if type(s) ~= "string" then return "?" end
+    s = s:match("AddOns[\\/]([^\n]-:%d+)") or s:match("([^\n]-:%d+)") or "?"
+    return (s:gsub("\\", "/"))
+end
+
 local callbacks = {}
 
 function FW:On(event, fn, owner)
@@ -111,7 +121,7 @@ function FW:On(event, fn, owner)
         list = {}
         callbacks[event] = list
     end
-    list[#list + 1] = { fn = fn, owner = owner }
+    list[#list + 1] = { fn = fn, owner = owner, label = "FW:" .. tostring(event) .. " [" .. Src(2) .. "]" }
 end
 
 function FW:Off(event, owner)
@@ -143,7 +153,7 @@ function FW:Fire(event, ...)
         else
             SafeCall(cb.fn, ...)
         end
-        Perf.Note("FW:" .. tostring(event), Prof() - t0)
+        Perf.Note(cb.label or event, Prof() - t0)
     end
 end
 
@@ -165,7 +175,7 @@ function FW:RegisterEvent(event, fn, owner)
         list = {}
         gameHandlers[event] = list
     end
-    list[#list + 1] = { fn = fn, owner = owner }
+    list[#list + 1] = { fn = fn, owner = owner, label = tostring(event) .. " [" .. Src(2) .. "]" }
     return true
 end
 
@@ -202,7 +212,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         else
             SafeCall(h.fn, ...)
         end
-        Perf.Note(tostring(event), Prof() - t0)
+        Perf.Note(h.label or tostring(event), Prof() - t0)
     end
 end)
 
