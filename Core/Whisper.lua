@@ -169,6 +169,36 @@ function W.MyLocation()
     return m, x, y, zone or (G.GetZoneText and G.GetZoneText()) or ""
 end
 
+-- Karte zu einem Gebietsnamen (aus Gilden- oder Freundesliste): sucht in allen Karten unter dem Kosmos (946) und merkt sich die Namen.
+-- Gleicher Name auf mehreren Karten: Gebiet (Zone) vor Kontinent oder Stadtteil. Rueckgabe: mapID oder nil.
+local zoneMaps
+local function BuildZoneMaps()
+    zoneMaps = {}
+    local CM = G.C_Map
+    if not (CM and CM.GetMapChildrenInfo) then return end
+    for _, root in ipairs({ 946, 947 }) do
+        local ok, list = pcall(CM.GetMapChildrenInfo, root, nil, true)
+        if ok and type(list) == "table" then
+            for _, info in ipairs(list) do
+                local nm = type(info) == "table" and info.name
+                if type(nm) == "string" and not Secret(nm) and type(info.mapID) == "number" then
+                    local k = nm:lower()
+                    local old = zoneMaps[k]
+                    local isZone = G.Enum and G.Enum.UIMapType and info.mapType == G.Enum.UIMapType.Zone
+                    if not old or (isZone and not old.zone) then zoneMaps[k] = { m = info.mapID, zone = isZone } end
+                end
+            end
+        end
+    end
+end
+function W.ZoneMapID(name)
+    if type(name) ~= "string" or name == "" then return nil end
+    if not zoneMaps then BuildZoneMaps() end
+    local e = zoneMaps[name:lower()]
+    return e and e.m or nil
+end
+function W.ResetZoneMaps() zoneMaps = nil end
+
 -- Anfrage an einen Spieler (hoechstens alle LOC_GAP Sekunden je Name). Rueckgabe: true, wenn gesendet.
 local lastAsk = {}
 function W.RequestLocation(name)

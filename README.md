@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.41.7 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.41.8 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.41.8 DE:** Flüsterfenster: Ein Klick auf die „Wo:“-Zeile öffnet immer die Weltkarte: bei Freewood-Spielern an der genauen Position (mit Wegpunkt), sonst auf der Karte des Gebiets aus der Gildenliste oder Freundesliste (Gebietsname wird den Karten des Spiels zugeordnet). Ungeprüft im Spiel. **EN:** Whisper window: clicking the "Where:" line always opens the world map: at the exact position for Freewood players (with waypoint), otherwise on the map of the zone from the guild or friends list (the zone name is matched to the game's maps). Unchecked in game.
+
 **0.41.7 DE:** Flüsterfenster größer und besser lesbar: 430x320 statt 330x230, Schrift im Verlauf und in der Eingabe 13 statt 12. Ungeprüft im Spiel. **EN:** Whisper window larger and easier to read: 430x320 instead of 330x230, font in the history and input 13 instead of 12. Unchecked in game.
 
 **0.41.6 DE:** Flüsterfenster: (1) Items, Zauber und Quests lassen sich per Umschalt+Klick in die Eingabe des Fensters verlinken. (2) Neue Zeile unter dem Namen zeigt, wo der Spieler ist: Gebiet aus der Gildenliste oder Freundesliste; hat er auch Freewood, fragt das Fenster unsichtbar nach (alle 20 s) und zeigt Gebiet und Position, ein Klick öffnet die Karte dort und setzt einen Wegpunkt. Geantwortet wird nur an Spieler, denen man selbst geflüstert hat, sowie Gilde und Gruppe; abschaltbar unter Einstellungen („Meinen Standort an Flüsterpartner weitergeben“). Neu: `tests/whisper_loc_test.lua`. Ungeprüft im Spiel. **EN:** Whisper window: (1) items, spells and quests can be linked into the window's input with Shift+click. (2) A new line under the name shows where the player is: zone from the guild or friends list; if they also have Freewood the window asks invisibly (every 20 s) and shows zone and position, a click opens the map there and sets a waypoint. Only players you whispered yourself, guild and group get an answer; can be switched off in Settings ("Share my location with whisper partners"). New: `tests/whisper_loc_test.lua`. Unchecked in game.

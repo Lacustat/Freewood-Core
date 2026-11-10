@@ -124,7 +124,7 @@ end
 local function ShowOnMap(rec)
     if not rec or not rec.m then return end
     local CM = G.C_Map
-    if CM and CM.SetUserWaypoint and G.UiMapPoint and G.UiMapPoint.CreateFromCoordinates then
+    if rec.x and rec.y and CM and CM.SetUserWaypoint and G.UiMapPoint and G.UiMapPoint.CreateFromCoordinates then
         pcall(function()
             if CM.CanSetUserWaypointOnMap and not CM.CanSetUserWaypointOnMap(rec.m) then return end
             CM.SetUserWaypoint(G.UiMapPoint.CreateFromCoordinates(rec.m, rec.x, rec.y))
@@ -207,7 +207,7 @@ local function Create(name)
     locBtn:SetScript("OnEnter", function(self)
         if win.locRec and G.GameTooltip then
             G.GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-            G.GameTooltip:SetText(FW.L.POP_LOC_CLICK)
+            G.GameTooltip:SetText(win.locRec.x and FW.L.POP_LOC_CLICK or FW.L.POP_LOC_CLICK_ZONE)
             G.GameTooltip:Show()
         end
     end)
@@ -320,16 +320,22 @@ function Pop.UpdateLocation(win)
     local Wh = FW.Whisper
     if Wh and Wh.RequestLocation then pcall(Wh.RequestLocation, win.name) end
     local zone, rec = LocationOf(win.name)
-    win.locRec = rec
+    -- Klickziel: genaue Position (Freewood-Spieler) oder wenigstens die Karte des Gebiets
+    local target = rec
+    if not target and zone and Wh and Wh.ZoneMapID then
+        local m = Wh.ZoneMapID(zone)
+        if m then target = { m = m } end
+    end
+    win.locRec = target
     if zone then
         win.locFs:SetText(string.format(L.POP_LOC_WHERE, zone))
-        if rec then win.locFs:SetTextColor(UI.Color("goldLight")) else win.locFs:SetTextColor(UI.Color("textDim")) end
+        if target then win.locFs:SetTextColor(UI.Color("goldLight")) else win.locFs:SetTextColor(UI.Color("textDim")) end
     else
         win.locFs:SetText(L.POP_LOC_NONE)
         win.locFs:SetTextColor(UI.Color("textDim"))
     end
     if win.locBtn then
-        if rec then win.locBtn:Enable() else win.locBtn:Disable() end
+        if target then win.locBtn:Enable() else win.locBtn:Disable() end
     end
 end
 

@@ -74,4 +74,16 @@ Recv("M|abc|1|2|x", "Freund"); Recv("M|1|5000|2|x", "Freund")
 clock = 301
 eq(W.GetLocation("Freund"), nil, "ungueltige Antworten werden verworfen")
 
+-- Gebietsname -> Karte
+_G.Enum.UIMapType = { Zone = 3, Continent = 2 }
+_G.C_Map.GetMapChildrenInfo = function(root)
+    if root ~= 946 then return {} end
+    return { { name = "Kalimdor", mapID = 1414, mapType = 2 }, { name = "Brachland", mapID = 1413, mapType = 3 },
+             { name = "Brachland", mapID = 9999, mapType = 5 }, { name = "Orgrimmar", mapID = 1411, mapType = 3 } }
+end
+W.ResetZoneMaps()
+eq(W.ZoneMapID("Brachland"), 1413, "Gebiet vor Unterkarte")
+eq(W.ZoneMapID("brachland"), 1413, "Gross/Klein egal")
+eq(W.ZoneMapID("Nirgendwo"), nil, "unbekanntes Gebiet")
+
 print(n .. " Pruefungen, " .. fails .. " Fehler")
