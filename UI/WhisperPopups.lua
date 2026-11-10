@@ -13,7 +13,7 @@ local G = _G
 local Pop = {}
 FW.WhisperPopups = Pop
 
-local W, H = 330, 230
+local W, H = 430, 320
 local MAX_OPEN = 4
 local wins = {}          -- wins[name] = Fenster
 local openOrder = {}     -- Namen in Oeffnungsreihenfolge
@@ -232,12 +232,12 @@ local function Create(name)
 
     local logBox = UI.CreatePanel(win, "bg", "bronze")
     logBox:SetPoint("TOPLEFT", win, "TOPLEFT", 8, -60)
-    logBox:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -8, 40)
+    logBox:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -8, 44)
     local log = CreateFrame("ScrollingMessageFrame", nil, logBox)
     log:SetPoint("TOPLEFT", logBox, "TOPLEFT", 6, -6)
     log:SetPoint("BOTTOMRIGHT", logBox, "BOTTOMRIGHT", -6, 6)
-    if not pcall(log.SetFont, log, UI.GetFontPath("body"), 12, "") then
-        pcall(log.SetFont, log, "Fonts\\FRIZQT__.TTF", 12, "")
+    if not pcall(log.SetFont, log, UI.GetFontPath("body"), 13, "") then
+        pcall(log.SetFont, log, "Fonts\\FRIZQT__.TTF", 13, "")
     end
     log:SetJustifyH("LEFT")
     log:SetMaxLines(120)
@@ -273,13 +273,13 @@ local function Create(name)
     local ibox = UI.CreatePanel(win, "bg", "bronze")
     ibox:SetPoint("BOTTOMLEFT", win, "BOTTOMLEFT", 8, 8)
     ibox:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -8, 8)
-    ibox:SetHeight(26)
+    ibox:SetHeight(30)
     local edit = CreateFrame("EditBox", nil, ibox)
     edit:SetAutoFocus(false)
-    edit:SetPoint("TOPLEFT", ibox, "TOPLEFT", 6, -3)
-    edit:SetPoint("BOTTOMRIGHT", ibox, "BOTTOMRIGHT", -6, 3)
+    edit:SetPoint("TOPLEFT", ibox, "TOPLEFT", 6, -5)
+    edit:SetPoint("BOTTOMRIGHT", ibox, "BOTTOMRIGHT", -6, 5)
     edit:SetMaxLetters(255)
-    if not edit:SetFont(UI.GetFontPath("body"), 12, "") then edit:SetFont("Fonts\\FRIZQT__.TTF", 12, "") end
+    if not edit:SetFont(UI.GetFontPath("body"), 13, "") then edit:SetFont("Fonts\\FRIZQT__.TTF", 13, "") end
     edit:SetTextColor(UI.Color("text"))
     edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     edit:SetScript("OnEnterPressed", function(self)
