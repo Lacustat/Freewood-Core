@@ -116,6 +116,19 @@ end
 
 local callbacks = {}
 
+-- Ladezeit je Addon: Zeit zwischen dem ADDON_LOADED des Vorgaengers und dem eigenen (= Einlesen der Dateien des Addons)
+Perf.load = {}
+local lastLoad = Prof()
+local loadFrame = _G.CreateFrame and _G.CreateFrame("Frame")
+if loadFrame then
+    loadFrame:RegisterEvent("ADDON_LOADED")
+    loadFrame:SetScript("OnEvent", function(_, _, name)
+        local now = Prof()
+        Perf.load[#Perf.load + 1] = { name = tostring(name), ms = now - lastLoad }
+        lastLoad = now
+    end)
+end
+
 function FW:On(event, fn, owner)
     local list = callbacks[event]
     if not list then
