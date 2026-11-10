@@ -13,4 +13,8 @@ FW.GreifenFiles = {
     "schurken_affe",
     "hexer_affe",
     "magier_affe",
+    "affen_priester",
+    "affen_priester_shadow",
+    "jaeger_mit_baer",
+    "affenkoenig_1",
 }
