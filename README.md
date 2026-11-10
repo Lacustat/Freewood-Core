@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.41.2 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.41.3 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -119,6 +119,9 @@ GPL-3.0, see `LICENSE`.
 
 
 
+
+**0.41.3 DE:** Fehlerbehebung Chatfenster: `ADDON_ACTION_BLOCKED` (SetPropagateKeyboardInput im Kampf) trat alle 2 Sekunden auf (42-mal im Fehlerprotokoll). Die Tastenabfrage wird nur noch bei Änderung und nie im Kampf gesetzt. Zeitmessung: Herkunft (Datei:Zeile) zeigt jetzt den Registrierer statt der Core-Zeile.
+**EN:** Chat window fix: `ADDON_ACTION_BLOCKED` (SetPropagateKeyboardInput in combat) fired every 2 seconds (42 times in the error log). The key listener is now only set on change and never in combat. Timing: the origin (file:line) now shows the registering module instead of the Core line.
 
 **0.41.2 DE:** Die Zeitmessung nennt jetzt zu jedem Ereignis-Empfänger die Datei und Zeile, die ihn angemeldet hat (zum Beispiel `CHAT_MSG_COMBAT_XP_GAIN [Freewood-Codex/Codex.lua:3298]`). Damit lässt sich ein langsamer Aufruf einem Modul zuordnen. Meldeschwelle im Dev-Log jetzt 30 ms.
 **EN:** The timing now names the file and line that registered each event listener (for example `CHAT_MSG_COMBAT_XP_GAIN [Freewood-Codex/Codex.lua:3298]`), so a slow call can be tied to a module. Dev log threshold is now 30 ms.

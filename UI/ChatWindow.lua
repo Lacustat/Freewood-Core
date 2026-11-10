@@ -2070,7 +2070,7 @@ function W.BindingKeys(action, defaults)
 end
 
 -- Tastenabfrage ohne Bindungen und Haken: ein Rahmen hoert mit und gibt alle anderen Tasten weiter
-local keyFrame
+local keyFrame, keyOn
 local function KeyCombo(key)
     local mod = ""
     if G.IsAltKeyDown and G.IsAltKeyDown() then mod = mod .. "ALT-" end
@@ -2102,12 +2102,18 @@ function W.ApplyKeyListener(on)
             local handled = false
             local ok, res = pcall(W.HandleKey, key)
             if ok and res then handled = true end
-            if self.SetPropagateKeyboardInput then pcall(self.SetPropagateKeyboardInput, self, not handled) end
+            if self.SetPropagateKeyboardInput and not (G.InCombatLockdown and G.InCombatLockdown()) then pcall(self.SetPropagateKeyboardInput, self, not handled) end
         end)
     end
+    -- SetPropagateKeyboardInput ist im Kampf geschuetzt (ADDON_ACTION_BLOCKED); ApplyMain laeuft alle 2 s. Darum nur bei Aenderung
+    -- und nie im Kampf; der Zustand wird nach dem Kampf nachgeholt.
     if keyFrame then
-        pcall(keyFrame.EnableKeyboard, keyFrame, on and true or false)
-        if on and keyFrame.SetPropagateKeyboardInput then pcall(keyFrame.SetPropagateKeyboardInput, keyFrame, true) end
+        local want = on and true or false
+        if keyOn ~= want and not (G.InCombatLockdown and G.InCombatLockdown()) then
+            pcall(keyFrame.EnableKeyboard, keyFrame, want)
+            if want and keyFrame.SetPropagateKeyboardInput then pcall(keyFrame.SetPropagateKeyboardInput, keyFrame, true) end
+            keyOn = want
+        end
     end
 end
 

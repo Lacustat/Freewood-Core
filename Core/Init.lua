@@ -107,9 +107,10 @@ end
 -- Herkunft einer Anmeldung (Datei:Zeile des Aufrufers) fuer die Zeitmessung; nur einmal beim Anmelden
 local function Src(level)
     if not debugstack then return "?" end
-    local s = debugstack((level or 2), 1, 0)
+    local s = debugstack((level or 3), 1, 0)
     if type(s) ~= "string" then return "?" end
     s = s:match("AddOns[\\/]([^\n]-:%d+)") or s:match("([^\n]-:%d+)") or "?"
+    s = s:gsub("[%[%]]", "")
     return (s:gsub("\\", "/"))
 end
 
@@ -121,7 +122,7 @@ function FW:On(event, fn, owner)
         list = {}
         callbacks[event] = list
     end
-    list[#list + 1] = { fn = fn, owner = owner, label = "FW:" .. tostring(event) .. " [" .. Src(2) .. "]" }
+    list[#list + 1] = { fn = fn, owner = owner, label = "FW:" .. tostring(event) .. " [" .. Src(3) .. "]" }
 end
 
 function FW:Off(event, owner)
@@ -175,7 +176,7 @@ function FW:RegisterEvent(event, fn, owner)
         list = {}
         gameHandlers[event] = list
     end
-    list[#list + 1] = { fn = fn, owner = owner, label = tostring(event) .. " [" .. Src(2) .. "]" }
+    list[#list + 1] = { fn = fn, owner = owner, label = tostring(event) .. " [" .. Src(3) .. "]" }
     return true
 end
 
