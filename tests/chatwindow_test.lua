@@ -501,5 +501,20 @@ do -- Doppelnamen (Vor- und Nachname) beim Fluestern
     eq(W.KnownName("Karl"), true, "Gruppenmitglied bekannt")
     _G.UnitName = function() return "Pinky" end
 end
+-- /w Name Name2 oeffnet das Fluesterfenster (Fenster-Attrappe)
+do
+    local calls = {}
+    FW.WhisperPopups = { OpenFocus = function(name, text) calls[#calls + 1] = { name, text } return true end }
+    eq(W.OpenWhisperWindow("Jinxer Darktide", "hallo"), true, "Fluesterfenster wird geoeffnet")
+    eq(calls[1][1], "Jinxer Darktide", "Name uebergeben")
+    eq(calls[1][2], "hallo", "Resttext uebergeben")
+    FW.WhisperPopups = { OpenFocus = function() return false end }
+    eq(W.OpenWhisperWindow("X Y", ""), false, "Fenster geht nicht auf: Rueckfall auf das Chat-Feld")
+    FW.WhisperPopups = nil
+    eq(W.OpenWhisperWindow("X Y", ""), false, "ohne Fluesterfenster-Modul: false")
+    local rest, change = W.ConsumePrefix("/w Jinxer Darktide hallo")
+    eq(change and change.kind, "whisper", "Praefix /w erkannt")
+    eq(change and change.target, "Jinxer Darktide", "Ziel zwei Woerter")
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)

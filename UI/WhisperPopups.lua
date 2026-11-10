@@ -362,6 +362,22 @@ function Pop.Open(name)
     return win
 end
 
+-- Fenster fuer name oeffnen und das Eingabefeld aktivieren (vom Chat-Eingabefeld nach "/w Name "). Rueckgabe: true, wenn geoeffnet.
+function Pop.OpenFocus(name, text)
+    local s = FW.settings
+    if type(name) ~= "string" or name == "" then return false end
+    if not (s and s.whisperPopup == true) then return false end
+    if inCombat or (G.UnitAffectingCombat and G.UnitAffectingCombat("player")) then return false end
+    local win = Pop.Open(name)
+    if not (win and win.edit) then return false end
+    win.flash = 0
+    win.title:SetTextColor(UI.Color("gold"))
+    win.edit:SetText(type(text) == "string" and text or "")
+    win.edit:SetFocus()
+    if win.edit.SetCursorPosition then pcall(win.edit.SetCursorPosition, win.edit, #(win.edit:GetText() or "")) end
+    return true
+end
+
 local function CanShow()
     if inCombat then return false end
     if G.UnitAffectingCombat and G.UnitAffectingCombat("player") then return false end

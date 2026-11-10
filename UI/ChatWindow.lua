@@ -461,6 +461,15 @@ function W.ConsumePrefix(text)
     return nil
 end
 
+-- Fluesterfenster fuer name oeffnen und dort ins Eingabefeld springen (text = schon getippter Rest). Rueckgabe: true, wenn geoeffnet.
+-- Nur ausserhalb des Kampfes und bei eingeschalteten Fluesterfenstern; sonst bleibt es beim Eingabefeld des Chats.
+function W.OpenWhisperWindow(name, text)
+    local Pop = FW.WhisperPopups
+    if not (Pop and Pop.OpenFocus) then return false end
+    local ok, res = pcall(Pop.OpenFocus, name, text)
+    return ok and res and true or false
+end
+
 function W.ApplyPrefix(ch)
     if type(ch) ~= "table" then return end
     if ch.kind == "whisper" then
@@ -1188,6 +1197,17 @@ function W.RefreshInput()
     local r, g, b = KindColor(kind)
     if kind == "say" then r, g, b = UI.Color("goldLight") end
     built.target:SetTextColor(r, g, b)
+    -- Ziel-Feld nur so breit wie der Text ("Sagen" kurz, "An: Name (x)" laenger); die Eingabe rueckt entsprechend
+    local sw = built.target.GetStringWidth and built.target:GetStringWidth() or 40
+    if type(sw) ~= "number" or Secret(sw) then sw = 40 end
+    local w = math.max(34, math.min(220, math.floor(sw + 0.5) + 4))
+    if built.tgtBtn then built.tgtBtn:SetWidth(w) end
+    local left = 6 + w + 8
+    if built.inputLeft ~= left and built.input and built.inputFrame then
+        built.inputLeft = left
+        built.input:SetPoint("TOPLEFT", built.inputFrame, "TOPLEFT", left, -3)
+        if built.ihint then built.ihint:SetPoint("LEFT", built.inputFrame, "LEFT", left + 4, 0) end
+    end
 end
 
 function W.SavePosition()
@@ -1253,8 +1273,9 @@ function W.ApplyLook()
     if built.sendBtn then if classic then built.sendBtn:Hide() else built.sendBtn:Show() end end
     if built.input and built.inputFrame then
         built.input:ClearAllPoints()
-        built.input:SetPoint("TOPLEFT", built.inputFrame, "TOPLEFT", 106, -3)
-        built.input:SetPoint("BOTTOMRIGHT", built.inputFrame, "BOTTOMRIGHT", classic and -8 or -80, 3)
+        local left = built.inputLeft or 66
+        built.input:SetPoint("TOPLEFT", built.inputFrame, "TOPLEFT", left, -3)
+        built.input:SetPoint("BOTTOMRIGHT", built.inputFrame, "BOTTOMRIGHT", classic and -8 or -32, 3)
     end
     if built.grip then if o.locked then built.grip:Hide() else built.grip:Show() end end
     if built.classicApplied ~= classic then
@@ -1350,25 +1371,36 @@ function W.Build()
     built.moveHint = UI.CreateLabel(ibox, L.CHATWIN_MOVE_HINT or "", { size = 10, color = "goldLight", justify = "RIGHT" })
     built.moveHint:SetPoint("BOTTOMRIGHT", ibox, "TOPRIGHT", 0, 2)
     built.moveHint:Hide()
-    local sendBtn = UI.CreateButton(ibox, L.CHAT_SEND, 72, 22, function() W.DoSend() end)
+    -- Senden: kleiner quadratischer Knopf mit Pfeil nach rechts (Pfeil des Spiels, um 90 Grad gedreht)
+    local sendBtn = UI.CreateButton(ibox, "", 24, 24, function() W.DoSend() end)
     built.sendBtn = sendBtn
-    sendBtn:SetPoint("RIGHT", ibox, "RIGHT", -3, 0)
+    sendBtn:SetPoint("RIGHT", ibox, "RIGHT", -2, 0)
+    local arrow = sendBtn:CreateTexture(nil, "OVERLAY")
+    arrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
+    arrow:SetSize(14, 14)
+    arrow:SetPoint("CENTER", sendBtn, "CENTER", 0, 0)
+    if not (arrow.SetRotation and pcall(arrow.SetRotation, arrow, math.pi / 2)) then
+        arrow:Hide()
+        sendBtn:SetLabel(">")
+    end
     local tgt = CreateFrame("Button", nil, ibox)
     tgt:SetPoint("LEFT", ibox, "LEFT", 6, 0)
     tgt:SetHeight(22)
-    tgt:SetWidth(96)
+    tgt:SetWidth(52)
+    built.tgtBtn = tgt
     built.target = UI.CreateLabel(tgt, "", { size = 11, color = "goldLight", justify = "LEFT" })
     built.target:SetPoint("LEFT", tgt, "LEFT", 0, 0)
     tgt:SetScript("OnClick", function() if W.target then SetTarget(nil) else W.CycleSend() end end)
     local input = CreateFrame("EditBox", nil, ibox)
     input:SetAutoFocus(false)
-    input:SetPoint("TOPLEFT", ibox, "TOPLEFT", 106, -3)
-    input:SetPoint("BOTTOMRIGHT", ibox, "BOTTOMRIGHT", -80, 3)
+    input:SetPoint("TOPLEFT", ibox, "TOPLEFT", 66, -3)
+    input:SetPoint("BOTTOMRIGHT", ibox, "BOTTOMRIGHT", -32, 3)
     input:SetMaxLetters(255)
     UI.SetFont(input, "body", 12)
     input:SetTextColor(UI.Color("text"))
     local ihint = UI.CreateLabel(ibox, L.CHAT_INPUT, { size = 12, color = "textDim" })
-    ihint:SetPoint("LEFT", ibox, "LEFT", 110, 0)
+    ihint:SetPoint("LEFT", ibox, "LEFT", 70, 0)
+    built.ihint = ihint
     input:SetScript("OnEnterPressed", function() W.DoSend() end)
     input:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
     input:SetScript("OnTextChanged", function(self, user)
@@ -1378,6 +1410,12 @@ function W.Build()
         if t == "//" and W.openedAt and (G.GetTime and G.GetTime() or 0) - W.openedAt < 0.3 then self:SetText("/"); return end
         local newText, change = W.ConsumePrefix(t)
         if change then
+            -- "/w Vorname Nachname ": gleich das Fluesterfenster oeffnen und dort weiterschreiben
+            if change.kind == "whisper" and change.target and W.OpenWhisperWindow(change.target, newText) then
+                self:SetText("")
+                self:ClearFocus()
+                return
+            end
             W.ApplyPrefix(change)
             self:SetText(newText)
             return
