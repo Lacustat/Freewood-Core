@@ -89,7 +89,7 @@ local function CleanName(name)
     return name
 end
 
-local QUIET = { P = true, K = true }
+local QUIET = { P = true, K = true, L = true, M = true }
 
 -- Einzelne Nachricht senden. Rueckgabe: ok, Ergebnisname. Art T/A/K/S immer erlaubt, H und P nur bei eingeschalteter Einstellung.
 function W.Send(name, text, kind)
@@ -113,6 +113,99 @@ function W.SendTest(name)
     return W.Send(name, "test von " .. me .. " " .. (G.date and G.date("%H:%M:%S") or ""), "T")
 end
 
+------------------------------------------------------------------------
+-- Standort des Fluesterpartners (nur zwischen Spielern mit Freewood)
+-- Art L = Anfrage (Text "1"), Art M = Antwort "mapID|x|y|Gebiet" (x, y in Tausendstel). Geantwortet wird nur an Spieler, denen ich
+-- selbst gefluestert habe, sowie Gilde und Gruppe, und nur bei eingeschalteter Einstellung settings.shareLocation (Standard AN).
+------------------------------------------------------------------------
+
+W.loc = {}      -- loc[klein] = { m, x, y, zone, t }
+W.talked = {}   -- klein -> true: ich habe diesem Spieler gefluestert
+local LOC_GAP, LOC_TTL = 20, 120
+
+local function Key(name) return type(name) == "string" and name:lower() or "" end
+local function Short(name) return type(name) == "string" and (name:match("^([^%-]+)") or name) or "" end
+
+function W.NoteTalked(name) if type(name) == "string" and name ~= "" then W.talked[Key(Short(name))] = true end end
+
+local function InGroupOrGuild(name)
+    local short = Key(Short(name))
+    local CL = FW.ChatLog
+    if CL and CL.guild then
+        for _, g in ipairs(CL.guild) do if Key(Short(g.name)) == short then return true end end
+    end
+    for i = 1, 4 do
+        local u = "party" .. i
+        if G.UnitExists and G.UnitExists(u) and G.UnitName and Key(Short(G.UnitName(u))) == short then return true end
+    end
+    local n = (G.IsInRaid and G.IsInRaid() and G.GetNumGroupMembers and G.GetNumGroupMembers()) or 0
+    for i = 1, n do
+        local u = "raid" .. i
+        if G.UnitExists and G.UnitExists(u) and G.UnitName and Key(Short(G.UnitName(u))) == short then return true end
+    end
+    return false
+end
+
+function W.CanShareWith(name)
+    if FW.settings and FW.settings.shareLocation == false then return false end
+    return W.talked[Key(Short(name))] == true or InGroupOrGuild(name)
+end
+
+-- Eigene Position: mapID, x, y (0..1), Gebietsname; nil in Instanzen oder bei geheimen Werten
+function W.MyLocation()
+    local CM = G.C_Map
+    if not (CM and CM.GetBestMapForUnit and CM.GetPlayerMapPosition) then return nil end
+    local ok, m = pcall(CM.GetBestMapForUnit, "player")
+    if not ok or type(m) ~= "number" or Secret(m) then return nil end
+    local ok2, pos = pcall(CM.GetPlayerMapPosition, m, "player")
+    if not ok2 or not pos or not pos.GetXY then return nil end
+    local ok3, x, y = pcall(pos.GetXY, pos)
+    if not ok3 or type(x) ~= "number" or type(y) ~= "number" or Secret(x) or Secret(y) then return nil end
+    local zone
+    if CM.GetMapInfo then
+        local ok4, info = pcall(CM.GetMapInfo, m)
+        if ok4 and type(info) == "table" and type(info.name) == "string" and not Secret(info.name) then zone = info.name end
+    end
+    return m, x, y, zone or (G.GetZoneText and G.GetZoneText()) or ""
+end
+
+-- Anfrage an einen Spieler (hoechstens alle LOC_GAP Sekunden je Name). Rueckgabe: true, wenn gesendet.
+local lastAsk = {}
+function W.RequestLocation(name)
+    local k = Key(name)
+    if k == "" then return false end
+    local now = G.GetTime and G.GetTime() or 0
+    if lastAsk[k] and now - lastAsk[k] < LOC_GAP then return false end
+    lastAsk[k] = now
+    return (W.Send(name, "1", "L")) and true or false
+end
+
+-- Letzte bekannte Antwort { m, x, y, zone, t } oder nil (aelter als LOC_TTL zaehlt nicht mehr)
+function W.GetLocation(name)
+    local r = W.loc[Key(Short(name))] or W.loc[Key(name)]
+    if not r then return nil end
+    local now = G.GetTime and G.GetTime() or 0
+    if now - r.t > LOC_TTL then return nil end
+    return r
+end
+
+local function OnLocRequest(sender)
+    if not W.CanShareWith(sender) then return end
+    local m, x, y, zone = W.MyLocation()
+    if not m then return end
+    local body = string.format("%d|%d|%d|%s", m, math.floor(x * 1000 + 0.5), math.floor(y * 1000 + 0.5), (tostring(zone):gsub("|", "/")))
+    W.Send(sender, body, "M")
+end
+
+local function OnLocReply(sender, body)
+    local m, x, y, zone = tostring(body):match("^(%d+)|(%d+)|(%d+)|(.*)$")
+    m, x, y = tonumber(m), tonumber(x), tonumber(y)
+    if not (m and x and y) or x > 1000 or y > 1000 then return end
+    local rec = { m = m, x = x / 1000, y = y / 1000, zone = zone or "", t = G.GetTime and G.GetTime() or 0 }
+    W.loc[Key(Short(sender))] = rec
+    FW:Fire("WHISPER_LOCATION", sender, rec)
+end
+
 -- Empfang
 local function OnAddon(prefix, text, channel, sender)
     if prefix ~= PREFIX or Secret(text) or Secret(sender) then return end
@@ -121,6 +214,10 @@ local function OnAddon(prefix, text, channel, sender)
     local kind, body = text:match("^(%a)|(.*)$")
     if kind == "T" then
         W.Log("in", sender, text, "")
+    elseif kind == "L" then
+        pcall(OnLocRequest, sender)
+    elseif kind == "M" then
+        pcall(OnLocReply, sender, body)
     elseif kind then
         FW:Fire("WHISPER_DATA", sender, kind, body)
     end

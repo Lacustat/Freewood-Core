@@ -101,6 +101,67 @@ local function Hide(win, keepPending)
     if not keepPending then pending[win.name] = nil end
 end
 
+-- Standort des Spielers: Antwort eines Freewood-Spielers (mit Karte), sonst Gebiet aus Gildenliste oder Freundesliste (ohne Karte)
+local function LocationOf(name)
+    local Wh = FW.Whisper
+    local rec = Wh and Wh.GetLocation and Wh.GetLocation(name)
+    if rec and rec.zone ~= "" then return rec.zone, rec end
+    local short = string.lower(string.match(name, "^([^%-]+)") or name)
+    if CL and CL.guild then
+        for _, g in ipairs(CL.guild) do
+            if g.zone and g.zone ~= "" and string.lower(string.match(g.name or "", "^([^%-]+)") or "") == short then return g.zone, nil end
+        end
+    end
+    local FL = G.C_FriendList
+    if FL and FL.GetFriendInfo then
+        local ok, info = pcall(FL.GetFriendInfo, name)
+        if ok and type(info) == "table" and type(info.area) == "string" and info.area ~= "" and info.connected then return info.area, nil end
+    end
+    return nil, nil
+end
+
+-- Karte an der Position oeffnen und dort einen Wegpunkt setzen
+local function ShowOnMap(rec)
+    if not rec or not rec.m then return end
+    local CM = G.C_Map
+    if CM and CM.SetUserWaypoint and G.UiMapPoint and G.UiMapPoint.CreateFromCoordinates then
+        pcall(function()
+            if CM.CanSetUserWaypointOnMap and not CM.CanSetUserWaypointOnMap(rec.m) then return end
+            CM.SetUserWaypoint(G.UiMapPoint.CreateFromCoordinates(rec.m, rec.x, rec.y))
+        end)
+    end
+    local wm = G.WorldMapFrame
+    if wm and not wm:IsShown() and type(G.ToggleWorldMap) == "function" then pcall(G.ToggleWorldMap) end
+    if wm and wm.SetMapID then pcall(wm.SetMapID, wm, rec.m) end
+end
+Pop.ShowOnMap = ShowOnMap
+
+-- Link in das Eingabefeld des Fluesterfensters, das gerade den Fokus hat (Umschalt+Klick auf Item, Zauber, Quest ...)
+function Pop.InsertLink(link)
+    if type(link) ~= "string" or link == "" or (G.issecretvalue and G.issecretvalue(link)) then return false end
+    local now = G.GetTime and G.GetTime() or 0
+    for _, win in pairs(wins) do
+        if win.edit and win:IsShown() and win.edit:HasFocus() then
+            if Pop.lastLink == link and now - (Pop.lastLinkAt or -10) < 0.2 then return true end
+            Pop.lastLink, Pop.lastLinkAt = link, now
+            win.edit:Insert(link)
+            return true
+        end
+    end
+    return false
+end
+
+local linkHooked = false
+local function InstallLinkHooks()
+    if linkHooked or not G.hooksecurefunc then return end
+    linkHooked = true
+    local function F(link) Pop.InsertLink(link) end
+    if G.ChatEdit_InsertLink then pcall(G.hooksecurefunc, "ChatEdit_InsertLink", F) end
+    if type(G.ChatFrameUtil) == "table" and G.ChatFrameUtil.InsertLink then pcall(G.hooksecurefunc, G.ChatFrameUtil, "InsertLink", F) end
+    if G.ChatFrame_InsertLink then pcall(G.hooksecurefunc, "ChatFrame_InsertLink", F) end
+end
+InstallLinkHooks()
+
 local function Create(name)
     local L = FW.L
     local win = UI.CreatePanel(UIParent, "bgDeep", "gold")
@@ -132,6 +193,26 @@ local function Create(name)
     win.info:SetPoint("TOPLEFT", win, "TOPLEFT", 12, -26)
     win.info:SetPoint("TOPRIGHT", win, "TOPRIGHT", -12, -26)
 
+    -- Standortzeile (anklickbar, wenn der Spieler Freewood hat und antwortet)
+    local locBtn = CreateFrame("Button", nil, win)
+    locBtn:SetPoint("TOPLEFT", win, "TOPLEFT", 12, -41)
+    locBtn:SetPoint("TOPRIGHT", win, "TOPRIGHT", -12, -41)
+    locBtn:SetHeight(14)
+    local locFs = locBtn:CreateFontString(nil, "OVERLAY")
+    if not pcall(locFs.SetFont, locFs, UI.GetFontPath("body"), 11, "") then pcall(locFs.SetFont, locFs, "Fonts\\FRIZQT__.TTF", 11, "") end
+    locFs:SetPoint("LEFT", locBtn, "LEFT", 0, 0)
+    locFs:SetJustifyH("LEFT")
+    win.locFs, win.locBtn = locFs, locBtn
+    locBtn:SetScript("OnClick", function() if win.locRec then ShowOnMap(win.locRec) end end)
+    locBtn:SetScript("OnEnter", function(self)
+        if win.locRec and G.GameTooltip then
+            G.GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+            G.GameTooltip:SetText(FW.L.POP_LOC_CLICK)
+            G.GameTooltip:Show()
+        end
+    end)
+    locBtn:SetScript("OnLeave", function() if G.GameTooltip then G.GameTooltip:Hide() end end)
+
     local close = UI.CreateButton(win, "x", 24, 22, function() Hide(win, false) end)
     close:SetPoint("TOPRIGHT", win, "TOPRIGHT", -6, -6)
     close:SetFrameLevel(head:GetFrameLevel() + 3)
@@ -150,7 +231,7 @@ local function Create(name)
     inv:SetFrameLevel(head:GetFrameLevel() + 3)
 
     local logBox = UI.CreatePanel(win, "bg", "bronze")
-    logBox:SetPoint("TOPLEFT", win, "TOPLEFT", 8, -48)
+    logBox:SetPoint("TOPLEFT", win, "TOPLEFT", 8, -60)
     logBox:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -8, 40)
     local log = CreateFrame("ScrollingMessageFrame", nil, logBox)
     log:SetPoint("TOPLEFT", logBox, "TOPLEFT", 6, -6)
@@ -226,9 +307,30 @@ local function Create(name)
         if infoAcc >= 1 then
             infoAcc = 0
             win.info:SetText(InfoText(name))
+            Pop.UpdateLocation(win)
         end
     end)
     return win
+end
+
+-- Standortzeile des Fensters aktualisieren und gelegentlich bei Freewood-Spielern nachfragen
+function Pop.UpdateLocation(win)
+    if not (win and win.locFs) then return end
+    local L = FW.L
+    local Wh = FW.Whisper
+    if Wh and Wh.RequestLocation then pcall(Wh.RequestLocation, win.name) end
+    local zone, rec = LocationOf(win.name)
+    win.locRec = rec
+    if zone then
+        win.locFs:SetText(string.format(L.POP_LOC_WHERE, zone))
+        if rec then win.locFs:SetTextColor(UI.Color("goldLight")) else win.locFs:SetTextColor(UI.Color("textDim")) end
+    else
+        win.locFs:SetText(L.POP_LOC_NONE)
+        win.locFs:SetTextColor(UI.Color("textDim"))
+    end
+    if win.locBtn then
+        if rec then win.locBtn:Enable() else win.locBtn:Disable() end
+    end
 end
 
 function Pop.Open(name)
@@ -248,6 +350,7 @@ function Pop.Open(name)
         end
     end
     win.info:SetText(InfoText(name))
+    Pop.UpdateLocation(win)
     FillNew(win)
     win.flash = 1.5
     return win
@@ -279,7 +382,19 @@ local function Notify(name)
 end
 
 FW:RegisterEvent("CHAT_MSG_WHISPER", function(text, sender) Notify(sender) end)
-FW:RegisterEvent("CHAT_MSG_WHISPER_INFORM", function(text, target) Notify(target) end)
+FW:RegisterEvent("CHAT_MSG_WHISPER_INFORM", function(text, target)
+    if FW.Whisper and FW.Whisper.NoteTalked then FW.Whisper.NoteTalked(target) end
+    Notify(target)
+end)
+FW:On("WHISPER_LOCATION", function(sender)
+    local win = wins[sender]
+    if not win then
+        for n, w in pairs(wins) do
+            if string.lower(string.match(n, "^([^%-]+)") or n) == string.lower(string.match(sender, "^([^%-]+)") or sender) then win = w break end
+        end
+    end
+    if win and win:IsShown() then Pop.UpdateLocation(win) end
+end)
 
 -- Kampf beginnt: alle Fenster schliessen (Namen merken); Kampf vorbei: wieder oeffnen
 FW:RegisterEvent("PLAYER_REGEN_DISABLED", function()
@@ -316,7 +431,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("whisper-popups", {
         category = "general",
         order = 60,
-        height = 110,
+        height = 140,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.TAB_CHANNELS)
@@ -326,6 +441,9 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, L.SETTINGS_WHISPER_ALWAYS,
                 function() return FW.settings.whisperPopupAlways == true end,
                 function(v) FW.settings.whisperPopupAlways = v and true or false end), { fit = true })
+            stack:Add(UI.CreateCheckbox(f, L.SETTINGS_SHARE_LOCATION,
+                function() return FW.settings.shareLocation ~= false end,
+                function(v) FW.settings.shareLocation = v and true or false end), { fit = true })
             return f
         end,
     })
