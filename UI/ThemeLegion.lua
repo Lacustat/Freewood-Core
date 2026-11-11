@@ -44,8 +44,8 @@ local function Build()
     local header = frame.Header
 
     local paper = frame:CreateTexture(nil, "BACKGROUND", nil, -7)
-    -- Pergament nur im Fensterausschnitt (ein Stueck unter das Holz geschoben), nicht ueber den ganzen Rahmen
-    paper:SetPoint("TOPLEFT", frame, "TOPLEFT", U(112), -U(268))
+    -- Grund nur im Fensterausschnitt (ein Stueck unter das Holz und die Blaetter geschoben), nicht ueber den ganzen Rahmen
+    paper:SetPoint("TOPLEFT", frame, "TOPLEFT", U(112), -U(200))
     paper:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -U(114), U(98))
     paper:SetColorTexture(UI.Color("bg", 0.97))   -- dunkler Grund (spaeter evtl. ein Hintergrundbild)
 
@@ -87,10 +87,10 @@ local function Layout(on)
     UI.scaleText:ClearAllPoints()
     UI.scaleSlider:ClearAllPoints()
     if on then
-        header:SetHeight(U(284))
+        header:SetHeight(U(222))
         header:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
         header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
-        frame.Content:SetPoint("TOPLEFT", frame, "TOPLEFT", U(127) + 8, -(U(284) + 6))
+        frame.Content:SetPoint("TOPLEFT", frame, "TOPLEFT", U(127) + 8, -(U(236) + 6))
         frame.Content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -(U(129) + 8), U(113) + 8)
         UI.closeButton:SetPoint("RIGHT", header, "TOPRIGHT", -U(160), -U(149.5))
     else

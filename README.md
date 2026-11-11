@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.42.3 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.42.4 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.42.4 DE:** Design „Legion der Affen“: Der dunkle Grund reicht oben bis unter die Blätter, die Lücke zwischen Rahmen und Inhalt ist weg; der Inhaltsbereich beginnt höher und ist dadurch etwas größer. Ungeprüft im Spiel. **EN:** "Legion der Affen" design: the dark background now reaches up under the leaves, the gap between frame and content is gone; the content area starts higher and is slightly larger. Unchecked in game.
+
 **0.42.3 DE:** Design „Legion der Affen“ für Full HD: Das Fenster ist kleiner (1440 × 960 statt 1713 × 1142 Einheiten) und die Schrift standardmäßig größer (125 %, solange du den Regler „Schriftgröße aller Texte“ nicht selbst gestellt hast; wirkt nach einem Neuladen). Weniger Platz im Inhaltsbereich: breite Tabellen können eng werden. Ungeprüft im Spiel. **EN:** "Legion der Affen" design for Full HD: the window is smaller (1440 × 960 instead of 1713 × 1142 units) and text is larger by default (125 % unless you set the "Font size of all texts" slider yourself; applies after a reload). Less room in the content area: wide tables may get tight. Unchecked in game.
 
 **0.42.2 DE:** Design „Legion der Affen“: statt Pergament jetzt ein dunkler, warmbrauner Grund mit hellem Text (Chat und andere Module sind wieder lesbar); die Pergamentdatei ist entfernt. Neu im Design-Reiter: Regler „Schriftgröße aller Texte“ (80 bis 160 %), wirkt nach einem Neuladen auf alle Texte, die über die Bausteine von Freewood erzeugt werden (Chat-Eingabe und einige feste Schriften bleiben). Ungeprüft im Spiel; bei großen Werten können feste Spaltenbreiten eng werden. **EN:** "Legion der Affen" design: a dark warm-brown background with light text instead of parchment (chat and other modules readable again); the parchment file is removed. New in the Design tab: slider "Font size of all texts" (80 to 160 %), applies after a reload to all texts created through Freewood's building blocks (chat input and some fixed fonts stay). Unchecked in game; fixed column widths may get tight at large values.
