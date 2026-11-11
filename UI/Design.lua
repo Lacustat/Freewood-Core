@@ -33,7 +33,7 @@ D.THEMES = {
     legion = {
         name = "DESIGN_THEME_LEGION",
         colors = {
-            bgDeep = "d4c08f", bg = "e8d9b0", panel = "dcc99a", card = "efe2bf", hover = "d9c58f",
+            bgDeep = "d4c08f", bg = "e8d9b0", panel = "dcc99a", card = "efe2bf", hover = "bf9a5c",
             gold = "8a5a14", goldLight = "5a1a0a", bronze = "7a5a2a",
             text = "1a1208", textDim = "5c4a2c",
             danger = "9a2a20", success = "2f7a2f",

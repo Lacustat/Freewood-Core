@@ -44,7 +44,9 @@ local function Build()
     local header = frame.Header
 
     local paper = frame:CreateTexture(nil, "BACKGROUND", nil, -7)
-    paper:SetAllPoints(frame)
+    -- Pergament nur im Fensterausschnitt (ein Stueck unter das Holz geschoben), nicht ueber den ganzen Rahmen
+    paper:SetPoint("TOPLEFT", frame, "TOPLEFT", U(112), -U(268))
+    paper:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -U(114), U(98))
     paper:SetTexture(PATH .. "paper.tga")
     paper:SetTexCoord(0, 0.75, 0, 1)
 
