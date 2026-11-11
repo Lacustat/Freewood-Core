@@ -130,10 +130,14 @@ function UI.GetFontPath(kind)
     return STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 end
 
+-- UI.fontScale (Design-Reiter, "Schriftgroesse aller Texte") vergroessert alle Texte, die danach erzeugt werden (nach /reload)
+UI.fontScale = 1
+
 function UI.SetFont(fontString, kind, size, flags)
-    local ok = fontString:SetFont(UI.GetFontPath(kind), size or 12, flags or "")
+    size = math.floor((size or 12) * (UI.fontScale or 1) + 0.5)
+    local ok = fontString:SetFont(UI.GetFontPath(kind), size, flags or "")
     if not ok then
-        fontString:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size or 12, flags or "")
+        fontString:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, flags or "")
     end
 end
 

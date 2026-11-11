@@ -1,8 +1,8 @@
 -- Freewood-Core: Gesamtdesign "Legion der Affen" (waehlbar im Design-Reiter der Einstellungen).
--- Ein fertiges Rahmenbild mit festem Format (skaliert wird nur ueber den Groessenregler), helles Pergament dahinter,
+-- Ein fertiges Rahmenbild mit festem Format (skaliert wird nur ueber den Groessenregler), dunkler Grund dahinter,
 -- Reiterleiste durch ein Dropdown ersetzt, rundes Gildenlogo im Ring links oben.
 -- Alles ist umkehrbar: Apply(false) stellt das normale Hauptfenster aus MainWindow.xml wieder her.
--- Bilder: Media/Design/Legion/frame.tga (2048x1024, Bild links 1536x1024), paper.tga (1024x512, Bild links 768x512), logo.tga.
+-- Bilder: Media/Design/Legion/frame.tga (2048x1024, Bild links 1536x1024), logo.tga.
 
 local ADDON, FW = ...
 
@@ -47,8 +47,7 @@ local function Build()
     -- Pergament nur im Fensterausschnitt (ein Stueck unter das Holz geschoben), nicht ueber den ganzen Rahmen
     paper:SetPoint("TOPLEFT", frame, "TOPLEFT", U(112), -U(268))
     paper:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -U(114), U(98))
-    paper:SetTexture(PATH .. "paper.tga")
-    paper:SetTexCoord(0, 0.75, 0, 1)
+    paper:SetColorTexture(UI.Color("bg", 0.97))   -- dunkler Grund (spaeter evtl. ein Hintergrundbild)
 
     local art = frame:CreateTexture(nil, "BORDER")
     art:SetAllPoints(frame)

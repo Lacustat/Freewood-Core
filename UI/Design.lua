@@ -33,16 +33,16 @@ D.THEMES = {
     legion = {
         name = "DESIGN_THEME_LEGION",
         colors = {
-            bgDeep = "d4c08f", bg = "e8d9b0", panel = "dcc99a", card = "efe2bf", hover = "bf9a5c",
-            gold = "8a5a14", goldLight = "5a1a0a", bronze = "7a5a2a",
-            text = "1a1208", textDim = "5c4a2c",
-            danger = "9a2a20", success = "2f7a2f",
+            bgDeep = "120d09", bg = "1a130d", panel = "241a11", card = "2e2216", hover = "44331d",
+            gold = "c89b3c", goldLight = "f0bf5c", bronze = "9d7826",
+            text = "ebe4d2", textDim = "b0a68e",
+            danger = "e0645a", success = "6cc070",
         },
     },
 }
 D.THEME_ORDER = { "default", "legion" }
 
-local DEFAULTS = { alpha = 100, tabSize = 13, fontHeading = "", fontBody = "", theme = "default" }
+local DEFAULTS = { alpha = 100, tabSize = 13, fontHeading = "", fontBody = "", theme = "default", fontScale = 100 }
 
 local function Opts()
     local s = FW.settings
@@ -123,6 +123,7 @@ local function ApplyFonts()
     local o = Opts()
     UI.fontOverride.heading = FontOk(o.fontHeading) and o.fontHeading or ""
     UI.fontOverride.body = FontOk(o.fontBody) and o.fontBody or ""
+    UI.fontScale = math.max(0.8, math.min(1.6, (o.fontScale or 100) / 100))
     UI.tabFontSize = math.max(9, math.min(20, o.tabSize or 13))
     if UI.window and UI.ApplyTabFont then UI:ApplyTabFont(UI.tabFontSize) end
 end
@@ -173,6 +174,11 @@ function D.SetAlpha(percent)
     Opts().alpha = percent
     ApplyColors()
     RecolorSoon()
+end
+
+function D.SetFontScale(percent)
+    Opts().fontScale = percent
+    UI.fontScale = math.max(0.8, math.min(1.6, percent / 100))
 end
 
 function D.SetTabSize(size)
@@ -235,7 +241,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("design", {
         category = "design",
         order = 10,
-        height = 700,
+        height = 780,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.DESIGN_TITLE)
@@ -295,6 +301,7 @@ if UI.RegisterSettingsSection then
             Slider(L.DESIGN_ALPHA, 30, 100, 5, function() return Opts().alpha end, function(v) D.SetAlpha(v) end)
 
             stack:Add(UI.CreateLabel(f, L.DESIGN_FONT_TITLE, { size = 13, color = "goldLight" }), { height = 18, gap = 14 })
+            Slider(L.DESIGN_FONTSCALE, 80, 160, 5, function() return Opts().fontScale end, function(v) D.SetFontScale(v) end)
             Slider(L.DESIGN_TABSIZE, 9, 20, 1, function() return Opts().tabSize end, function(v) D.SetTabSize(v) end)
 
             local function FontDropdown(title, kind, key)
