@@ -260,9 +260,9 @@ local settingsFrame, settingsBody, settingsScroll, settingsLeft
 local vlines = {}
 local catBar, catButtons = nil, {}
 local currentCat
-local CATS = { "general", "database", "tooltips", "interface", "design", "chat", "quest", "modules" }
+local CATS = { "general", "database", "tooltips", "interface", "design", "animation", "chat", "quest", "modules" }
 local CAT_LABEL = {
-    general = "SETTINGS_CAT_GENERAL", database = "SETTINGS_CAT_DATABASE", tooltips = "SETTINGS_CAT_TOOLTIPS", interface = "SETTINGS_CAT_INTERFACE", design = "SETTINGS_CAT_DESIGN", chat = "SETTINGS_CAT_CHAT",
+    general = "SETTINGS_CAT_GENERAL", database = "SETTINGS_CAT_DATABASE", tooltips = "SETTINGS_CAT_TOOLTIPS", interface = "SETTINGS_CAT_INTERFACE", design = "SETTINGS_CAT_DESIGN", animation = "SETTINGS_CAT_ANIMATION", chat = "SETTINGS_CAT_CHAT",
     quest = "SETTINGS_CAT_QUEST", modules = "SETTINGS_CAT_MODULES",
 }
 local function CatOf(def)
