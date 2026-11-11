@@ -72,6 +72,14 @@ local function Build()
     })
     dd:SetPoint("CENTER", header, "TOPLEFT", U(447), -U(149.5))
 
+    -- Roter Schliessen-Knopf von Blizzard (ersetzt den Knopf "X" des Standarddesigns)
+    local close = CreateFrame("Button", nil, header)
+    close:SetSize(34, 34)
+    close:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
+    close:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
+    close:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight", "ADD")
+    close:SetScript("OnClick", function() frame:Hide() end)
+
     -- Zahnrad: oeffnet direkt die Einstellungen
     local gear = CreateFrame("Button", nil, header)
     gear:SetSize(26, 26)
@@ -81,7 +89,7 @@ local function Build()
     gear:SetScript("OnClick", function() UI:Show("settings") end)
     UI.AttachTooltip(gear, function() return FW.L.TAB_SETTINGS end)
 
-    parts.paper, parts.art, parts.logo, parts.dropdown, parts.gear = paper, art, logo, dd, gear
+    parts.paper, parts.art, parts.logo, parts.dropdown, parts.gear, parts.close = paper, art, logo, dd, gear, close
 
     FW:On("UI_TAB_SELECTED", function(id)
         if active and parts.dropdown then parts.dropdown:SetValue(id) end
@@ -93,6 +101,7 @@ local function Layout(on)
     header:ClearAllPoints()
     frame.Content:ClearAllPoints()
     UI.closeButton:ClearAllPoints()
+    if parts.close then parts.close:ClearAllPoints() end
     UI.scaleText:ClearAllPoints()
     UI.scaleSlider:ClearAllPoints()
     if on then
@@ -102,6 +111,7 @@ local function Layout(on)
         frame.Content:SetPoint("TOPLEFT", frame, "TOPLEFT", U(127) + 8, -(U(236) + 30))
         frame.Content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -(U(129) + 8), U(113) + 8)
         UI.closeButton:SetPoint("RIGHT", header, "TOPRIGHT", -U(160), -U(149.5))
+        parts.close:SetPoint("CENTER", UI.closeButton, "CENTER", 0, 0)
     else
         header:SetHeight(48)
         header:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
@@ -143,6 +153,8 @@ function T.Apply(on)
     SetShown(parts.logo, on)
     SetShown(parts.dropdown, on)
     SetShown(parts.gear, on)
+    SetShown(parts.close, on)
+    SetShown(UI.closeButton, not on)
     for _, k in ipairs(FRAME_TEXTURES) do SetShown(frame[k], not on) end
     for _, k in ipairs(HEADER_PARTS) do SetShown(frame.Header[k], not on) end
     SetShown(frame.TabBar, not on)

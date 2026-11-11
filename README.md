@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.42.5 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.42.6 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.42.6 DE:** Design „Legion der Affen“: Schließen-Knopf ist jetzt der rote Blizzard-Knopf mit X (`Interface\Buttons\UI-Panel-MinimizeButton`). Ungeprüft im Spiel. **EN:** "Legion der Affen" design: the close button is now Blizzard's red X button (`Interface\Buttons\UI-Panel-MinimizeButton`). Unchecked in game.
+
 **0.42.5 DE:** Design „Legion der Affen“: Zahnrad links neben dem Größenregler öffnet direkt die Einstellungen; der dunkle Grund reicht rechts und unten weiter unter den Rahmen (keine Lücke mehr); der Inhalt beginnt tiefer und liegt nicht mehr über der Banane oben links. Ungeprüft im Spiel (Bild des Zahnrads: `Interface\Buttons\UI-OptionsButton`). **EN:** "Legion der Affen" design: a gear left of the size slider opens the settings directly; the dark background reaches further under the frame on the right and bottom (no gap); the content starts lower and no longer overlaps the banana at the top left. Unchecked in game (gear image: `Interface\Buttons\UI-OptionsButton`).
 
 **0.42.4 DE:** Design „Legion der Affen“: Der dunkle Grund reicht oben bis unter die Blätter, die Lücke zwischen Rahmen und Inhalt ist weg; der Inhaltsbereich beginnt höher und ist dadurch etwas größer. Ungeprüft im Spiel. **EN:** "Legion der Affen" design: the dark background now reaches up under the leaves, the gap between frame and content is gone; the content area starts higher and is slightly larger. Unchecked in game.
