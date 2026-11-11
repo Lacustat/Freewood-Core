@@ -512,7 +512,12 @@ function UI.CreateStack(parent, opts)
             if not w.stackHidden then
                 local avail = width - it.indent
                 local h
-                if it.fit then
+                -- Text mit fester Hoehe: auf die Breite des Stapels umbrechen (Hoehe = mindestens der angegebene Wert),
+                -- sonst laeuft langer Text (oder grosse Schrift) ueber den Rand hinaus
+                local isText = not it.fit and it.height and w.GetObjectType and w:GetObjectType() == "FontString"
+                if isText then
+                    h = UI.FitLabel(w, avail, it.height)
+                elseif it.fit then
                     if w.isFit then
                         h = w:Fit(avail)
                     else

@@ -280,11 +280,13 @@ if UI.RegisterSettingsSection then
             for _, k in ipairs(D.KEYS) do
                 local key = k[1]
                 local row = CreateFrame("Frame", nil, f)
-                row:SetSize(300, 26)
+                row:SetSize(340, 26)
                 local label = UI.CreateLabel(row, L[k[2]], { size = 12 })
                 label:SetPoint("LEFT", row, "LEFT", 0, 0)
+                label:SetWidth(262)
+                label:SetWordWrap(false)
                 local sw = UI.CreateButton(row, "", 64, 22, function() OpenPicker(key) end, "default")
-                sw:SetPoint("LEFT", row, "LEFT", 190, 0)
+                sw:SetPoint("LEFT", row, "LEFT", 270, 0)
                 local fill = sw:CreateTexture(nil, "OVERLAY")
                 fill:SetPoint("TOPLEFT", sw, "TOPLEFT", 4, -4)
                 fill:SetPoint("BOTTOMRIGHT", sw, "BOTTOMRIGHT", -4, 4)

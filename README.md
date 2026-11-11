@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.43.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.43.1 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.43.1 DE:** Texte, die über den Rand liefen (zum Beispiel der Hinweis zum Gesamtdesign und lange Farbnamen im Design-Reiter bei größerer Schrift): Texte mit fester Höhe in den Einstellungs-Abschnitten brechen jetzt auf die Breite des Abschnitts um und wachsen in der Höhe mit; die Farbzeilen im Design-Reiter, im Chat-Stil und bei den Sprechblasen haben mehr Platz bzw. begrenzte Textbreite. Ungeprüft im Spiel. **EN:** Text running past the edge (for example the overall-design note and long color names in the Design tab with larger fonts): text with a fixed height in the settings sections now wraps to the section width and grows in height; the color rows in the Design tab, chat style and speech bubbles have more room or a limited text width. Unchecked in game.
+
 **0.43.0 DE:** Die Ring-Anzeige (Lebensring, Ressourcenringe) und ihre Proben `/fwring`, `/fwspin`, `/fwprobe` sind entfernt: Sie funktionierte nicht zuverlässig, weil der Client die Lebenswerte im Kampf geheim hält, und störte nur in den Einstellungen. Der Ordner `Media\Rings` (8,9 MB) und die beiden Tests entfallen, der Download wird kleiner. Gespeicherte Ring-Einstellungen bleiben ungenutzt in der Datenbank. Die älteren Einträge unten zu den Ringen bleiben als Verlauf stehen. **EN:** The ring display (health ring, resource rings) and its probes `/fwring`, `/fwspin`, `/fwprobe` are removed: it did not work reliably because the client keeps health values secret in combat, and it only cluttered the settings. The `Media\Rings` folder (8.9 MB) and the two tests are gone, the download gets smaller. Saved ring settings stay unused in the database. The older entries below about the rings remain as history.
 
 **0.42.6 DE:** Design „Legion der Affen“: Schließen-Knopf ist jetzt der rote Blizzard-Knopf mit X (`Interface\Buttons\UI-Panel-MinimizeButton`). Ungeprüft im Spiel. **EN:** "Legion der Affen" design: the close button is now Blizzard's red X button (`Interface\Buttons\UI-Panel-MinimizeButton`). Unchecked in game.

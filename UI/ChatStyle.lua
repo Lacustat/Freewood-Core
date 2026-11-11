@@ -788,6 +788,8 @@ if UI.RegisterSettingsSection then
                 local row = CreateFrame("Frame", nil, f)
                 row:SetSize(400, 26)
                 local label = UI.CreateLabel(row, L[t[2]], { size = 12 })
+                label:SetWidth(124)
+                label:SetWordWrap(false)
                 label:SetPoint("LEFT", row, "LEFT", 0, 0)
                 local function Slot(kind) -- "bar" oder "text"
                     local function Get()

@@ -2439,6 +2439,8 @@ if FW.AddLocale and UI.RegisterSettingsSection then
                 local row = CreateFrame("Frame", nil, f)
                 row:SetSize(300, 26)
                 local label = UI.CreateLabel(row, L["BUBBLECOL_" .. key], { size = 12 })
+                label:SetWidth(184)
+                label:SetWordWrap(false)
                 label:SetPoint("LEFT", row, "LEFT", 0, 0)
                 if Swatch then
                     local sw = Swatch(row, 64, function() return W.BubbleColor(key, key == "own") end,
