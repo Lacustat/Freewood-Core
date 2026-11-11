@@ -44,6 +44,7 @@ function A.Cfg(id)
     c.scale = math.max(30, math.min(300, c.scale))
     if type(c.snoozeUntil) ~= "number" then c.snoozeUntil = 0 end
     if c.snoozeVisit ~= true then c.snoozeVisit = false end
+    if c.skin ~= nil and type(c.skin) ~= "string" then c.skin = nil end
     return c
 end
 
@@ -67,14 +68,53 @@ end
 -- Bilder
 ------------------------------------------------------------------------
 
--- Zuschnitt (links, rechts, oben, unten) des Einzelbilds i aus der Bildplatte
+-- Aussehen (Skin): def.skins = Liste { id, nameKey, atlas }; gewaehlt ueber Cfg(id).skin (nil = def.defaultSkin()).
+function A.SkinId(def)
+    if not def.skins then return nil end
+    local want = A.Cfg(def.id).skin
+    if want then
+        for _, sk in ipairs(def.skins) do
+            if sk.id == want then return want end
+        end
+    end
+    local d = def.defaultSkin and def.defaultSkin()
+    for _, sk in ipairs(def.skins) do
+        if sk.id == d then return d end
+    end
+    return def.skins[1].id
+end
+
+-- Bildplatte des gewaehlten Aussehens (oder die feste Bildplatte der Animation)
+function A.Atlas(def)
+    if not def.skins then return def.atlas end
+    local id = A.SkinId(def)
+    for _, sk in ipairs(def.skins) do
+        if sk.id == id then return sk.atlas end
+    end
+    return def.skins[1].atlas
+end
+
+-- Zuschnitt (links, rechts, oben, unten) des Einzelbilds i aus der Bildplatte.
+-- Optional je Bildplatte: row0 (erste Zeile des Aussehens), ox/oy (Rand im Feld, gegen Nachbarbilder)
 function A.UV(def, i)
-    local a = def.atlas
+    local a = A.Atlas(def)
     local col = (i - 1) % a.cols
-    local row = math.floor((i - 1) / a.cols)
-    local l = col * a.cellW / a.texW
-    local t = row * a.cellH / a.texH
+    local row = (a.row0 or 0) + math.floor((i - 1) / a.cols)
+    local l = (col * a.cellW + (a.ox or 0)) / a.texW
+    local t = (row * a.cellH + (a.oy or 0)) / a.texH
     return l, l + a.w / a.texW, t, t + a.h / a.texH
+end
+
+-- Aussehen wechseln (skin = nil: Vorgabe nach Fraktion)
+function A.SetSkin(id, skin)
+    local def = A.defs[id]
+    if not def then return end
+    A.Cfg(id).skin = skin
+    local f = A.frames[id]
+    if f then
+        f.tex:SetTexture(A.Atlas(def).file)
+        f.tex:SetTexCoord(A.UV(def, f.cur or 1))
+    end
 end
 
 local function ShowFrameNo(f, i)
@@ -287,7 +327,7 @@ function A.Build(id)
     f:RegisterForDrag("LeftButton")
     f.tex = f:CreateTexture(nil, "ARTWORK")
     f.tex:SetAllPoints(f)
-    f.tex:SetTexture(def.atlas.file)
+    f.tex:SetTexture(A.Atlas(def).file)
     f.target = 1
     f.acc = 0
     ShowFrameNo(f, 1)

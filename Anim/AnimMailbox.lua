@@ -45,11 +45,30 @@ local function DefaultPlace(f)
     f:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -80, 110)
 end
 
+-- Aussehen: 18 Briefkaesten, je 4 Bilder; 3 Aussehen je Bildplatte Mailbox1..6.tga (1024x1024, Felder 256x341, Bild 252x336)
+local SKIN_IDS = { "horde", "allianz", "mensch", "orc", "nachtelf", "zwerg", "gnom", "untot", "tauren", "troll",
+    "greif", "hexenmeister", "paladin", "magier", "krieger", "druide", "schamane", "jaeger" }
+local SKINS = {}
+for k, id in ipairs(SKIN_IDS) do
+    SKINS[k] = {
+        id = id,
+        nameKey = "ANIM_SKIN_" .. id,
+        atlas = { file = A.MEDIA .. "Mailbox" .. (math.floor((k - 1) / 3) + 1) .. ".tga", texW = 1024, texH = 1024,
+            cellW = 256, cellH = 341, cols = 4, w = 252, h = 336, ox = 2, oy = 2, row0 = (k - 1) % 3 },
+    }
+end
+
+local function DefaultSkin()
+    local ok, faction = pcall(function() return _G.UnitFactionGroup and _G.UnitFactionGroup("player") end)
+    return (ok and faction == "Alliance") and "allianz" or "horde"
+end
+
 A.Register({
     id = "mailbox",
     nameKey = "ANIM_MAILBOX",
     kind = "static",
-    atlas = { file = A.MEDIA .. "Mailbox.tga", texW = 1024, texH = 1024, cellW = 512, cellH = 512, cols = 2, w = 384, h = 512 },
+    skins = SKINS,
+    defaultSkin = DefaultSkin,
     frames = 4,
     fps = 8,
     width = 96,

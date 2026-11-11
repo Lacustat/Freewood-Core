@@ -86,6 +86,59 @@ local function AnimSection(parent, id)
             function(v) Cfg().showEmpty = v and true or false; A.Refresh(id) end), { fit = true })
     end
 
+    if def.skins then
+        stack:Add(UI.CreateLabel(f, L.ANIM_SKIN, { size = 12 }), { height = 16, gap = 2 })
+        local function SkinText(v)
+            if v == "auto" then return L.ANIM_SKIN_AUTO end
+            for _, sk in ipairs(def.skins) do
+                if sk.id == v then return L[sk.nameKey] or sk.id end
+            end
+            return tostring(v)
+        end
+        local dd = UI.CreateDropdown(f, 260, 22, {
+            maxRows = 10,
+            getOptions = function()
+                local list = { { value = "auto", text = L.ANIM_SKIN_AUTO } }
+                for _, sk in ipairs(def.skins) do
+                    list[#list + 1] = { value = sk.id, text = L[sk.nameKey] or sk.id }
+                end
+                return list
+            end,
+            textOf = SkinText,
+            onChange = function(v)
+                A.SetSkin(id, (v and v ~= "auto") and v or nil)
+                if f.fwPreview then f.fwPreview() end
+            end,
+        })
+        stack:Add(dd, { height = 22, gap = 6 })
+
+        -- Vorschau: Bild 1 (ohne Post) und Bild 4 (mit Post)
+        local box = CreateFrame("Frame", nil, f)
+        local pw, ph = 72, 96
+        box:SetWidth(pw * 2 + 12)
+        local t1 = box:CreateTexture(nil, "ARTWORK")
+        t1:SetSize(pw, ph)
+        t1:SetPoint("TOPLEFT", box, "TOPLEFT", 0, 0)
+        local t4 = box:CreateTexture(nil, "ARTWORK")
+        t4:SetSize(pw, ph)
+        t4:SetPoint("TOPLEFT", box, "TOPLEFT", pw + 12, 0)
+        function f.fwPreview()
+            local a = A.Atlas(def)
+            t1:SetTexture(a.file)
+            t1:SetTexCoord(A.UV(def, 1))
+            t4:SetTexture(a.file)
+            t4:SetTexCoord(A.UV(def, def.frames))
+        end
+        f.fwPreview()
+        stack:Add(box, { height = ph, gap = 6 })
+        refreshers[#refreshers + 1] = function()
+            dd:SetValue(A.Cfg(id).skin or "auto")
+            f.fwPreview()
+        end
+        dd:SetValue(A.Cfg(id).skin or "auto")
+        stack:Add(UI.CreateLabel(f, L.ANIM_SKIN_NOTE, { size = 11, color = "textDim" }), { height = 30, gap = 6 })
+    end
+
     local label = UI.CreateLabel(f, "", { size = 12 })
     stack:Add(label, { height = 16, gap = 4 })
     local slider = UI.CreateSlider(f, 240, {
@@ -129,7 +182,7 @@ for i, id in ipairs(A.order) do
     UI:RegisterSettingsSection("animation-" .. id, {
         category = "animation",
         order = 20 + i,
-        height = 380,
+        height = 560,
         build = function(parent) return AnimSection(parent, id) end,
         refresh = Refresh,
     })

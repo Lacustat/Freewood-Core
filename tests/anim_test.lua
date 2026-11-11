@@ -55,9 +55,33 @@ eq(f.strata, nil, "Mock")
 
 -- Zuschnitt
 local def = A.defs.mailbox
-local l, r, t, b = A.UV(def, 1); near(l, 0, "UV1 l"); near(r, 0.375, "UV1 r"); near(t, 0, "UV1 t"); near(b, 0.5, "UV1 b")
-l, r, t, b = A.UV(def, 2); near(l, 0.5, "UV2 l"); near(r, 0.875, "UV2 r"); near(t, 0, "UV2 t")
-l, r, t, b = A.UV(def, 4); near(l, 0.5, "UV4 l"); near(t, 0.5, "UV4 t"); near(b, 1, "UV4 b")
+local ox, oy = 2 / 1024, 2 / 1024
+local l, r, t, b = A.UV(def, 1); near(l, ox, "UV1 l"); near(r, ox + 252 / 1024, "UV1 r"); near(t, oy, "UV1 t"); near(b, oy + 336 / 1024, "UV1 b")
+l, r, t, b = A.UV(def, 4); near(l, 3 * 256 / 1024 + ox, "UV4 l"); near(t, oy, "UV4 t"); near(b, oy + 336 / 1024, "UV4 b")
+
+-- Aussehen: Vorgabe nach Fraktion, 18 Stueck, 3 je Bildplatte
+eq(#def.skins, 18, "18 Aussehen")
+eq(A.SkinId(def), "horde", "Vorgabe ohne Fraktion: Horde")
+eq(f.tex.texture, "Interface\\AddOns\\Freewood-Core\\Media\\Animation\\Mailbox1.tga", "Horde liegt auf Platte 1")
+_G.UnitFactionGroup = function() return "Alliance" end
+eq(A.SkinId(def), "allianz", "Vorgabe Allianz")
+_G.UnitFactionGroup = nil
+local seen = {}
+for k, sk in ipairs(def.skins) do
+    eq(seen[sk.id], nil, "Aussehen " .. sk.id .. " nur einmal"); seen[sk.id] = true
+    eq(sk.atlas.file:find("Mailbox" .. (math.floor((k - 1) / 3) + 1) .. "%.tga$") ~= nil, true, "Platte von " .. sk.id)
+    eq(sk.atlas.row0, (k - 1) % 3, "Zeile von " .. sk.id)
+    eq((sk.atlas.row0 + 1) * sk.atlas.cellH <= sk.atlas.texH, true, "Zeile passt in die Platte " .. sk.id)
+end
+A.SetSkin("mailbox", "nachtelf")
+eq(A.SkinId(def), "nachtelf", "gewaehlt: Nachtelf")
+eq(A.Cfg("mailbox").skin, "nachtelf", "gespeichert")
+eq(f.tex.texture:find("Mailbox2%.tga$") ~= nil, true, "Nachtelf auf Platte 2")
+l, r, t, b = A.UV(def, 1); near(t, (1 * 341 + 2) / 1024, "Nachtelf: zweite Zeile")
+A.SetSkin("mailbox", "gibtesnicht")
+eq(A.SkinId(def), "horde", "unbekanntes Aussehen faellt auf die Vorgabe zurueck")
+A.SetSkin("mailbox", nil)
+eq(A.Cfg("mailbox").skin, nil, "Automatik")
 
 -- Post kommt an: sichtbar, Bilder 1 bis 4 laufen, Ton
 newMail = true
