@@ -31,7 +31,7 @@ local sizeSet
 local scaleCalls = {}
 window.SetSize = function(_, w, h) sizeSet = { w, h } end
 
-_G.UIParent = { GetWidth = function() return 1920 end, GetHeight = function() return 1000 end }
+_G.UIParent = { GetWidth = function() return 1920 end, GetHeight = function() return 800 end }
 local handlers = {}
 local tabs = { { id = "overview", label = "Overview", hidden = false }, { id = "x", label = "X", hidden = true } }
 local dd = Obj()
@@ -71,13 +71,13 @@ D.SetTheme("legion")
 eq(D.GetTheme(), "legion", "Design gesetzt")
 eq(UI.hex.text, "ebe4d2", "Palette: heller Text")
 eq(UI.hex.bg, "1a130d", "Palette: dunkler Grund")
-eq(UI.fixedSize ~= nil and UI.fixedSize[1], 1713, "feste Breite")
-eq(sizeSet[2], 1142, "feste Hoehe")
+eq(UI.fixedSize ~= nil and UI.fixedSize[1], 1440, "feste Breite")
+eq(sizeSet[2], 960, "feste Hoehe")
 eq(window.Bg.shown, false, "alter Hintergrund aus")
 eq(window.TabBar.shown, false, "Reiterleiste aus")
 eq(window.resizeGrip.shown, false, "Ziehgriff aus")
 eq(window.Header.Title.shown, false, "Titel aus")
-eq(#scaleCalls, 1, "Skalierung verkleinert (Bildschirm 1000 hoch)")
+eq(#scaleCalls, 1, "Skalierung verkleinert (Bildschirm 800 hoch)")
 eq(scaleCalls[1] <= 0.85, true, "Skalierung passt zur Bildschirmhoehe")
 eq(dd.value, "overview", "Dropdown zeigt aktiven Reiter")
 

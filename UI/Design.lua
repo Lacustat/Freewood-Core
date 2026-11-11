@@ -119,11 +119,18 @@ local function FontOk(path)
     return ok and res ~= false
 end
 
+-- Schriftgroesse in Prozent: vom Spieler gewaehlt, sonst 125 im Design "Legion der Affen" (kleineres Fenster, groessere Schrift), sonst 100
+function D.EffectiveFontScale()
+    local o = Opts()
+    local v = o.fontScaleSet and o.fontScale or ((o.theme == "legion") and 125 or 100)
+    return math.max(80, math.min(160, v))
+end
+
 local function ApplyFonts()
     local o = Opts()
     UI.fontOverride.heading = FontOk(o.fontHeading) and o.fontHeading or ""
     UI.fontOverride.body = FontOk(o.fontBody) and o.fontBody or ""
-    UI.fontScale = math.max(0.8, math.min(1.6, (o.fontScale or 100) / 100))
+    UI.fontScale = D.EffectiveFontScale() / 100
     UI.tabFontSize = math.max(9, math.min(20, o.tabSize or 13))
     if UI.window and UI.ApplyTabFont then UI:ApplyTabFont(UI.tabFontSize) end
 end
@@ -165,6 +172,7 @@ function D.SetTheme(name)
     if name ~= "default" and not D.THEMES[name] then name = "default" end
     Opts().theme = name
     ApplyColors()
+    UI.fontScale = D.EffectiveFontScale() / 100   -- gilt fuer neu erzeugte Texte, der Rest nach /reload
     if FW.ThemeLegion then FW.ThemeLegion.Apply(name == "legion") end
     D.Recolor()
     FW:Fire("DESIGN_CHANGED")
@@ -177,8 +185,10 @@ function D.SetAlpha(percent)
 end
 
 function D.SetFontScale(percent)
-    Opts().fontScale = percent
-    UI.fontScale = math.max(0.8, math.min(1.6, percent / 100))
+    local o = Opts()
+    o.fontScale = percent
+    o.fontScaleSet = true
+    UI.fontScale = D.EffectiveFontScale() / 100
 end
 
 function D.SetTabSize(size)
@@ -301,7 +311,7 @@ if UI.RegisterSettingsSection then
             Slider(L.DESIGN_ALPHA, 30, 100, 5, function() return Opts().alpha end, function(v) D.SetAlpha(v) end)
 
             stack:Add(UI.CreateLabel(f, L.DESIGN_FONT_TITLE, { size = 13, color = "goldLight" }), { height = 18, gap = 14 })
-            Slider(L.DESIGN_FONTSCALE, 80, 160, 5, function() return Opts().fontScale end, function(v) D.SetFontScale(v) end)
+            Slider(L.DESIGN_FONTSCALE, 80, 160, 5, function() return D.EffectiveFontScale() end, function(v) D.SetFontScale(v) end)
             Slider(L.DESIGN_TABSIZE, 9, 20, 1, function() return Opts().tabSize end, function(v) D.SetTabSize(v) end)
 
             local function FontDropdown(title, kind, key)

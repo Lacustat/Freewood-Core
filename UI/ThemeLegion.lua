@@ -15,7 +15,7 @@ if not frame then
 end
 
 local PATH = "Interface\\AddOns\\Freewood-Core\\Media\\Design\\Legion\\"
-local W, H = 1713, 1142            -- Fenstergroesse in Einheiten
+local W, H = 1440, 960             -- Fenstergroesse in Einheiten (Full HD: Fenster nicht zu gross, Schrift dafuer groesser)
 local K = W / 1536                 -- Pixel im Rahmenbild -> Einheiten
 local function U(px) return px * K end
 
