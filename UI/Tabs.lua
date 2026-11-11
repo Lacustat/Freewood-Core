@@ -81,7 +81,12 @@ local function BuildOverview(content)
             row.version:SetText(mod.version and ("v" .. mod.version) or "")
             row.desc:SetText(mod.description or "")
             if mod:IsEnabled() then
-                row.status:SetText("|cff" .. UI.Hex("success") .. L.MODULE_ACTIVE .. "|r")
+                if FW.Design and FW.Design.IsTheme and FW.Design.IsTheme("legion") then
+                    -- Blizzard-Punkt "online" statt Text (Pfad auf Forever noch nicht geprueft)
+                    row.status:SetText("|TInterface\\FriendsFrame\\StatusIcon-Online:16:16|t")
+                else
+                    row.status:SetText("|cff" .. UI.Hex("success") .. L.MODULE_ACTIVE .. "|r")
+                end
             else
                 row.status:SetText("|cff" .. UI.Hex("textDim") .. L.MODULE_INACTIVE .. "|r")
             end

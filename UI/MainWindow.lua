@@ -52,6 +52,8 @@ scaleSlider:SetPoint("RIGHT", scaleText, "LEFT", -8, 0)
 scaleSlider.onText = function(v) scaleText:SetText(string.format("%d%%", v)) end
 UI.AttachTooltip(scaleSlider, function() return FW.L.WINDOW_SCALE end, function() return FW.L.WINDOW_SCALE_TIP end)
 UI.scaleSlider = scaleSlider
+UI.closeButton = closeButton
+UI.scaleText = scaleText
 
 local scaleListeners = {}
 -- Andere Bedienelemente (Einstellungen: - / +) melden sich an, um bei einer Aenderung nachzuziehen
@@ -108,6 +110,11 @@ local function ClampSize(w, h)
 end
 
 function UI:ApplySize()
+    -- Design mit fester Groesse (z. B. "Legion der Affen"): Rahmenbild hat ein festes Format, skaliert wird nur ueber den Regler
+    if UI.fixedSize then
+        frame:SetSize(UI.fixedSize[1], UI.fixedSize[2])
+        return
+    end
     local saved = FW.settings and FW.settings.windowSize
     local w, h = DEFAULT_W, DEFAULT_H
     if type(saved) == "table" then
@@ -342,6 +349,11 @@ function UI:SelectTab(id)
         end
     end
     activeId = id
+    FW:Fire("UI_TAB_SELECTED", id)
+end
+
+function UI:GetActiveTab()
+    return activeId
 end
 
 local function BuildOnce()

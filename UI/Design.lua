@@ -27,11 +27,26 @@ D.FONTS = {
     { "Fonts\\SKURRI.TTF", nil, "Skurri" },
 }
 
-local DEFAULTS = { alpha = 100, tabSize = 13, fontHeading = "", fontBody = "" }
+-- Waehlbare Gesamtdesigns. Das Standarddesign hat keinen Eintrag (= die Farben aus Kit.lua).
+-- Ein Design mit "frame" bekommt ein eigenes Fensteraufbau-Modul (UI/ThemeLegion.lua).
+D.THEMES = {
+    legion = {
+        name = "DESIGN_THEME_LEGION",
+        colors = {
+            bgDeep = "d4c08f", bg = "e8d9b0", panel = "dcc99a", card = "efe2bf", hover = "d9c58f",
+            gold = "8a5a14", goldLight = "5a1a0a", bronze = "7a5a2a",
+            text = "1a1208", textDim = "5c4a2c",
+            danger = "9a2a20", success = "2f7a2f",
+        },
+    },
+}
+D.THEME_ORDER = { "default", "legion" }
+
+local DEFAULTS = { alpha = 100, tabSize = 13, fontHeading = "", fontBody = "", theme = "default" }
 
 local function Opts()
     local s = FW.settings
-    if type(s) ~= "table" then return { colors = {}, alpha = 100, tabSize = 13, fontHeading = "", fontBody = "" } end
+    if type(s) ~= "table" then return { colors = {}, alpha = 100, tabSize = 13, fontHeading = "", fontBody = "", theme = "default" } end
     if type(s.design) ~= "table" then s.design = {} end
     local o = s.design
     if type(o.colors) ~= "table" then o.colors = {} end
@@ -83,6 +98,12 @@ end
 local function ApplyColors()
     local o = Opts()
     for key, def in pairs(UI.hexDefault) do UI.hex[key] = def end
+    local th = D.THEMES[o.theme]
+    if th then
+        for key, hex in pairs(th.colors) do
+            if UI.hexDefault[key] then UI.hex[key] = hex end
+        end
+    end
     for key, hex in pairs(o.colors) do
         if UI.hexDefault[key] and type(hex) == "string" and #hex == 6 then UI.hex[key] = hex end
     end
@@ -126,6 +147,25 @@ function D.ResetColors()
     o.colors = {}
     ApplyColors()
     RecolorSoon()
+    FW:Fire("DESIGN_CHANGED")
+end
+
+-- Gesamtdesign: "default" oder ein Schluessel aus D.THEMES
+function D.GetTheme()
+    local t = Opts().theme
+    return D.THEMES[t] and t or "default"
+end
+
+function D.IsTheme(name)
+    return D.GetTheme() == name
+end
+
+function D.SetTheme(name)
+    if name ~= "default" and not D.THEMES[name] then name = "default" end
+    Opts().theme = name
+    ApplyColors()
+    if FW.ThemeLegion then FW.ThemeLegion.Apply(name == "legion") end
+    D.Recolor()
     FW:Fire("DESIGN_CHANGED")
 end
 
@@ -195,11 +235,30 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("design", {
         category = "design",
         order = 10,
-        height = 620,
+        height = 700,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.DESIGN_TITLE)
             local refreshers = {}
+            -- Gesamtdesign waehlen
+            stack:Add(UI.CreateLabel(f, L.DESIGN_THEME, { size = 12 }), { height = 16, gap = 2 })
+            local function ThemeOptions()
+                local list = {}
+                for _, id in ipairs(D.THEME_ORDER) do
+                    list[#list + 1] = { value = id, text = id == "default" and L.DESIGN_THEME_DEFAULT or L[D.THEMES[id].name] }
+                end
+                return list
+            end
+            local themeDd = UI.CreateDropdown(f, 260, 22, {
+                getOptions = ThemeOptions,
+                textOf = function(v) return v == "default" and L.DESIGN_THEME_DEFAULT or (D.THEMES[v] and L[D.THEMES[v].name]) or tostring(v) end,
+                onChange = function(v) if v ~= nil and v ~= D.GetTheme() then D.SetTheme(v) end end,
+            })
+            themeDd:SetValue(D.GetTheme())
+            stack:Add(themeDd, { height = 22, gap = 4 })
+            refreshers[#refreshers + 1] = function() themeDd:SetValue(D.GetTheme()) end
+            stack:Add(UI.CreateLabel(f, L.DESIGN_THEME_NOTE, { size = 11, color = "textDim" }), { height = 44, gap = 6 })
+
             stack:Add(UI.CreateLabel(f, L.DESIGN_HINT, { size = 11, color = "textDim" }), { height = 30, gap = 4 })
 
             for _, k in ipairs(D.KEYS) do
