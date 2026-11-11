@@ -18,6 +18,7 @@ local function Obj()
         elseif k == "CreateTexture" then return function() return Obj() end
         elseif k == "SetSize" or k == "SetAllPoints" or k == "SetTexCoord" or k == "SetScale" or k == "SetWidth" then return function() end
         end
+        if type(k) == "string" and (k:find("^Set") or k:find("^Hook") or k:find("^Enable") or k:find("^Register")) then return function() end end
         return nil
     end
     return setmetatable(o, mt)
@@ -42,6 +43,8 @@ UI = {
     window = window, tracked = {}, fixedSize = nil,
     closeButton = Obj(), scaleText = Obj(), scaleSlider = Obj(),
     Color = function() return 1, 1, 1, 1 end,
+    AttachTooltip = function() end,
+    Show = function(_, id) UI.shown = id end,
     CreateDropdown = function(_, _, _, o) ddOpts = o; return dd end,
     GetTabList = function() return tabs end,
     GetActiveTab = function() return "overview" end,

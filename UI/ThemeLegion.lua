@@ -46,7 +46,7 @@ local function Build()
     local paper = frame:CreateTexture(nil, "BACKGROUND", nil, -7)
     -- Grund nur im Fensterausschnitt (ein Stueck unter das Holz und die Blaetter geschoben), nicht ueber den ganzen Rahmen
     paper:SetPoint("TOPLEFT", frame, "TOPLEFT", U(112), -U(200))
-    paper:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -U(114), U(98))
+    paper:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -U(92), U(80))
     paper:SetColorTexture(UI.Color("bg", 0.97))   -- dunkler Grund (spaeter evtl. ein Hintergrundbild)
 
     local art = frame:CreateTexture(nil, "BORDER")
@@ -72,7 +72,16 @@ local function Build()
     })
     dd:SetPoint("CENTER", header, "TOPLEFT", U(447), -U(149.5))
 
-    parts.paper, parts.art, parts.logo, parts.dropdown = paper, art, logo, dd
+    -- Zahnrad: oeffnet direkt die Einstellungen
+    local gear = CreateFrame("Button", nil, header)
+    gear:SetSize(26, 26)
+    gear:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
+    gear:SetPushedTexture("Interface\\Buttons\\UI-OptionsButton")
+    gear:SetHighlightTexture("Interface\\Buttons\\UI-OptionsButton", "ADD")
+    gear:SetScript("OnClick", function() UI:Show("settings") end)
+    UI.AttachTooltip(gear, function() return FW.L.TAB_SETTINGS end)
+
+    parts.paper, parts.art, parts.logo, parts.dropdown, parts.gear = paper, art, logo, dd, gear
 
     FW:On("UI_TAB_SELECTED", function(id)
         if active and parts.dropdown then parts.dropdown:SetValue(id) end
@@ -90,7 +99,7 @@ local function Layout(on)
         header:SetHeight(U(222))
         header:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
         header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
-        frame.Content:SetPoint("TOPLEFT", frame, "TOPLEFT", U(127) + 8, -(U(236) + 6))
+        frame.Content:SetPoint("TOPLEFT", frame, "TOPLEFT", U(127) + 8, -(U(236) + 30))
         frame.Content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -(U(129) + 8), U(113) + 8)
         UI.closeButton:SetPoint("RIGHT", header, "TOPRIGHT", -U(160), -U(149.5))
     else
@@ -103,6 +112,10 @@ local function Layout(on)
     end
     UI.scaleText:SetPoint("RIGHT", UI.closeButton, "LEFT", -12, 0)
     UI.scaleSlider:SetPoint("RIGHT", UI.scaleText, "LEFT", -8, 0)
+    if parts.gear then
+        parts.gear:ClearAllPoints()
+        parts.gear:SetPoint("RIGHT", UI.scaleSlider, "LEFT", -18, 0)
+    end
 end
 
 -- Fenster darf nicht groesser als der Bildschirm sein: Skalierung beim Einschalten notfalls verkleinern
@@ -129,6 +142,7 @@ function T.Apply(on)
     SetShown(parts.art, on)
     SetShown(parts.logo, on)
     SetShown(parts.dropdown, on)
+    SetShown(parts.gear, on)
     for _, k in ipairs(FRAME_TEXTURES) do SetShown(frame[k], not on) end
     for _, k in ipairs(HEADER_PARTS) do SetShown(frame.Header[k], not on) end
     SetShown(frame.TabBar, not on)
