@@ -45,9 +45,9 @@ local function DefaultPlace(f)
     f:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -80, 110)
 end
 
--- Aussehen: 18 Briefkaesten, je 4 Bilder; 3 Aussehen je Bildplatte Mailbox1..6.tga (1024x1024, Felder 256x341, Bild 252x336)
+-- Aussehen: 19 Briefkaesten, je 4 Bilder; 3 Aussehen je Bildplatte Mailbox1..7.tga (1024x1024, Felder 256x341, Bild 252x336)
 local SKIN_IDS = { "horde", "allianz", "mensch", "orc", "nachtelf", "zwerg", "gnom", "untot", "tauren", "troll",
-    "greif", "hexenmeister", "paladin", "magier", "krieger", "druide", "schamane", "jaeger" }
+    "greif", "hexenmeister", "paladin", "magier", "krieger", "druide", "schamane", "jaeger", "affen" }
 local SKINS = {}
 for k, id in ipairs(SKIN_IDS) do
     SKINS[k] = {

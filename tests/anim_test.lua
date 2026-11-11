@@ -60,7 +60,7 @@ local l, r, t, b = A.UV(def, 1); near(l, ox, "UV1 l"); near(r, ox + 252 / 1024, 
 l, r, t, b = A.UV(def, 4); near(l, 3 * 256 / 1024 + ox, "UV4 l"); near(t, oy, "UV4 t"); near(b, oy + 336 / 1024, "UV4 b")
 
 -- Aussehen: Vorgabe nach Fraktion, 18 Stueck, 3 je Bildplatte
-eq(#def.skins, 18, "18 Aussehen")
+eq(#def.skins, 19, "19 Aussehen")
 eq(A.SkinId(def), "horde", "Vorgabe ohne Fraktion: Horde")
 eq(f.tex.texture, "Interface\\AddOns\\Freewood-Core\\Media\\Animation\\Mailbox1.tga", "Horde liegt auf Platte 1")
 _G.UnitFactionGroup = function() return "Alliance" end
