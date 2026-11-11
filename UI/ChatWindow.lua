@@ -277,7 +277,7 @@ end
 -- Zuletzt angefluesterte oder anfluesternde Spieler (fuer die Tab-Taste im Eingabefeld), neueste zuletzt, hoechstens 10
 W.contacts = {}
 function W.NoteContact(name)
-    if type(name) ~= "string" or name == "" or name == "?" or Secret(name) then return end
+    if Secret(name) or type(name) ~= "string" or name == "" or name == "?" then return end
     local c = W.contacts
     for i = #c, 1, -1 do if c[i] == name then table.remove(c, i) end end
     c[#c + 1] = name
@@ -297,7 +297,7 @@ function W.CycleContact(dir)
 end
 
 function W.Add(kind, sender, text, out, extra)
-    if not kind or type(text) ~= "string" or text == "" or Secret(text) then return end
+    if not kind or Secret(text) or type(text) ~= "string" or text == "" then return end
     if type(sender) ~= "string" or Secret(sender) then sender = "?" end
     if not out and W.CHAT_KIND[kind] and kind ~= "emote" and IsMe and IsMe(sender) then out = true end
     W.seq = W.seq + 1
@@ -497,7 +497,7 @@ end
 ------------------------------------------------------------------------
 
 function IsMe(sender)
-    if type(sender) ~= "string" or sender == "" or Secret(sender) then return false end
+    if Secret(sender) or type(sender) ~= "string" or sender == "" then return false end
     local short = string.match(sender, "^([^%-]+)") or sender
     local n = G.UnitName and G.UnitName("player")
     if type(n) == "string" and not Secret(n) and (sender == n or short == n) then return true end
@@ -774,7 +774,7 @@ end
 
 -- Einstieg: Rechtsklick auf Namen
 function W.ShowPlayerMenu(name)
-    if type(name) ~= "string" or name == "" or Secret(name) then return false end
+    if Secret(name) or type(name) ~= "string" or name == "" then return false end
     local me = G.UnitName and G.UnitName("player")
     if me and name == me then return false end
     W.HideOwnMenu()
@@ -1773,7 +1773,7 @@ local function NotFoundPattern()
     return "^" .. string.gsub(string.sub(f, 1, i - 1), "%W", "%%%0") .. ".+" .. string.gsub(string.sub(f, j + 1), "%W", "%%%0") .. "$"
 end
 function W.IsNotFoundText(text)
-    if type(text) ~= "string" or text == "" or Secret(text) then return false end
+    if Secret(text) or type(text) ~= "string" or text == "" then return false end
     local plain = string.gsub(string.gsub(text, "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
     local pat = NotFoundPattern()
     if pat and string.find(plain, pat) then return true end
@@ -1785,7 +1785,7 @@ end
 function W.AddSystem(text, kind)
     if W.IsNotFoundText(text) then return end
     if FW.RollWindow and FW.RollWindow.Feed then pcall(FW.RollWindow.Feed, text) end   -- Wuerfelfenster (eigene Doppelpruefung)
-    if type(text) ~= "string" or text == "" or Secret(text) then return end
+    if Secret(text) or type(text) ~= "string" or text == "" then return end
     kind = kind or "system"
     local plain = string.gsub(string.gsub(string.gsub(text, "\124H.-\124h(.-)\124h", "%1"), "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
     local now = G.GetTime and G.GetTime() or 0
@@ -1832,7 +1832,7 @@ local function RollPatterns()
 end
 
 function W.IsRollText(text)
-    if type(text) ~= "string" or text == "" or Secret(text) then return false end
+    if Secret(text) or type(text) ~= "string" or text == "" then return false end
     local plain = string.gsub(string.gsub(string.gsub(text, "\124H.-\124h(.-)\124h", "%1"), "\124c%x%x%x%x%x%x%x%x", ""), "\124r", "")
     for _, pat in ipairs(RollPatterns()) do
         if string.find(plain, pat) then return true end
@@ -1949,7 +1949,7 @@ end
 -- Ziel setzen und unser Eingabefeld oeffnen. Wirkt nur, wenn unser Fenster den Spiel-Chat ersetzt (Haupt-Chat, Weg A).
 function W.StartWhisper(name, msg)
     if W.bypass or W.UseBlizz() or not W.MainActive() then return false end
-    if type(name) ~= "string" or name == "" or Secret(name) then return false end
+    if Secret(name) or type(name) ~= "string" or name == "" then return false end
     if type(msg) ~= "string" or Secret(msg) then msg = nil end
     -- das Feld des Spiels, das die Funktion eben geoeffnet hat, wieder zu
     local eb = W.BlizzEditBox()

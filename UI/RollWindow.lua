@@ -221,7 +221,7 @@ end
 
 -- Eine Meldung des Spiels auswerten. Rueckgabe: Art ("loot", "hand") oder nil
 function R.Feed(text)
-    if type(text) ~= "string" or text == "" or Secret(text) then return nil end
+    if Secret(text) or type(text) ~= "string" or text == "" then return nil end
     local plain = Plain(text)
     -- gleiche Zeile aus Ereignis und Chat-Hook zaehlt einmal
     local now = R.Now()

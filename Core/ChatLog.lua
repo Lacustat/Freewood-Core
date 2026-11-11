@@ -72,7 +72,7 @@ local TOKENS = {
 }
 
 function CL.ClassToken(c)
-    if type(c) ~= "string" or c == "" or Secret(c) then return nil end
+    if Secret(c) or type(c) ~= "string" or c == "" then return nil end
     if CL.ICON_COORDS[c] then return c end
     return TOKENS[string.lower(c)]
 end
