@@ -132,11 +132,11 @@ end
 local function FitScale()
     local uiW = (UIParent and UIParent:GetWidth()) or 1920
     local uiH = (UIParent and UIParent:GetHeight()) or 1080
-    local s = UI:GetScale()
+    -- Hat der Spieler die Groesse selbst eingestellt, bleibt sie genau so (auch nach /reload).
+    -- Sonst gilt die Vorgabe: 75 %, bei kleinem Bildschirm entsprechend weniger.
+    if FW.settings and FW.settings.scaleUser then return end
     local fit = math.min((uiH - 10) / H, (uiW - 10) / W)
-    if s > fit then
-        UI:SetScale(math.max(0.5, math.floor(fit * 20) / 20))
-    end
+    UI:SetScale(math.max(0.5, math.min(0.75, math.floor(fit * 20) / 20)))
 end
 
 function T.Apply(on)
@@ -172,6 +172,7 @@ function T.Apply(on)
     else
         UI.fixedSize = nil
         UI.scaleText:SetTextColor(UI.Color("textDim"))
+        if FW.settings and not FW.settings.scaleUser and UI:GetScale() < 1 then UI:SetScale(1) end
     end
     UI:ApplySize()
 end

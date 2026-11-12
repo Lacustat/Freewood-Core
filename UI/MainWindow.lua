@@ -46,7 +46,10 @@ scaleText:SetPoint("RIGHT", closeButton, "LEFT", -12, 0)
 local scaleSlider = UI.CreateSlider(header, 150, {
     min = 50, max = 150, step = 5,
     get = function() return math.floor(UI:GetScale() * 100 + 0.5) end,
-    set = function(v) UI:SetScale(v / 100) end,
+    set = function(v)
+        if FW.settings then FW.settings.scaleUser = true end   -- vom Spieler gewaehlt: bleibt nach /reload
+        UI:SetScale(v / 100)
+    end,
 })
 scaleSlider:SetPoint("RIGHT", scaleText, "LEFT", -8, 0)
 scaleSlider.onText = function(v) scaleText:SetText(string.format("%d%%", v)) end

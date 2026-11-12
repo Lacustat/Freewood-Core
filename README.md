@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.45.4 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.45.5 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.45.5 DE:** Legion der Affen: Die Fenstergröße springt nach `/reload` nicht mehr auf 75 % zurück. Ohne eigene Einstellung gilt 75 % als Vorgabe (bei kleinem Bildschirm weniger); sobald du den Regler benutzt hast, bleibt genau dein Wert gespeichert. **EN:** Legion of the Apes: the window size no longer jumps back to 75% after `/reload`. Without your own choice 75% is the default (less on a small screen); once you have used the slider, exactly your value is kept.
+
 **0.45.4 DE:** Einstellungen: Die Reiter oben (Allgemein, Datenbank, …) sind nur noch so breit wie ihr Text und ragen nicht mehr über den Rahmen. **EN:** Settings: the category tabs at the top are now only as wide as their text and no longer stick out of the frame.
 
 **0.45.3 DE:** Briefkasten: Krieger und Schamane waren noch abgeschnitten (meine Abstandskorrektur lag bei diesen beiden falsch); jetzt mit den gemessenen Lagen. **EN:** Mailbox: Warrior and Shaman were still cut off (my spacing correction was wrong for these two); now using the measured positions.
