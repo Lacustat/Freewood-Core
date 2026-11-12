@@ -261,6 +261,7 @@ local function RefreshButton(b)
     UI.SetBorderColor(b, hovered and style.borderHover or style.border)
     b.label:SetTextColor(UI.Color(style.text))
     b:SetAlpha(enabled and 1 or 0.45)
+    if b.fwSkinPaint then b.fwSkinPaint(b, hovered, enabled, style) end   -- Holzknopf (UI/LegionKit.lua)
 end
 
 -- styleName: "default", "primary" oder "ghost"
@@ -311,6 +312,7 @@ function UI.CreateButton(parent, text, width, height, onClick, styleName)
     end
 
     RefreshButton(b)
+    if UI.LegionSkin then UI.LegionSkin.Button(b) end
     return b
 end
 
@@ -678,10 +680,12 @@ function UI.CreateScrollFrame(parent, width, height)
         if range <= 0 or viewH <= 0 then
             thumb:Hide()
             track:Hide()
+            if holder.fwSkinSync then holder.fwSkinSync(false) end
             sf:SetVerticalScroll(0)
             return
         end
         track:Show()
+        if holder.fwSkinSync then holder.fwSkinSync(true) end
         local current = math.min(math.max(sf:GetVerticalScroll(), 0), range)
         if current ~= sf:GetVerticalScroll() then
             sf:SetVerticalScroll(current)
@@ -726,6 +730,7 @@ function UI.CreateScrollFrame(parent, width, height)
     holder.scroll = sf
     holder.child = child
     holder.UpdateScroll = Update
+    if UI.LegionSkin then UI.LegionSkin.Scroll(holder, track, thumb, thumbTex) end
 
     function holder:SetContentHeight(h)
         contentHeight = math.max(1, h)

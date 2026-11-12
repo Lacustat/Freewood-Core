@@ -162,6 +162,7 @@ function T.Apply(on)
     SetShown(frame.resizeGrip, not on)
 
     Layout(on)
+    if UI.LegionSkin then UI.LegionSkin.Apply(on) end   -- Holzknoepfe und Rollbalken
     if on then
         -- Text neben dem Regler liegt auf der dunklen Platte: helle Farbe, nicht vom Farbwaehler umgefaerbt
         UI.tracked[UI.scaleText] = nil
