@@ -1,7 +1,7 @@
 -- Freewood-Core: Liste der Greifen-Bilder in diesem Ordner. WoW kann keinen Ordner auflisten, deshalb steht jede Datei hier.
 -- Neue Bilder: .tga mit Transparenz in diesen Ordner legen (2:1 wie 512x256 oder quadratisch wie 256x256), unten eintragen, Spiel neu starten.
 -- Felder: id = Dateiname ohne .tga, de/en = Anzeigename, aspect = Breite/Hoehe des Bildes,
---   sets = {"affen","skyborn"}, faction = "horde"/"allianz", class = Klassen-Token (HUNTER ...), race = Volk-Token (Orc, Scourge, NightElf ...).
+--   sets = {"affen","skyborn","daemonen"}, faction = "horde"/"allianz", class = Klassen-Token (HUNTER ...), race = Volk-Token (Orc, Scourge, NightElf ...).
 local ADDON, FW = ...
 FW.GreifenList = {
     { id = "affen_greif", de = "Affe auf Greif", en = "Ape on gryphon", aspect = 2, sets = { "affen", "skyborn" } },
@@ -52,6 +52,15 @@ FW.GreifenList = {
     { id = "human_hunter_m", de = "Menschen-Jäger", en = "Human Hunter", aspect = 1, faction = "allianz", class = "HUNTER", race = "Human" },
     { id = "troll_hunter_f", de = "Troll-Jägerin", en = "Troll Hunter (f)", aspect = 1, faction = "horde", class = "HUNTER", race = "Troll" },
     { id = "dwarf_warrior_m", de = "Zwergen-Krieger", en = "Dwarf Warrior", aspect = 1, faction = "allianz", class = "WARRIOR", race = "Dwarf" },
+    { id = "daemon_leerenwandler_1", de = "Leerenwandler I", en = "Voidwalker I", aspect = 1, sets = { "daemonen" }, class = "WARLOCK" },
+    { id = "daemon_leerenwandler_2", de = "Leerenwandler II", en = "Voidwalker II", aspect = 1, sets = { "daemonen" }, class = "WARLOCK" },
+    { id = "daemon_leerenwandler_3", de = "Leerenwandler III", en = "Voidwalker III", aspect = 1, sets = { "daemonen" }, class = "WARLOCK" },
+    { id = "daemon_teufelsgolem", de = "Teufelsgolem", en = "Fel golem", aspect = 1, sets = { "daemonen" }, class = "WARLOCK" },
+    { id = "daemon_teufelsbestie", de = "Teufelsbestie", en = "Fel beast", aspect = 1, sets = { "daemonen" }, class = "WARLOCK" },
+    { id = "daemon_inkubus", de = "Inkubus", en = "Incubus", aspect = 1, sets = { "daemonen" }, class = "WARLOCK" },
+    { id = "daemon_sukkubus", de = "Sukkubus", en = "Succubus", aspect = 1, sets = { "daemonen" }, class = "WARLOCK" },
+    { id = "daemon_schattenwaechter", de = "Schattenwächter", en = "Shadow guardian", aspect = 1, sets = { "daemonen" }, class = "WARLOCK" },
+    { id = "daemon_wichtel", de = "Wichtel", en = "Imp", aspect = 1, sets = { "daemonen" }, class = "WARLOCK" },
 }
 
 -- Dateiliste (alte Schreibweise, bleibt fuer andere Teile erhalten)

@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.47.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.47.1 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.47.1 DE:** Greifen-Ersatzbilder: 9 Dämonen (Leerenwandler I bis III, Teufelsgolem, Teufelsbestie, Inkubus, Sukkubus, Schattenwächter, Wichtel) als neue Kategorie „Dämonen“; sie zählen auch zur Klasse Hexenmeister. **EN:** Gryphon replacement images: 9 demons (voidwalker I to III, fel golem, fel beast, incubus, succubus, shadow guardian, imp) as a new category "Demons"; they also count towards the warlock class.
+
 **0.47.0 DE:** Greifen-Ersatzbilder: 34 neue Bilder (Orc, Troll, Untot, Tauren, Mensch, Zwerg, Gnom, Nachtelf als Krieger, Jäger und Hexenmeister), quadratisch 256x256. Jedes Bild hat Etiketten (Set, Fraktion, Klasse, Volk). Auswahl in den Einstellungen: Kategorie (Zu meinem Charakter, Alle, Legion der Affen, Skyborn, Horde, Allianz, Klassen, Völker), bei Klassen/Völkern ein zweiter Punkt, dann das Bild. Quadratische Bilder werden nicht mehr verzerrt (Größe nach Seitenverhältnis). `Media/Greifen/Greifen.lua` ist jetzt eine Tabelle mit Etiketten. Im Spiel nicht geprüft. **EN:** Gryphon replacement images: 34 new images (Orc, Troll, Undead, Tauren, Human, Dwarf, Gnome, Night Elf as warrior, hunter and warlock), square 256x256. Each image has tags (set, faction, class, race). Settings pick: category (For my character, All, Legion of the Apes, Skyborn, Horde, Alliance, Classes, Races), a second pick for classes/races, then the image. Square images are no longer distorted (size follows the aspect ratio). `Media/Greifen/Greifen.lua` is now a table with tags. Not verified in game.
 
 **0.46.2 DE:** Neu `UI.LegionSkin.ForceSlim(knopf)`: ein Knopf bleibt unter dem Holzdesign immer eine schlanke Planke ohne Seil, auch wenn er schmal ist (genutzt für die Spaltenköpfe im Gilden-Fenster). Im Spiel nicht geprüft. **EN:** New `UI.LegionSkin.ForceSlim(button)`: a button always stays a slim plank without rope under the wood design, even when narrow (used for the column headers in the guild window). Not verified in game.

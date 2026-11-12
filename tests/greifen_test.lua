@@ -52,16 +52,17 @@ eq(tabs.greifen.category, "interface", "Kategorie")
 -- Katalog, Filter, Groesse
 local n = 0
 for _, e in ipairs(FW.GreifenList) do n = n + 1 end
-eq(n, 48, "48 Bilder im Katalog")
-eq(#FW.GreifenFiles, 48, "Dateiliste passt")
+eq(n, 57, "57 Bilder im Katalog")
+eq(#FW.GreifenFiles, 57, "Dateiliste passt")
 local seen = {}
 for _, e in ipairs(FW.GreifenList) do eq(seen[e.id], nil, "Id einmalig " .. e.id); seen[e.id] = true end
-eq(#Gr.Filter("all"), 48, "Alle")
+eq(#Gr.Filter("all"), 57, "Alle")
 eq(#Gr.Filter("affen"), 10, "Legion der Affen")
 eq(#Gr.Filter("skyborn"), 5, "Skyborn")
 eq(#Gr.Filter("horde"), 18, "Horde")
 eq(#Gr.Filter("allianz"), 16, "Allianz")
-eq(#Gr.Filter("class", "WARLOCK"), 11, "Hexenmeister (10 neue + Affe)")
+eq(#Gr.Filter("class", "WARLOCK"), 20, "Hexenmeister (10 Voelker + Affe + 9 Daemonen)")
+eq(#Gr.Filter("daemonen"), 9, "Daemonen")
 eq(#Gr.Filter("race", "Gnome"), 4, "Gnome")
 eq(Gr.Entry("orc_hunter_m_1").faction, "horde", "Orc ist Horde")
 eq(Gr.Entry("human_warlock_m").faction, "allianz", "Mensch ist Allianz")

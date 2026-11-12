@@ -55,7 +55,7 @@ local function Named(t, key) local n = t[key]; if not n then return tostring(key
 function Gr.ClassName(k) return Named(CLASS_NAME, k) end
 function Gr.RaceName(k) return Named(RACE_NAME, k) end
 
-Gr.CATEGORIES = { "mine", "all", "affen", "skyborn", "horde", "allianz", "class", "race" }
+Gr.CATEGORIES = { "mine", "all", "affen", "skyborn", "daemonen", "horde", "allianz", "class", "race" }
 
 local function Mine()
     local class, race
@@ -101,7 +101,7 @@ function Gr.Filter(cat, sub)
     local rank = {}
     for _, e in ipairs(FW.GreifenList or {}) do
         local ok = false
-        if cat == "affen" or cat == "skyborn" then ok = HasSet(e, cat)
+        if cat == "affen" or cat == "skyborn" or cat == "daemonen" then ok = HasSet(e, cat)
         elseif cat == "horde" or cat == "allianz" then ok = e.faction == cat
         elseif cat == "class" then ok = e.class == sub
         elseif cat == "race" then ok = e.race == sub
