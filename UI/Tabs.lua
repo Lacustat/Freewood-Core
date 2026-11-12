@@ -293,9 +293,11 @@ local function UpdateCatBar()
     for _, b in ipairs(catButtons) do
         if b.cat == "general" or counts[b.cat] then
             b:Show()
+            -- Breite nach dem Text (vorher fest 140, zu breit fuer den Rahmen)
+            b:SetWidth(math.max(64, math.ceil((b.label:GetStringWidth() or 0) + 24)))
             b:ClearAllPoints()
             b:SetPoint("TOPLEFT", catBar, "TOPLEFT", x, 0)
-            x = x + b:GetWidth() + 6
+            x = x + b:GetWidth() + 4
             b:SetStyle(b.cat == cat and "primary" or "default")
         else
             b:Hide()
