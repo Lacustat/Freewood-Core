@@ -85,4 +85,24 @@ local w, h = Gr.Size("affen_greif"); eq(w, 220, "2:1 Breite"); eq(h, 110, "2:1 H
 w, h = Gr.Size("orc_hunter_m_1"); eq(w, h, "quadratisch"); eq(h, 154, "quadratisch Hoehe")
 w, h = Gr.Size("eigenes_bild"); eq(w, 220, "unbekannt: wie Original")
 eq(Gr.Name("orc_hunter_m_1") ~= "", true, "Name")
+-- Festhalten am Rand
+eq(FW.settings.greifen.left.clamp, true, "Standard: festhalten")
+local fakeS = { x = 0, y = 0 }
+local fr = { GetEffectiveScale = function() return 1 end, GetLeft = function() return -400 end, GetRight = function() return -10 end,
+    GetTop = function() return 300 end, GetBottom = function() return 100 end }
+_G.UIParent = { GetWidth = function() return 1920 end, GetHeight = function() return 1080 end, GetEffectiveScale = function() return 1 end }
+Gr.KeepVisible(fr, fakeS)
+eq(fakeS.x, 30, "links zu weit draussen: Rest von 20 sichtbar")
+eq(fakeS.y, 0, "senkrecht unveraendert")
+local fr2 = { GetEffectiveScale = function() return 1 end, GetLeft = function() return 100 end, GetRight = function() return 300 end,
+    GetTop = function() return -50 end, GetBottom = function() return -250 end }
+local s2 = { x = 5, y = 7 }
+Gr.KeepVisible(fr2, s2)
+eq(s2.y, 77, "unten: Rest sichtbar")
+eq(s2.x, 5, "waagerecht ok")
+local fr3 = { GetEffectiveScale = function() return 1 end, GetLeft = function() return 100 end, GetRight = function() return 300 end,
+    GetTop = function() return 1400 end, GetBottom = function() return 1200 end }
+local s3 = { x = 0, y = 0 }
+Gr.KeepVisible(fr3, s3)
+eq(s3.y, -(1200 - 1060), "oben: Rest sichtbar")
 print(fails == 0 and "OK" or ("FEHLER: "..fails))

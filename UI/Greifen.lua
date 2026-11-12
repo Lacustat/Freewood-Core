@@ -17,8 +17,8 @@ local BASE_W, BASE_H = 220, 110      -- Groesse bei 100 Prozent
 
 Gr.DEFAULTS = {
     enabled = false,
-    left = { file = "affen_greif", mirror = false, scale = 100, x = 0, y = 0, cat = "all" },
-    right = { file = "affen_greif", mirror = true, scale = 100, x = 0, y = 0, cat = "all" },
+    left = { file = "affen_greif", mirror = false, scale = 100, x = 0, y = 0, cat = "all", clamp = true },
+    right = { file = "affen_greif", mirror = true, scale = 100, x = 0, y = 0, cat = "all", clamp = true },
 }
 
 ------------------------------------------------------------------------
@@ -240,6 +240,7 @@ local function Art(side)
                 local s = Opts()[side]
                 s.x = Round((ax * es - cx * ces) / es)
                 s.y = Round((ay * es - cy * ces) / es)
+                if s.clamp == false then KeepVisible(f, s) end
             end
         end
         Gr.Apply()
@@ -258,6 +259,27 @@ local function Art(side)
 end
 
 Gr.unlocked = false
+
+-- Ohne Festhalten am Rand darf das Bild ueber den Bildschirmrand hinaus, ein Rest bleibt aber sichtbar (zum Greifen)
+local KEEP = 20
+local function KeepVisible(f, s)
+    local es = f.GetEffectiveScale and f:GetEffectiveScale()
+    local ui = G.UIParent
+    local sw = ui and ui.GetWidth and ui:GetWidth()
+    local sh = ui and ui.GetHeight and ui:GetHeight()
+    local ues = ui and ui.GetEffectiveScale and ui:GetEffectiveScale()
+    local l, r, t, b = f.GetLeft and f:GetLeft(), f.GetRight and f:GetRight(), f.GetTop and f:GetTop(), f.GetBottom and f:GetBottom()
+    if type(es) ~= "number" or es <= 0 or type(sw) ~= "number" or type(sh) ~= "number" or type(ues) ~= "number"
+        or type(l) ~= "number" or type(r) ~= "number" or type(t) ~= "number" or type(b) ~= "number" then return end
+    -- alles in Einheiten des Bildes
+    local W, H = sw * ues / es, sh * ues / es
+    local dx, dy = 0, 0
+    if r < KEEP then dx = KEEP - r elseif l > W - KEEP then dx = (W - KEEP) - l end
+    if t < KEEP then dy = KEEP - t elseif b > H - KEEP then dy = (H - KEEP) - b end
+    if dx ~= 0 then s.x = Round((s.x or 0) + dx) end
+    if dy ~= 0 then s.y = Round((s.y or 0) + dy) end
+end
+Gr.KeepVisible = KeepVisible
 
 function Gr.SetUnlocked(on)
     Gr.unlocked = on and true or false
@@ -281,6 +303,7 @@ function Gr.Apply()
             local k = (s.scale or 100) / 100
             local bw, bh = Gr.Size(s.file)
             f:SetSize(bw * k, bh * k)
+            f:SetClampedToScreen(s.clamp ~= false)
             f:ClearAllPoints()
             f:SetPoint("CENTER", cap.frame, "CENTER", s.x or 0, s.y or 0)
             if s.file and s.file ~= "" then f.tex:SetTexture(PATH .. s.file) else f.tex:SetTexture(nil) end
@@ -416,6 +439,10 @@ local function BuildSide(f, stack, side, title, refreshers)
         function() return Opts()[side].mirror == true end,
         function(v) Opts()[side].mirror = v and true or false; RefreshPreview(); Gr.Apply() end), { fit = true })
 
+    stack:Add(UI.CreateCheckbox(f, L.GREIFEN_CLAMP,
+        function() return Opts()[side].clamp ~= false end,
+        function(v) Opts()[side].clamp = v and true or false; Gr.Apply() end), { fit = true })
+
     local function Slider(key, label, lo, hi, step)
         local lab = UI.CreateLabel(f, "", { size = 12 })
         stack:Add(lab, { height = 16, gap = 8 })
@@ -430,15 +457,15 @@ local function BuildSide(f, stack, side, title, refreshers)
         refreshers[#refreshers + 1] = function() sl:Refresh() end
     end
     Slider("scale", L.GREIFEN_SCALE, 20, 300, 5)
-    Slider("x", L.GREIFEN_X, -300, 300, 1)
-    Slider("y", L.GREIFEN_Y, -300, 300, 1)
+    Slider("x", L.GREIFEN_X, -800, 800, 1)
+    Slider("y", L.GREIFEN_Y, -800, 800, 1)
 end
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("greifen", {
         category = "interface",
         order = 10,
-        height = 860,
+        height = 920,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.GREIFEN_TITLE)

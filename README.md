@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.47.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.47.2 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.47.2 DE:** Greifen-Ersatzbilder: neue Option je Seite „Am Bildschirmrand festhalten“ (Standard an). Ohne Haken lässt sich das Bild über den Bildschirmrand hinaus schieben (z. B. damit die Beine verschwinden); beim Ziehen bleiben mindestens 20 Pixel sichtbar. Die Versatz-Regler reichen jetzt von −800 bis 800. Im Spiel nicht geprüft. **EN:** Gryphon replacement images: new per-side option "Keep inside the screen edge" (default on). Unticked, the image can be pushed past the screen edge (e.g. so the legs disappear); while dragging at least 20 pixels stay visible. The offset sliders now range from -800 to 800. Not verified in game.
+
 **0.47.1 DE:** Greifen-Ersatzbilder: 9 Dämonen (Leerenwandler I bis III, Teufelsgolem, Teufelsbestie, Inkubus, Sukkubus, Schattenwächter, Wichtel) als neue Kategorie „Dämonen“; sie zählen auch zur Klasse Hexenmeister. **EN:** Gryphon replacement images: 9 demons (voidwalker I to III, fel golem, fel beast, incubus, succubus, shadow guardian, imp) as a new category "Demons"; they also count towards the warlock class.
 
 **0.47.0 DE:** Greifen-Ersatzbilder: 34 neue Bilder (Orc, Troll, Untot, Tauren, Mensch, Zwerg, Gnom, Nachtelf als Krieger, Jäger und Hexenmeister), quadratisch 256x256. Jedes Bild hat Etiketten (Set, Fraktion, Klasse, Volk). Auswahl in den Einstellungen: Kategorie (Zu meinem Charakter, Alle, Legion der Affen, Skyborn, Horde, Allianz, Klassen, Völker), bei Klassen/Völkern ein zweiter Punkt, dann das Bild. Quadratische Bilder werden nicht mehr verzerrt (Größe nach Seitenverhältnis). `Media/Greifen/Greifen.lua` ist jetzt eine Tabelle mit Etiketten. Im Spiel nicht geprüft. **EN:** Gryphon replacement images: 34 new images (Orc, Troll, Undead, Tauren, Human, Dwarf, Gnome, Night Elf as warrior, hunter and warlock), square 256x256. Each image has tags (set, faction, class, race). Settings pick: category (For my character, All, Legion of the Apes, Skyborn, Horde, Alliance, Classes, Races), a second pick for classes/races, then the image. Square images are no longer distorted (size follows the aspect ratio). `Media/Greifen/Greifen.lua` is now a table with tags. Not verified in game.
