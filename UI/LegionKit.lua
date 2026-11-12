@@ -55,6 +55,9 @@ end
 local function Kind(b)
     if not S.Wants(b) then return nil end
     local h, w = b:GetHeight() or 0, b:GetWidth() or 0
+    if b.fwPlankForce == "slim" then      -- z. B. Spaltenkoepfe: immer schlank, auch wenn schmal
+        return (h >= 14 and w >= 16) and "slim" or nil
+    end
     if h >= FULL_H and w >= FULL_W then return "full" end
     if h >= SLIM_H and w >= SLIM_W then return "slim" end
     return nil
@@ -216,6 +219,12 @@ local function Switch(b)
     end
     -- Farben neu setzen (RefreshButton ruft Paint bzw. stellt die Standardfarben her)
     if b.SetStyle then b:SetStyle(b.fwStyleName) end
+end
+
+-- Knopf immer als schlanke Planke zeigen (ohne Seil), solange das Holzdesign gilt
+function S.ForceSlim(b)
+    b.fwPlankForce = "slim"
+    if S.Wants(b) or b.fwPlankOn then Switch(b) end
 end
 
 function S.Button(b)

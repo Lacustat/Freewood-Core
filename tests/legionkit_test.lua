@@ -94,6 +94,15 @@ eq(dd.fwPlankKind, "slim", "Dropdown klein: schlank")
 eq(#lp, 1, "schlank: Text wieder wie vorher")
 eq(lab.just, "CENTER", "schlank: Ausrichtung wiederhergestellt")
 
+-- Spaltenkopf: immer schlank, auch schmal
+local hd = Btn(root, 30, 24); S.Button(hd)
+hd.w = 90; hd.scripts.OnSizeChanged(hd)
+eq(hd.fwPlankKind, "full", "breit: erst volle Planke")
+S.ForceSlim(hd)
+eq(hd.fwPlankKind, "slim", "erzwungen: schlank")
+hd.w = 20; hd.scripts.OnSizeChanged(hd)
+eq(hd.fwPlankKind, "slim", "erzwungen: auch sehr schmal")
+
 -- Fenstermodus
 local win = Obj(); win.fwPlankMode = "off"
 local inWin = Btn(win, 160, 30); S.Button(inWin)
