@@ -499,14 +499,119 @@ end
 FW:RegisterEvent("CHAT_MSG_GUILD", GuildMsg)
 FW:RegisterEvent("CHAT_MSG_OFFICER", GuildMsg)
 
-local function GroupMsg(text, sender)
-    if not Str(sender) or not Str(text) then return end
-    CL.Add("group", sender, text, sender == G.UnitName("player"))
+------------------------------------------------------------------------
+-- Gruppe: eigene Nachrichten, Instanzchat, Fehlersuche
+------------------------------------------------------------------------
+-- Eigene Gruppennachrichten kommen nur ueber das Chat-Ereignis zurueck; fehlt es oder ist der Absender geheim, sah man die eigene Blase nicht.
+-- Darum wird jede eigene Gruppennachricht beim Senden (SendChatMessage, auch ueber das Eingabefeld des Spiels) sofort eingefuegt und
+-- das spaeter eintreffende Ereignis mit gleichem Text (innerhalb von ECHO_WINDOW Sekunden) nicht noch einmal gezeigt.
+
+local ECHO_WINDOW = 6
+CL.echo = {}
+CL.debug = false
+
+local function Clock() return (G.GetTime and G.GetTime()) or Now() end
+
+function CL.Dbg(text)
+    if CL.debug and FW.Print then FW:Print("[Gruppe] " .. text) end
 end
-FW:RegisterEvent("CHAT_MSG_PARTY", GroupMsg)
-FW:RegisterEvent("CHAT_MSG_RAID", GroupMsg)
-FW:RegisterEvent("CHAT_MSG_RAID_LEADER", GroupMsg)
-FW:RegisterEvent("CHAT_MSG_RAID_WARNING", GroupMsg)
+
+local function ShortName(n)
+    return string.match(n, "^([^%-]+)") or n
+end
+
+-- Ist der Absender die eigene Figur? (mit oder ohne "-Realm")
+function CL.IsMe(sender)
+    if not Str(sender) or sender == "" then return false end
+    local names = {}
+    local n = G.UnitName and G.UnitName("player")
+    if Str(n) and n ~= "" then names[#names + 1] = n end
+    local Wh = FW.Whisper
+    local full = Wh and Wh.SelfName and Wh.SelfName()
+    if Str(full) and full ~= "" then names[#names + 1] = full end
+    local short = ShortName(sender)
+    for _, m in ipairs(names) do
+        local ms = ShortName(m)
+        if sender == m or short == m or sender == ms or short == ms then return true end
+    end
+    return false
+end
+
+local function InGroupNow()
+    if G.IsInGroup and G.IsInGroup() then return true end
+    if G.IsInRaid and G.IsInRaid() then return true end
+    if G.UnitExists and G.UnitExists("party1") then return true end
+    return false
+end
+
+-- Kanal fuers Senden: Instanzgruppe (Gruppensuche, Schlachtfeld) INSTANCE_CHAT, sonst RAID oder PARTY
+function CL.GroupChatType()
+    local cat = G.LE_PARTY_CATEGORY_INSTANCE or 2
+    if G.IsInGroup and G.IsInGroup(cat) then return "INSTANCE_CHAT" end
+    local raid = GroupSize()
+    return raid > 0 and "RAID" or "PARTY"
+end
+
+local GROUP_TYPES = { PARTY = true, RAID = true, RAID_WARNING = true, INSTANCE_CHAT = true }
+
+-- Eigene Gruppennachricht beim Senden einfuegen. Rueckgabe: true, wenn eingefuegt.
+function CL.GroupEcho(chatType, text)
+    if not Str(chatType) or not GROUP_TYPES[string.upper(chatType)] then return false end
+    if not Str(text) or text == "" then return false end
+    if not InGroupNow() then CL.Dbg("Senden " .. chatType .. ": nicht in einer Gruppe, nichts eingefuegt"); return false end
+    local me = G.UnitName and G.UnitName("player")
+    if not Str(me) or me == "" then return false end
+    local t = Clock()
+    local keep = {}
+    for _, e in ipairs(CL.echo) do if t - e.t < ECHO_WINDOW then keep[#keep + 1] = e end end
+    keep[#keep + 1] = { t = t, m = text }
+    CL.echo = keep
+    CL.Add("group", me, text, true)
+    CL.Dbg("Senden " .. chatType .. ": eigene Nachricht eingefuegt (" .. string.len(text) .. " Zeichen)")
+    return true
+end
+
+-- Ereignis fuer eine bereits eingefuegte eigene Nachricht? Dann verbrauchen und nicht noch einmal zeigen.
+function CL.ConsumeEcho(text, sender)
+    if not Str(text) or not CL.IsMe(sender) then return false end
+    local t = Clock()
+    for i, e in ipairs(CL.echo) do
+        if e.m == text and t - e.t < ECHO_WINDOW then
+            table.remove(CL.echo, i)
+            return true
+        end
+    end
+    return false
+end
+
+local function HookSend()
+    if CL.sendHooked or not G.hooksecurefunc or not G.SendChatMessage then return end
+    CL.sendHooked = true
+    G.hooksecurefunc("SendChatMessage", function(text, chatType)
+        pcall(function()
+            if type(chatType) == "string" and not Secret(chatType) then CL.GroupEcho(chatType, text) end
+        end)
+    end)
+end
+HookSend()
+
+local function GroupMsg(ev)
+    return function(text, sender)
+        if CL.debug then
+            local me = Str(sender) and CL.IsMe(sender) or false
+            CL.Dbg(ev .. ": Absender " .. (Secret(sender) and "geheim" or tostring(sender)) .. ", Text " ..
+                (Secret(text) and "geheim" or (type(text) == "string" and (string.len(text) .. " Zeichen") or type(text))) ..
+                ", bin ich: " .. tostring(me))
+        end
+        if not Str(sender) or not Str(text) then return end
+        if CL.ConsumeEcho(text, sender) then CL.Dbg("  -> schon beim Senden eingefuegt, Ereignis uebersprungen"); return end
+        CL.Add("group", sender, text, CL.IsMe(sender))
+    end
+end
+for _, ev in ipairs({ "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RAID", "CHAT_MSG_RAID_LEADER", "CHAT_MSG_RAID_WARNING",
+    "CHAT_MSG_INSTANCE_CHAT", "CHAT_MSG_INSTANCE_CHAT_LEADER" }) do
+    FW:RegisterEvent(ev, GroupMsg(ev))
+end
 
 FW:RegisterEvent("CHAT_MSG_WHISPER", function(text, sender)
     if not Str(sender) or not Str(text) then return end
@@ -551,8 +656,7 @@ function CL.Send(kind, target, text)
     elseif kind == "guild" then
         pcall(G.SendChatMessage, text, "GUILD")
     elseif kind == "group" then
-        local raid = GroupSize()
-        pcall(G.SendChatMessage, text, raid > 0 and "RAID" or "PARTY")
+        pcall(G.SendChatMessage, text, CL.GroupChatType())
     elseif kind == "whisper" then
         pcall(G.SendChatMessage, text, "WHISPER", nil, target)
     end

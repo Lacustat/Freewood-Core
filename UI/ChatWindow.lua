@@ -2384,6 +2384,14 @@ SlashCmdList = SlashCmdList or {}
 SlashCmdList["FREEWOODCHATWIN"] = function(arg)
     arg = string.lower(string.gsub(arg or "", "%s+", ""))
     if arg == "probe" then W.Probe(); return end
+    if arg == "groupdebug" then
+        local CL = FW.ChatLog
+        if CL then
+            CL.debug = not CL.debug
+            FW:Print("Gruppen-Fehlersuche: " .. (CL.debug and "an (jede Gruppen-Nachricht und jedes Senden wird gemeldet)" or "aus"))
+        end
+        return
+    end
     if arg == "linkdebug" then
         W.linkDebug = not W.linkDebug
         FW:Print("Link-Fehlersuche im Chatfenster: " .. (W.linkDebug and "an" or "aus"))
