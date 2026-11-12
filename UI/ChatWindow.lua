@@ -1078,6 +1078,7 @@ function W.Draw()
             if btn == "RightButton" then W.ShowPlayerMenu(sender) else SetTarget(sender) end
         end)
         b.panel:SetScript("OnClick", function(_, btn)
+            if W.linkDebug then FW:Print("Chatzeile angeklickt (" .. tostring(btn) .. "), Links: " .. #links .. (nameHit and W.CursorInName(b.panel, nameHit) and ", Name getroffen" or "")) end
             if btn == "RightButton" then
                 if sender then W.ShowPlayerMenu(sender) end
             elseif nameHit and W.CursorInName(b.panel, nameHit) then
@@ -2383,6 +2384,22 @@ SlashCmdList = SlashCmdList or {}
 SlashCmdList["FREEWOODCHATWIN"] = function(arg)
     arg = string.lower(string.gsub(arg or "", "%s+", ""))
     if arg == "probe" then W.Probe(); return end
+    if arg == "linkdebug" then
+        W.linkDebug = not W.linkDebug
+        FW:Print("Link-Fehlersuche im Chatfenster: " .. (W.linkDebug and "an" or "aus"))
+        return
+    end
+    if arg == "link" then
+        -- letzten Beruf-Link der Gilde ohne Mausklick oeffnen (trennt "Klick kommt nicht an" von "Oeffnen scheitert")
+        local last
+        for _, m in ipairs(W.msgs) do
+            for _, lk in ipairs(ParseLinks(m.m)) do
+                if string.sub(lk.data, 1, 6) == "trade:" then last = lk end
+            end
+        end
+        if last then ShowLink(last) else FW:Print("Kein Beruf-Link im Chatfenster gefunden.") end
+        return
+    end
     W.SetShown(not (W.Opts().enabled))
 end
 
