@@ -49,4 +49,39 @@ eq(alpha.l, 1, "wieder aus: Original zurueck")
 local f = tabs.greifen.build(Proxy())
 eq(type(f), "table", "Abschnitt gebaut")
 eq(tabs.greifen.category, "interface", "Kategorie")
+-- Katalog, Filter, Groesse
+local n = 0
+for _, e in ipairs(FW.GreifenList) do n = n + 1 end
+eq(n, 48, "48 Bilder im Katalog")
+eq(#FW.GreifenFiles, 48, "Dateiliste passt")
+local seen = {}
+for _, e in ipairs(FW.GreifenList) do eq(seen[e.id], nil, "Id einmalig " .. e.id); seen[e.id] = true end
+eq(#Gr.Filter("all"), 48, "Alle")
+eq(#Gr.Filter("affen"), 10, "Legion der Affen")
+eq(#Gr.Filter("skyborn"), 5, "Skyborn")
+eq(#Gr.Filter("horde"), 18, "Horde")
+eq(#Gr.Filter("allianz"), 16, "Allianz")
+eq(#Gr.Filter("class", "WARLOCK"), 11, "Hexenmeister (10 neue + Affe)")
+eq(#Gr.Filter("race", "Gnome"), 4, "Gnome")
+eq(Gr.Entry("orc_hunter_m_1").faction, "horde", "Orc ist Horde")
+eq(Gr.Entry("human_warlock_m").faction, "allianz", "Mensch ist Allianz")
+local sub = Gr.SubOptions("class")
+eq(#sub, 9, "9 Klassen kommen vor")
+eq(#Gr.SubOptions("race"), 8, "8 Voelker")
+eq(#Gr.SubOptions("all"), 0, "ohne Unterpunkt")
+-- "Zu meinem Charakter": Orc-Jaeger
+_G.UnitClass = function() return "Jaeger", "HUNTER" end
+_G.UnitRace = function() return "Orc", "Orc" end
+local mine = Gr.Filter("mine")
+eq(mine[1].class == "HUNTER" and mine[1].race == "Orc", true, "meine: passend zu beidem zuerst")
+local lastBoth = 0
+for i, e in ipairs(mine) do if e.class == "HUNTER" and e.race == "Orc" then lastBoth = i end end
+eq(lastBoth, 2, "zwei Orc-Jaeger vorn")
+eq(Gr.DefaultSub("class"), "HUNTER", "Unterpunkt: eigene Klasse")
+eq(Gr.DefaultSub("race"), "Orc", "Unterpunkt: eigenes Volk")
+-- Groesse: 2:1 wie das Original, quadratisch hoeher
+local w, h = Gr.Size("affen_greif"); eq(w, 220, "2:1 Breite"); eq(h, 110, "2:1 Hoehe")
+w, h = Gr.Size("orc_hunter_m_1"); eq(w, h, "quadratisch"); eq(h, 154, "quadratisch Hoehe")
+w, h = Gr.Size("eigenes_bild"); eq(w, 220, "unbekannt: wie Original")
+eq(Gr.Name("orc_hunter_m_1") ~= "", true, "Name")
 print(fails == 0 and "OK" or ("FEHLER: "..fails))

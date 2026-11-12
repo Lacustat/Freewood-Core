@@ -17,9 +17,116 @@ local BASE_W, BASE_H = 220, 110      -- Groesse bei 100 Prozent
 
 Gr.DEFAULTS = {
     enabled = false,
-    left = { file = "affen_greif", mirror = false, scale = 100, x = 0, y = 0 },
-    right = { file = "affen_greif", mirror = true, scale = 100, x = 0, y = 0 },
+    left = { file = "affen_greif", mirror = false, scale = 100, x = 0, y = 0, cat = "all" },
+    right = { file = "affen_greif", mirror = true, scale = 100, x = 0, y = 0, cat = "all" },
 }
+
+------------------------------------------------------------------------
+-- Katalog: Bilder mit Etiketten (Set, Fraktion, Klasse, Volk), Filter fuer die Auswahl
+------------------------------------------------------------------------
+local de = G.GetLocale and G.GetLocale() == "deDE"
+local byId = {}
+local function Index()
+    byId = {}
+    for _, e in ipairs(FW.GreifenList or {}) do byId[e.id] = e end
+end
+Index()
+
+function Gr.Entry(id) return byId[id] end
+function Gr.Name(id)
+    local e = byId[id]
+    if not e then return id or "" end
+    return (de and e.de or e.en) or e.de or e.id
+end
+
+-- Klassen und Voelker (feste Reihenfolge, Token wie in UnitClass/UnitRace)
+local CLASS_ORDER = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
+local CLASS_NAME = {
+    WARRIOR = { "Krieger", "Warrior" }, PALADIN = { "Paladin", "Paladin" }, HUNTER = { "Jäger", "Hunter" },
+    ROGUE = { "Schurke", "Rogue" }, PRIEST = { "Priester", "Priest" }, SHAMAN = { "Schamane", "Shaman" },
+    MAGE = { "Magier", "Mage" }, WARLOCK = { "Hexenmeister", "Warlock" }, DRUID = { "Druide", "Druid" },
+}
+local RACE_ORDER = { "Orc", "Troll", "Scourge", "Tauren", "Human", "Dwarf", "Gnome", "NightElf" }
+local RACE_NAME = {
+    Orc = { "Orc", "Orc" }, Troll = { "Troll", "Troll" }, Scourge = { "Untote", "Undead" }, Tauren = { "Tauren", "Tauren" },
+    Human = { "Mensch", "Human" }, Dwarf = { "Zwerg", "Dwarf" }, Gnome = { "Gnom", "Gnome" }, NightElf = { "Nachtelf", "Night Elf" },
+}
+local function Named(t, key) local n = t[key]; if not n then return tostring(key) end return de and n[1] or n[2] end
+function Gr.ClassName(k) return Named(CLASS_NAME, k) end
+function Gr.RaceName(k) return Named(RACE_NAME, k) end
+
+Gr.CATEGORIES = { "mine", "all", "affen", "skyborn", "horde", "allianz", "class", "race" }
+
+local function Mine()
+    local class, race
+    if G.UnitClass then local _, c = G.UnitClass("player"); class = c end
+    if G.UnitRace then local _, r = G.UnitRace("player"); race = r end
+    return class, race
+end
+
+local function HasSet(e, set)
+    for _, x in ipairs(e.sets or {}) do if x == set then return true end end
+    return false
+end
+
+local function ByName(a, b) return Gr.Name(a.id):lower() < Gr.Name(b.id):lower() end
+
+-- Auswahl der Unterpunkte (nur fuer Klassen/Voelker): nur was im Katalog vorkommt
+function Gr.SubOptions(cat)
+    local order, field, name
+    if cat == "class" then order, field, name = CLASS_ORDER, "class", Gr.ClassName
+    elseif cat == "race" then order, field, name = RACE_ORDER, "race", Gr.RaceName
+    else return {} end
+    local have = {}
+    for _, e in ipairs(FW.GreifenList or {}) do if e[field] then have[e[field]] = true end end
+    local list = {}
+    for _, k in ipairs(order) do if have[k] then list[#list + 1] = { value = k, text = name(k) } end end
+    return list
+end
+
+-- Vorgabe fuer den Unterpunkt: die eigene Klasse/das eigene Volk, sonst der erste
+function Gr.DefaultSub(cat)
+    local opts = Gr.SubOptions(cat)
+    if #opts == 0 then return nil end
+    local class, race = Mine()
+    local mine = cat == "class" and class or race
+    for _, o in ipairs(opts) do if o.value == mine then return mine end end
+    return opts[1].value
+end
+
+-- Bilder einer Kategorie (sortiert). "mine": passend zu Klasse und/oder Volk des Spielers, beste zuerst.
+function Gr.Filter(cat, sub)
+    local list = {}
+    local class, race = Mine()
+    local rank = {}
+    for _, e in ipairs(FW.GreifenList or {}) do
+        local ok = false
+        if cat == "affen" or cat == "skyborn" then ok = HasSet(e, cat)
+        elseif cat == "horde" or cat == "allianz" then ok = e.faction == cat
+        elseif cat == "class" then ok = e.class == sub
+        elseif cat == "race" then ok = e.race == sub
+        elseif cat == "mine" then
+            local c, r = class and e.class == class, race and e.race == race
+            ok = (c or r) and true or false
+            rank[e.id] = (c and r) and 1 or (c and 2 or 3)
+        else ok = true end
+        if ok then list[#list + 1] = e end
+    end
+    table.sort(list, function(a, b)
+        if cat == "mine" and rank[a.id] ~= rank[b.id] then return rank[a.id] < rank[b.id] end
+        return ByName(a, b)
+    end)
+    return list
+end
+
+-- Groesse des Bildes bei 100 Prozent: 2:1-Bilder wie das Original, quadratische etwas hoeher
+function Gr.Size(file)
+    local e = byId[file]
+    local aspect = e and e.aspect or 2
+    if aspect >= 1.8 then return BASE_W, BASE_H end
+    local h = math.floor(BASE_H * 1.4 + 0.5)
+    return math.floor(h * aspect + 0.5), h
+end
 
 local function Opts()
     local s = FW.settings
@@ -172,7 +279,8 @@ function Gr.Apply()
         if o.enabled and cap and cap.frame then
             local f = Art(side)
             local k = (s.scale or 100) / 100
-            f:SetSize(BASE_W * k, BASE_H * k)
+            local bw, bh = Gr.Size(s.file)
+            f:SetSize(bw * k, bh * k)
             f:ClearAllPoints()
             f:SetPoint("CENTER", cap.frame, "CENTER", s.x or 0, s.y or 0)
             if s.file and s.file ~= "" then f.tex:SetTexture(PATH .. s.file) else f.tex:SetTexture(nil) end
@@ -218,21 +326,63 @@ FW:RegisterEvent("ADDON_LOADED", HookEditMode)
 ------------------------------------------------------------------------
 -- Einstellungen: Reiter "Interface"
 ------------------------------------------------------------------------
-local function FileOptions()
-    local list = {}
-    for _, n in ipairs(FW.GreifenFiles or {}) do list[#list + 1] = { value = n, text = n } end
-    return list
+local function CatText(c)
+    local L = FW.L
+    return L["GREIFEN_CAT_" .. string.upper(c)] or c
 end
 
 local function BuildSide(f, stack, side, title, refreshers)
     local L = FW.L
     stack:Add(UI.CreateLabel(f, title, { size = 13, color = "goldLight" }), { height = 18, gap = 12 })
 
+    -- Zeile 1: Kategorie und (bei Klassen/Voelkern) Unterpunkt
+    local top = CreateFrame("Frame", nil, f)
+    top:SetSize(320, 26)
+    local ddCat, ddSub
+    ddCat = UI.CreateDropdown(top, 160, 22, {
+        prefix = L.GREIFEN_CAT,
+        getOptions = function()
+            local list = {}
+            for _, c in ipairs(Gr.CATEGORIES) do list[#list + 1] = { value = c, text = CatText(c) } end
+            return list
+        end,
+        textOf = CatText,
+        maxRows = 10,
+        onChange = function(v)
+            if not v then return end
+            local s = Opts()[side]
+            s.cat = v
+            s.sub = Gr.DefaultSub(v)
+            FW:Fire("GREIFEN_CHANGED")
+        end,
+    })
+    ddCat:SetPoint("TOPLEFT", top, "TOPLEFT", 0, -2)
+    ddSub = UI.CreateDropdown(top, 150, 22, {
+        getOptions = function() return Gr.SubOptions(Opts()[side].cat) end,
+        textOf = function(v)
+            local c = Opts()[side].cat
+            return c == "class" and Gr.ClassName(v) or Gr.RaceName(v)
+        end,
+        maxRows = 10,
+        onChange = function(v)
+            if v then Opts()[side].sub = v; FW:Fire("GREIFEN_CHANGED") end
+        end,
+    })
+    ddSub:SetPoint("LEFT", ddCat, "RIGHT", 8, 0)
+    stack:Add(top, { height = 28, gap = 4 })
+
+    -- Zeile 2: Bild und Vorschau
     local row = CreateFrame("Frame", nil, f)
-    row:SetSize(300, 40)
-    local dd = UI.CreateDropdown(row, 170, 22, {
-        getOptions = FileOptions,
-        textOf = function(v) return v or "" end,
+    row:SetSize(320, 44)
+    local dd = UI.CreateDropdown(row, 220, 22, {
+        getOptions = function()
+            local s = Opts()[side]
+            local list = {}
+            for _, e in ipairs(Gr.Filter(s.cat or "all", s.sub)) do list[#list + 1] = { value = e.id, text = Gr.Name(e.id) } end
+            return list
+        end,
+        textOf = Gr.Name,
+        maxRows = 12,
         onChange = function(v) if v then Opts()[side].file = v; Gr.Apply(); FW:Fire("GREIFEN_CHANGED") end end,
     })
     dd:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -4)
@@ -241,10 +391,21 @@ local function BuildSide(f, stack, side, title, refreshers)
     pv:SetPoint("LEFT", dd, "RIGHT", 12, 0)
     pv.t = pv:CreateTexture(nil, "ARTWORK")
     pv.t:SetAllPoints()
-    stack:Add(row, { height = 40, gap = 4 })
+    stack:Add(row, { height = 44, gap = 4 })
     local function RefreshPreview()
         local s = Opts()[side]
+        if not s.cat then s.cat = "all" end
+        if (s.cat == "class" or s.cat == "race") and not s.sub then s.sub = Gr.DefaultSub(s.cat) end
+        ddCat:SetValue(s.cat)
+        if s.cat == "class" or s.cat == "race" then
+            ddSub:Show()
+            ddSub:SetValue(s.sub)
+        else
+            ddSub:Hide()
+        end
         dd:SetValue(s.file)
+        local pw, ph = Gr.Size(s.file)
+        pv:SetSize(40 * pw / ph, 40)
         if s.file and s.file ~= "" then pv.t:SetTexture(PATH .. s.file) else pv.t:SetTexture(nil) end
         if s.mirror then pv.t:SetTexCoord(1, 0, 0, 1) else pv.t:SetTexCoord(0, 1, 0, 1) end
     end
@@ -277,7 +438,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("greifen", {
         category = "interface",
         order = 10,
-        height = 780,
+        height = 860,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.GREIFEN_TITLE)
