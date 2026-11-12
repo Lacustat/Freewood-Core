@@ -636,12 +636,19 @@ local function ShowLink(lk)
     if not ok then
         FW:Print("Link konnte nicht geoeffnet werden: " .. tostring(err))
     elseif string.sub(lk.data, 1, 6) == "trade:" and G.C_Timer and G.C_Timer.After then
-        -- Beruf-Link: geht kein Berufefenster auf, Hinweis mit den Linkdaten (fuer die Fehlersuche)
+        -- Beruf-Link: Rueckmeldung im Chat (fuer die Fehlersuche), ob sich ein Berufefenster oder der Verweis-Tooltip geoeffnet hat
+        FW:Print("Beruf-Link angeklickt: " .. tostring(lk.data))
         G.C_Timer.After(0.8, function()
-            local pf = G.ProfessionsFrame or G.TradeSkillFrame
-            if not (pf and pf.IsShown and pf:IsShown()) then
-                FW:Print("Beruf-Link: es hat sich kein Berufefenster geoeffnet. Link: " .. tostring(lk.data))
+            local function Shown(f) return f and f.IsShown and f:IsShown() and true or false end
+            local pf = Shown(G.ProfessionsFrame) or Shown(G.TradeSkillFrame)
+            local tip = Shown(G.ItemRefTooltip)
+            local linked = "?"
+            if G.C_TradeSkillUI and G.C_TradeSkillUI.IsTradeSkillLinked then
+                local okL, isL, nm = pcall(G.C_TradeSkillUI.IsTradeSkillLinked)
+                if okL then linked = tostring(isL) .. "/" .. tostring(nm) end
             end
+            FW:Print("Beruf-Link: Berufefenster " .. (pf and "offen" or "zu") .. ", Verweis-Tooltip " .. (tip and "offen" or "zu")
+                .. ", verlinkt " .. linked)
         end)
     end
 end

@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.48.2 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.48.3 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.48.3 DE:** Eigenes Chatfenster: Klick auf einen Beruf-Link schreibt zur Fehlersuche eine Zeile in den Chat (Linkdaten) und 0,8 s später, ob Berufefenster und Verweis-Tooltip offen sind und ob ein verlinkter Beruf geladen ist. **EN:** Own chat window: clicking a profession link writes a troubleshooting line to chat (link data) and 0.8 s later whether the profession window and link tooltip are open and whether a linked profession is loaded.
+
 **0.48.2 DE:** Eigenes Chatfenster: Links werden mit dem Chatfenster als Bezug geöffnet, Fehler und ein nicht geöffneter Beruf-Link werden im Chat gemeldet (mit den Linkdaten, für die Fehlersuche). Stehen mehrere Links in einer einzeiligen Nachricht, zählt der unter dem Mauszeiger (vorher immer der erste). **EN:** Own chat window: links are opened with the chat window as context, errors and a profession link that opens nothing are reported in chat (with the link data, for troubleshooting). With several links in a one-line message the one under the cursor counts (before: always the first). Test: `tests/chatwindow_test.lua`. Not verified in game.
 
 **0.48.1 DE:** Gryphon-Ersatz: bei „Versatz waagerecht/senkrecht“ stehen neben dem Regler die Knöpfe „-“ und „+“ (genau 1 px je Klick, für pixelgenaues Platzieren). Die Einstellungen zu Questlog/Questverfolgung-Sortierung sind in den Reiter „Quests und Hinweise“ umgezogen. **EN:** Gryphon replacement: the horizontal/vertical offset sliders now have "-" and "+" buttons (exactly 1 px per click, for pixel-exact placement). The quest log/tracker sorting settings moved to the "Quests and hints" tab. Not verified in game.
