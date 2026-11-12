@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.45.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.45.2 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.45.2 DE:** Briefkasten: Bilder neu zugeschnitten, bei Mensch, Untoter, Troll, Hexenmeister, Paladin, Magier, Krieger und Jäger war links etwas abgeschnitten (die Streifen hatten ungleiche Abstände). Jetzt wird jedes Bild an seiner echten Lage ausgeschnitten, die Figuren sind dadurch bei einigen Aussehen etwas kleiner. **EN:** Mailbox: images re-cut; Human, Undead, Troll, Warlock, Paladin, Mage, Warrior and Hunter were cut off on the left (the strips had uneven spacing). Each picture is now cut at its real position, so some looks are slightly smaller.
+
 **0.45.1 DE:** Briefkasten: neues Aussehen „Legion der Affen“ (Bildplatte `Mailbox7.tga`), jetzt 19 Aussehen. **EN:** Mailbox: new look "Legion of the Apes" (atlas `Mailbox7.tga`), now 19 looks.
 
 **0.45.0 DE:** Briefkasten: 18 Aussehen zur Auswahl (Horde, Allianz, Mensch, Orc, Nachtelf, Zwerg, Gnom, Untoter, Tauren, Troll, Greif, Hexenmeister, Paladin, Magier, Krieger, Druide, Schamane, Jäger), je 4 Bilder. Auswahl im Reiter Animation per Dropdown mit Vorschau (Bild 1 ohne Post, Bild 4 mit Post); „Automatisch“ nimmt Horde oder Allianz nach deiner Fraktion. Bildplatten `Media/Animation/Mailbox1.tga` bis `Mailbox6.tga` (je 1024×1024, 3 Aussehen pro Platte, Bild 252×336); die alte `Mailbox.tga` entfällt. Allgemein für spätere Animationen: `def.skins`, `Anim.SetSkin`. Ungeprüft im Spiel (Laden der Platten, Schärfe bei 100 %). **EN:** Mailbox: 18 looks to choose from (Horde, Alliance, Human, Orc, Night Elf, Dwarf, Gnome, Undead, Tauren, Troll, Gryphon, Warlock, Paladin, Mage, Warrior, Druid, Shaman, Hunter), 4 pictures each. Chosen in the Animation tab with a dropdown and a preview (picture 1 without mail, picture 4 with mail); "Automatic" uses Horde or Alliance by your faction. Atlases `Media/Animation/Mailbox1.tga` to `Mailbox6.tga` (1024×1024 each, 3 looks per atlas, picture 252×336); the old `Mailbox.tga` is gone. Generic for later animations: `def.skins`, `Anim.SetSkin`. Unchecked in game (atlas loading, sharpness at 100 %).
