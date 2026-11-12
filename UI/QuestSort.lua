@@ -226,6 +226,38 @@ function QS.SortWatchInfos(infos, mode)
     return out
 end
 
+-- Reihenfolge nach einer Liste von Quest-IDs (unbekannte hinten, in ihrer Reihenfolge)
+function QS.OrderByIds(infos, ids)
+    local pos = {}
+    for k, id in ipairs(ids or {}) do pos[id] = k end
+    local items = {}
+    for k, info in ipairs(infos) do
+        local q = QuestOf(info)
+        local id = q and q.GetID and q:GetID()
+        items[k] = { info = info, p = (id and pos[id]) or (100000 + k) }
+    end
+    table.sort(items, function(a, b) return a.p < b.p end)
+    local out = {}
+    for k, it in ipairs(items) do out[k] = it.info end
+    return out
+end
+
+local function IdsOf(infos)
+    local ids = {}
+    for _, info in ipairs(infos) do
+        local q = QuestOf(info)
+        local id = q and q.GetID and q:GetID()
+        if id then ids[#ids + 1] = id end
+    end
+    return ids
+end
+
+-- Solange Blizzard abgegebene Quests noch mit Animation anzeigt (zwischengespeicherte Bloecke), bleibt die letzte Reihenfolge
+-- bestehen: Blizzards Zwischenspeicher setzt die Bloecke nach der alten Reihenfolge ein, eine neue Sortierung dazwischen
+-- fuehrt zu uebereinanderliegenden Zeilen.
+local SETTLE = 2.5     -- Sekunden nach Abgabe bis zum sauberen Neuaufbau
+local DIST_TICK = 5    -- Sekunden: Entfernungs-Sortierung auf Aenderung pruefen
+
 local function HookTracker()
     local t = G.QuestObjectiveTracker
     if not t or t.fwSortHooked or type(t.BuildQuestWatchInfos) ~= "function" then return end
@@ -235,9 +267,46 @@ local function HookTracker()
         local infos = orig(self, ...)
         local o = Opts()
         if not o.enabled or o.tracker == "default" or type(infos) ~= "table" then return infos end
+        if (self.numCachedBlocks or 0) > 0 and QS.lastIds then
+            local ok, res = pcall(QS.OrderByIds, infos, QS.lastIds)
+            return ok and res or infos
+        end
         local ok, res = pcall(QS.SortWatchInfos, infos, o.tracker)
-        return ok and res or infos
+        if ok and type(res) == "table" then
+            QS.lastIds = IdsOf(res)
+            return res
+        end
+        return infos
     end
+end
+
+-- Nach Abgabe/Entfernen: erst nach der Animation sauber neu aufbauen
+local settlePending = false
+local function Settle()
+    if settlePending or not G.C_Timer or not G.C_Timer.After then return end
+    settlePending = true
+    G.C_Timer.After(SETTLE, function() settlePending = false; pcall(QS.Refresh) end)
+end
+QS.Settle = Settle
+FW:RegisterEvent("QUEST_TURNED_IN", function() Settle() end)
+FW:RegisterEvent("QUEST_REMOVED", function() Settle() end)
+
+-- Entfernung aendert sich beim Laufen: Reihenfolge regelmaessig pruefen, nur bei Aenderung neu aufbauen
+function QS.DistanceTick()
+    local o = Opts()
+    local t = G.QuestObjectiveTracker
+    if not o.enabled or o.tracker ~= "distance" or not t or not t.BuildQuestWatchInfos then return false end
+    if (t.numCachedBlocks or 0) > 0 then return false end
+    local before = table.concat(QS.lastIds or {}, ",")
+    local ok = pcall(t.BuildQuestWatchInfos, t)
+    local after = table.concat(QS.lastIds or {}, ",")
+    if ok and before ~= after and t.MarkDirty then pcall(t.MarkDirty, t); return true end
+    return false
+end
+
+local function StartTicker()
+    if QS.ticker or not G.C_Timer or not G.C_Timer.NewTicker then return end
+    QS.ticker = G.C_Timer.NewTicker(DIST_TICK, function() pcall(QS.DistanceTick) end)
 end
 
 local function NextMode(cur, step)
@@ -302,6 +371,7 @@ local function Setup()
     pcall(HookLog)
     pcall(HookMenu)
     pcall(HookTracker)
+    pcall(StartTicker)
     pcall(BuildButton)
     return QS.logHooked and QS.menuHooked and QS.button ~= nil
 end

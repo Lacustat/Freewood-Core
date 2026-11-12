@@ -8,7 +8,8 @@ end
 local logged, handlers, tabs = {}, {}, {}
 _G.hooksecurefunc = function(n, fn) logged[n] = fn end
 _G.QuestLogQuests_Update = function() end
-_G.C_Timer = { After = function() end }
+local timers, tickers = {}, {}
+_G.C_Timer = { After = function(sec, fn) timers[#timers + 1] = { sec, fn } end, NewTicker = function(sec, fn) tickers[#tickers + 1] = fn; return {} end }
 _G.CreateFrame = function() return Proxy() end
 local menus = {}
 _G.Menu = { ModifyMenu = function(tag, fn) menus[tag] = fn end }
@@ -102,4 +103,46 @@ QS.Opts().enabled = true
 menus.MENU_QUEST_MAP_FRAME_SETTINGS(nil, root)
 eq(#rows, 7, "7 Sortierungen im Menue")
 eq(type(tabs.questsort.build(Proxy())), "table", "Einstellungsabschnitt gebaut")
+
+-- Abgabe: waehrend zwischengespeicherte Bloecke da sind, bleibt die letzte Reihenfolge
+QS.Opts().enabled = true; QS.Opts().tracker = "nameAsc"
+eq(Wid(tr.BuildQuestWatchInfos(tr)), "2,1,4", "Name A-Z (alpha, Charlie, Delta)")
+tr.numCachedBlocks = 1
+QS.Opts().tracker = "nameDesc"   -- wuerde sonst anders sortieren
+eq(Wid(tr.BuildQuestWatchInfos(tr)), "2,1,4", "mit Zwischenspeicher: letzte Reihenfolge bleibt")
+tr.numCachedBlocks = 0
+eq(Wid(tr.BuildQuestWatchInfos(tr)), "4,1,2", "ohne Zwischenspeicher: neu sortiert")
+eq(Wid(QS.OrderByIds({ Q(4), Q(3), Q(2) }, { 2, 4 })), "2,4,3", "OrderByIds: unbekannte hinten")
+
+-- Nach Abgabe/Entfernen: ein Neuaufbau nach 2,5 s (nur einer)
+local before = #timers
+ev.QUEST_TURNED_IN(); ev.QUEST_REMOVED()
+eq(#timers - before, 1, "ein Neuaufbau geplant")
+eq(timers[#timers][1], 2.5, "nach 2,5 s")
+local dirty = 0
+tr.MarkDirty = function() dirty = dirty + 1 end
+timers[#timers][2]()
+eq(dirty >= 1, true, "Neuaufbau macht den Tracker neu")
+ev.QUEST_TURNED_IN()
+eq(#timers - before, 2, "danach wieder planbar")
+
+-- Entfernung: Ticker baut nur bei geaenderter Reihenfolge neu auf
+eq(#tickers, 1, "Ticker gestartet")
+QS.Opts().tracker = "distance"
+tr.BuildQuestWatchInfos = nil
+_G.QuestObjectiveTracker = tr
+local infos2 = { Q(1), Q(2), Q(3), Q(4) }
+local base = function() return { Q(1), Q(2), Q(3), Q(4) } end
+tr.fwSortHooked = nil; tr.BuildQuestWatchInfos = base; tr.numCachedBlocks = 0
+QS.Setup()
+Wid(tr.BuildQuestWatchInfos(tr))
+dirty = 0
+eq(QS.DistanceTick(), false, "gleiche Reihenfolge: kein Neuaufbau")
+data[1].dist = 10
+eq(QS.DistanceTick(), true, "geaenderte Reihenfolge: Neuaufbau")
+eq(dirty, 1, "Tracker neu angestossen")
+tr.numCachedBlocks = 1; data[4].dist = 1
+eq(QS.DistanceTick(), false, "mit Zwischenspeicher: nichts")
+QS.Opts().tracker = "default"
+eq(QS.DistanceTick(), false, "andere Sortierung: nichts")
 print(checks .. " Pruefungen, " .. fails .. " Fehler")

@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.48.4 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.48.5 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,10 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.48.5 DE:** Questverfolgung, Sortierung nach Abgabe: Blizzard zeigt einen abgegebenen Quest noch mit Animation an (zwischengespeicherter Block) und setzt ihn nach der alten Reihenfolge ein; eine neue Sortierung dazwischen ließ Zeilen übereinanderliegen. Solange solche Blöcke da sind, bleibt jetzt die letzte Reihenfolge bestehen. Nach `QUEST_TURNED_IN` und `QUEST_REMOVED` baut Freewood nach 2,5 s einmal sauber neu auf (Questverfolgung und Questlog). Bei „Nähe“ prüft ein Zeitgeber alle 5 s, ob sich die Reihenfolge durch das Laufen geändert hat, und baut nur dann neu auf. Nicht im Spiel geprüft.
+
+**0.48.5 EN:** Quest tracker sorting after turn-in: Blizzard still shows a turned-in quest with an animation (cached block) and re-inserts it by the old order; re-sorting in between made lines overlap. While such blocks exist, the last order is now kept. After `QUEST_TURNED_IN` and `QUEST_REMOVED` Freewood rebuilds once cleanly after 2.5 s (tracker and quest log). With "Nearby" a timer checks every 5 s whether movement changed the order and rebuilds only then. Not verified in game.
+
 **0.48.4 DE:** Eigenes Chatfenster, Fehlersuche bei Links: `/fwchatwin linkdebug` meldet jeden Klick auf eine Chatzeile (Zahl der Links, Name getroffen), `/fwchatwin link` öffnet den letzten Beruf-Link ohne Mausklick. **EN:** Own chat window, link troubleshooting: `/fwchatwin linkdebug` reports every click on a chat line (number of links, name hit), `/fwchatwin link` opens the latest profession link without a mouse click.
 
 **0.48.3 DE:** Eigenes Chatfenster: Klick auf einen Beruf-Link schreibt zur Fehlersuche eine Zeile in den Chat (Linkdaten) und 0,8 s später, ob Berufefenster und Verweis-Tooltip offen sind und ob ein verlinkter Beruf geladen ist. **EN:** Own chat window: clicking a profession link writes a troubleshooting line to chat (link data) and 0.8 s later whether the profession window and link tooltip are open and whether a linked profession is loaded.
