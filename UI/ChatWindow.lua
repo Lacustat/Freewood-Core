@@ -629,7 +629,47 @@ end
 
 local function ShowLink(lk)
     local full = "\124cffffffff\124H" .. lk.data .. "\124h[" .. lk.name .. "]\124h\124r"
-    if G.SetItemRef then pcall(G.SetItemRef, lk.data, full, "LeftButton") end
+    if not G.SetItemRef then return end
+    -- wie Blizzards Chatfenster: das Chatfenster als vierter Wert (Beruf-Links und andere Verweise brauchen es teils)
+    local cf = G.ChatFrame1 or G.DEFAULT_CHAT_FRAME
+    local ok, err = pcall(G.SetItemRef, lk.data, full, "LeftButton", cf)
+    if not ok then
+        FW:Print("Link konnte nicht geoeffnet werden: " .. tostring(err))
+    elseif string.sub(lk.data, 1, 6) == "trade:" and G.C_Timer and G.C_Timer.After then
+        -- Beruf-Link: geht kein Berufefenster auf, Hinweis mit den Linkdaten (fuer die Fehlersuche)
+        G.C_Timer.After(0.8, function()
+            local pf = G.ProfessionsFrame or G.TradeSkillFrame
+            if not (pf and pf.IsShown and pf:IsShown()) then
+                FW:Print("Beruf-Link: es hat sich kein Berufefenster geoeffnet. Link: " .. tostring(lk.data))
+            end
+        end)
+    end
+end
+
+-- Welcher Link liegt unter dem Mauszeiger? Nur fuer einzeilige Texte (gemessene Breite); sonst der erste.
+-- fs: Textfeld, full: angezeigter Text, measure: Textfeld zum Messen.
+function W.LinkAtCursor(fs, full, links, measure, singleLine)
+    if #links <= 1 or not singleLine then return links[1] end
+    if not (G.GetCursorPosition and fs.GetLeft and measure) then return links[1] end
+    local cx = G.GetCursorPosition()
+    local l = fs:GetLeft()
+    local sc = fs.GetEffectiveScale and fs:GetEffectiveScale() or 1
+    if not (cx and l) or sc == 0 then return links[1] end
+    local x = cx / sc - l
+    local pos = 1
+    for _, lk in ipairs(links) do
+        local a = string.find(full, "\124H" .. lk.data .. "\124h", pos, true)
+        if not a then break end
+        local b = select(2, string.find(full, "\124h%[.-%]\124h", a))
+        if not b then break end
+        measure:SetText(Plain(string.sub(full, 1, a - 1)))
+        local x0 = measure:GetStringWidth() or 0
+        measure:SetText(Plain(string.sub(full, 1, b)))
+        local x1 = measure:GetStringWidth() or 0
+        if x >= x0 - 1 and x <= x1 + 1 then return lk end
+        pos = b + 1
+    end
+    return links[1]
 end
 
 
@@ -967,6 +1007,9 @@ function W.Draw()
             b.text:SetTextColor(tr, tg, tb)
             b.text:SetWidth(pw - 14)
             b.text:SetText(full)
+            b.fwFull = full
+            built.measure:SetText(Plain(full))
+            b.fwSingle = (built.measure:GetStringWidth() or 0) < (pw - 14)
             b.text:SetPoint("TOPLEFT", b.panel, "TOPLEFT", 8, -2)
             local th = (b.text.GetStringHeight and b.text:GetStringHeight()) or 14
             if not th or th < 12 then th = 12 end
@@ -997,6 +1040,8 @@ function W.Draw()
             b.text:SetTextColor(UI.Color("text"))
             b.text:SetWidth(pw - 20)
             b.text:SetText(txt)
+            b.fwFull = txt
+            b.fwSingle = tw < (pw - 20)
             b.name:SetPoint("TOPLEFT", b.panel, "TOPLEFT", 10, -topPad)
             b.time:SetPoint("TOPRIGHT", b.panel, "TOPRIGHT", -8, -(topPad + 1))
             b.text:SetPoint("TOPLEFT", b.panel, "TOPLEFT", 10, -textY)
@@ -1031,7 +1076,8 @@ function W.Draw()
             elseif nameHit and W.CursorInName(b.panel, nameHit) then
                 SetTarget(nameHit.name)
             elseif #links >= 1 then
-                ShowLink(links[1])
+                local lk = W.LinkAtCursor(b.text, b.fwFull or txt, links, built.measure, b.fwSingle) or links[1]
+                ShowLink(lk)
             end
         end)
         if #links == 1 then

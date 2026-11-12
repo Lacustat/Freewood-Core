@@ -516,5 +516,21 @@ do
     eq(change and change.kind, "whisper", "Praefix /w erkannt")
     eq(change and change.target, "Jinxer Darktide", "Ziel zwei Woerter")
 end
+-- Mehrere Links in einer Zeile: der unter dem Mauszeiger zaehlt (einzeilig, gemessene Breite)
+do
+    local full = "\124Hitem:1\124h[AAAA]\124h\124Hitem:2\124h[BBBB]\124h"
+    local links = { { data = "item:1", name = "AAAA" }, { data = "item:2", name = "BBBB" } }
+    local oldCL = FW.ChatLog
+    FW.ChatLog = { Plain = function(t) return (string.gsub(string.gsub(t, "\124H.-\124h", ""), "\124h", "")) end }
+    local measure = { SetText = function(self, t) self.t = t end, GetStringWidth = function(self) return #(self.t or "") * 10 end }
+    local fs = { GetLeft = function() return 100 end, GetEffectiveScale = function() return 1 end }
+    _G.GetCursorPosition = function() return 120, 0 end
+    eq(W.LinkAtCursor(fs, full, links, measure, true).data, "item:1", "Zeiger links: erster Link")
+    _G.GetCursorPosition = function() return 170, 0 end
+    eq(W.LinkAtCursor(fs, full, links, measure, true).data, "item:2", "Zeiger rechts: zweiter Link")
+    eq(W.LinkAtCursor(fs, full, links, measure, false).data, "item:1", "mehrzeilig: erster Link")
+    eq(W.LinkAtCursor(fs, full, { links[1] }, measure, true).data, "item:1", "ein Link")
+    FW.ChatLog = oldCL
+end
 print(string.format("%d Pruefungen, %d Fehler", n, fails))
 os.exit(fails == 0 and 0 or 1)
