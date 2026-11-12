@@ -324,8 +324,8 @@ end)
 ------------------------------------------------------------------------
 if UI and UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("questsort", {
-        category = "interface",
-        order = 11,
+        category = "quest",
+        order = 120,
         height = 230,
         build = function(parent)
             local L = FW.L

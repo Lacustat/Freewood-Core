@@ -443,10 +443,11 @@ local function BuildSide(f, stack, side, title, refreshers)
         function() return Opts()[side].clamp ~= false end,
         function(v) Opts()[side].clamp = v and true or false; Gr.Apply() end), { fit = true })
 
-    local function Slider(key, label, lo, hi, step)
+    local function Slider(key, label, lo, hi, step, nudge)
         local lab = UI.CreateLabel(f, "", { size = 12 })
         stack:Add(lab, { height = 16, gap = 8 })
-        local sl = UI.CreateSlider(f, 220, {
+        local sl
+        sl = UI.CreateSlider(f, nudge and 180 or 220, {
             min = lo, max = hi, step = step,
             get = function() return Opts()[side][key] end,
             set = function(v) Opts()[side][key] = v; Gr.Apply() end,
@@ -455,10 +456,24 @@ local function BuildSide(f, stack, side, title, refreshers)
         sl:Refresh()
         stack:Add(sl, { height = 20, gap = 2 })
         refreshers[#refreshers + 1] = function() sl:Refresh() end
+        if nudge then
+            -- Feinschritt: genau 1 px je Klick (-/+)
+            local function Nudge(d)
+                local v = (Opts()[side][key] or 0) + d
+                v = math.max(lo, math.min(hi, v))
+                Opts()[side][key] = v
+                Gr.Apply()
+                sl:Refresh()
+            end
+            local minus = UI.CreateButton(f, "-", 22, 20, function() Nudge(-1) end)
+            minus:SetPoint("LEFT", sl, "RIGHT", 8, 0)
+            local plus = UI.CreateButton(f, "+", 22, 20, function() Nudge(1) end)
+            plus:SetPoint("LEFT", minus, "RIGHT", 4, 0)
+        end
     end
     Slider("scale", L.GREIFEN_SCALE, 20, 300, 5)
-    Slider("x", L.GREIFEN_X, -800, 800, 1)
-    Slider("y", L.GREIFEN_Y, -800, 800, 1)
+    Slider("x", L.GREIFEN_X, -800, 800, 1, true)
+    Slider("y", L.GREIFEN_Y, -800, 800, 1, true)
 end
 
 if UI.RegisterSettingsSection then
