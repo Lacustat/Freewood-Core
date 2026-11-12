@@ -49,8 +49,15 @@ S.Apply(true)
 eq(big.fwPlankOn, true, "an: grosser Knopf bekommt Holz")
 eq(big.bg.shown, false, "Holz: flacher Grund aus")
 eq(big.fwBorder.top.shown, false, "Holz: Rand aus")
-eq(small.fwPlankOn == true, false, "zu niedrig bleibt flach")
-eq(narrow.fwPlankOn == true, false, "zu schmal bleibt flach")
+eq(small.fwPlankKind, "slim", "mittelhoch: schlanke Planke")
+eq(small.fwBorder.top.shown, true, "schlank: Rand bleibt")
+eq(small.fwPlank.slim.shown, true, "schlank: Holz an")
+eq(small.fwPlank.left.shown, false, "schlank: keine Seilenden")
+eq(narrow.fwPlankKind, "slim", "schmal: schlank statt flach")
+local tiny = Btn(root, 20, 14); S.Button(tiny)
+eq(tiny.fwPlankOn == true, false, "zu klein bleibt flach")
+local thin = Btn(root, 60, 12); S.Button(thin)
+eq(thin.fwPlankOn == true, false, "zu niedrig bleibt flach")
 eq(type(big.fwSkinPaint), "function", "Zeichnen gesetzt")
 big:SetStyle("default")
 eq(big.fwPlank.left.tc[3], 0, "Zustand 1: oben")
@@ -60,8 +67,32 @@ big.fwDown = true; big.fwSkinPaint(big, true, true, {})
 eq(math.floor(big.fwPlank.left.tc[3] * 1024 + 0.5), 340, "gedrueckt: Zustand 3")
 
 -- Groesse aendert sich
-small.h = 30; small.scripts.OnSizeChanged(small)
-eq(small.fwPlankOn, true, "wird nach Vergroessern zum Holzknopf")
+small.h = 30; small.w = 160; small.scripts.OnSizeChanged(small)
+eq(small.fwPlankKind, "full", "wird nach Vergroessern zum Holzknopf")
+tiny.h = 20; tiny.w = 40; tiny.scripts.OnSizeChanged(tiny)
+eq(tiny.fwPlankKind, "slim", "klein -> schlank")
+
+-- Beschriftung zwischen den Seilenden
+local lp = {}
+local lab = Obj(); lab.points = lp
+function lab:ClearAllPoints() for i = #lp, 1, -1 do lp[i] = nil end end
+function lab:SetPoint(...) lp[#lp + 1] = { ... } end
+function lab:SetJustifyH(j) self.just = j end
+local arrow = Obj(); local ap = {}
+function arrow:ClearAllPoints() ap[1] = nil end
+function arrow:SetPoint(...) ap[1] = { ... } end
+local dd = Btn(root, 200, 30); dd.label = lab; dd.arrow = arrow
+S.Button(dd)
+eq(dd.fwPlankKind, "full", "Dropdown wird Planke")
+eq(lab.just, "CENTER", "Dropdown-Text zentriert")
+eq(#lp, 2, "Text links und rechts verankert")
+eq(lp[1][1], "LEFT", "links")
+eq(lp[2][1] == "RIGHT" and lp[2][4] < lp[1][4] * -1, true, "rechts mehr Platz (Pfeil)")
+eq(ap[1][1], "RIGHT", "Pfeil sitzt rechts")
+dd.w = 40; dd.h = 20; dd.scripts.OnSizeChanged(dd)
+eq(dd.fwPlankKind, "slim", "Dropdown klein: schlank")
+eq(#lp, 1, "schlank: Text wieder wie vorher")
+eq(lab.just, "CENTER", "schlank: Ausrichtung wiederhergestellt")
 
 -- Fenstermodus
 local win = Obj(); win.fwPlankMode = "off"

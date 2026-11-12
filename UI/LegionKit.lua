@@ -27,7 +27,13 @@ local PLANK_H = 170
 local CAP_PX = 120               -- Seil und Eisenecke links/rechts
 local BODY_FRAC = 0.85           -- Anteil der Holzplanke an der Bildhoehe (ohne Seilenden)
 local TOP_FRAC = 0.12            -- Abstand der Oberkante der Planke von der Bildoberkante
-local MIN_H, MIN_W = 24, 78      -- kleiner bleibt der Knopf flach
+-- Zwei Formen: "full" = Planke mit Seil und Eisenecken, "slim" = nur Holz mit dem normalen Rand (kleine Knoepfe)
+local FULL_H, FULL_W = 22, 78
+local SLIM_H, SLIM_W = 18, 28
+local SLIM_U0, SLIM_U1 = 0.28, 0.72          -- Holzmitte der Planke (ohne Seile und Ecken)
+local SLIM_V0, SLIM_V1 = 22 / PLANK_H, 158 / PLANK_H
+local LABEL_INSET = 0.8          -- Anteil der Seilenden-Breite, den der Text freihaelt
+local ARROW_SPACE = 14           -- Platz fuer den Pfeil eines Dropdowns
 
 local function Mode(frame)
     local f, n = frame, 0
@@ -46,8 +52,12 @@ function S.Wants(frame)
     return S.active
 end
 
-local function Eligible(b)
-    return S.Wants(b) and (b:GetHeight() or 0) >= MIN_H and (b:GetWidth() or 0) >= MIN_W
+local function Kind(b)
+    if not S.Wants(b) then return nil end
+    local h, w = b:GetHeight() or 0, b:GetWidth() or 0
+    if h >= FULL_H and w >= FULL_W then return "full" end
+    if h >= SLIM_H and w >= SLIM_W then return "slim" end
+    return nil
 end
 
 local function Row(state)      -- v-Bereich eines Zustands
@@ -64,13 +74,80 @@ local function BuildPlank(b)
         return t
     end
     p.left, p.mid, p.right = Tex(0, CAP_PX / P_W), Tex(CAP_PX / P_W, 1 - CAP_PX / P_W), Tex(1 - CAP_PX / P_W, 1)
+    p.slim = Tex(SLIM_U0, SLIM_U1)
+    p.slim.slim = true
     b.fwPlank = p
+end
+
+local function AllTex(p) return { p.left, p.mid, p.right, p.slim } end
+
+-- Beschriftung (nur "full"): zwischen die Seilenden zentrieren, zu lange Texte kuerzen statt ueber die Enden zu laufen
+local function SaveLabel(b)
+    if b.fwLabelSaved then return end
+    local l = b.label
+    local pts = {}
+    if l.GetNumPoints and l.GetPoint then
+        for i = 1, l:GetNumPoints() do
+            local pt, rel, rpt, x, y = l:GetPoint(i)
+            pts[#pts + 1] = { pt, rel, rpt, x, y }
+        end
+    end
+    b.fwLabelSaved = { points = pts, justify = l.GetJustifyH and l:GetJustifyH() or "CENTER" }
+    local a = b.arrow
+    if a and a.GetPoint then
+        local pt, rel, rpt, x, y = a:GetPoint(1)
+        b.fwArrowSaved = { pt, rel, rpt, x, y }
+    end
+end
+
+local function FitLabel(b, cap)
+    SaveLabel(b)
+    local inset = math.floor(cap * LABEL_INSET + 0.5)
+    local right = inset
+    local l = b.label
+    l:ClearAllPoints()
+    if b.arrow then
+        right = inset + ARROW_SPACE
+        b.arrow:ClearAllPoints()
+        b.arrow:SetPoint("RIGHT", b, "RIGHT", -inset, 0)
+    end
+    l:SetPoint("LEFT", b, "LEFT", inset, 0)
+    l:SetPoint("RIGHT", b, "RIGHT", -right, 0)
+    l:SetJustifyH("CENTER")
+    if l.SetWordWrap then l:SetWordWrap(false) end
+    b.fwLabelFit = true
+end
+
+local function RestoreLabel(b)
+    if not b.fwLabelFit then return end
+    b.fwLabelFit = nil
+    local sv, l = b.fwLabelSaved, b.label
+    if not sv then return end
+    l:ClearAllPoints()
+    if #sv.points == 0 then
+        l:SetPoint("CENTER", b, "CENTER", 0, 0)
+    else
+        for _, pt in ipairs(sv.points) do l:SetPoint(pt[1], pt[2], pt[3], pt[4], pt[5]) end
+    end
+    l:SetJustifyH(sv.justify or "CENTER")
+    if l.SetWordWrap then l:SetWordWrap(b.arrow and false or true) end
+    local a, as = b.arrow, b.fwArrowSaved
+    if a and as then
+        a:ClearAllPoints()
+        a:SetPoint(as[1], as[2], as[3], as[4], as[5])
+    end
 end
 
 local function Layout(b)
     local p = b.fwPlank
     if not p then return end
-    local h = b:GetHeight() or MIN_H
+    local h = b:GetHeight() or FULL_H
+    if b.fwPlankKind == "slim" then
+        p.slim:ClearAllPoints()
+        p.slim:SetPoint("TOPLEFT", b, "TOPLEFT", 1, -1)
+        p.slim:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -1, 1)
+        return
+    end
     local artH = h / BODY_FRAC
     local scale = artH / PLANK_H
     local cap = CAP_PX * scale
@@ -84,6 +161,7 @@ local function Layout(b)
     p.mid:ClearAllPoints()
     p.mid:SetPoint("TOPLEFT", p.left, "TOPRIGHT", 0, 0)
     p.mid:SetPoint("BOTTOMRIGHT", p.right, "BOTTOMLEFT", 0, 0)
+    FitLabel(b, cap)
 end
 
 local function Paint(b, hovered, enabled, style)
@@ -93,33 +171,46 @@ local function Paint(b, hovered, enabled, style)
     if enabled and b.fwDown then state = 3
     elseif b.fwStyleName == "primary" or (hovered and enabled) then state = 2 end
     local v0, v1 = Row(state)
-    for _, t in ipairs({ p.left, p.mid, p.right }) do
-        t:SetTexCoord(t.u0, t.u1, v0, v1)
+    if b.fwPlankKind == "slim" then
+        local h = v1 - v0
+        p.slim:SetTexCoord(SLIM_U0, SLIM_U1, v0 + SLIM_V0 * h, v0 + SLIM_V1 * h)
+    else
+        for _, t in ipairs({ p.left, p.mid, p.right }) do
+            t:SetTexCoord(t.u0, t.u1, v0, v1)
+        end
     end
     b.label:SetTextColor(0.97, 0.92, 0.78, 1)
 end
 
 local function Switch(b)
-    local on = Eligible(b)
-    if on == (b.fwPlankOn and true or false) then
-        if on then Layout(b) end
+    local kind = Kind(b)
+    if kind == b.fwPlankKind then
+        if kind then Layout(b) end
         return
     end
-    b.fwPlankOn = on
-    if on then
+    b.fwPlankKind = kind
+    b.fwPlankOn = kind and true or false
+    local bd = b.fwBorder
+    if kind then
         if not b.fwPlank then BuildPlank(b) end
         b.bg:Hide()
-        local bd = b.fwBorder
-        if bd then for _, k in ipairs({ "top", "bottom", "left", "right" }) do bd[k]:Hide() end end
-        for _, t in ipairs({ b.fwPlank.left, b.fwPlank.mid, b.fwPlank.right }) do t:Show() end
+        for _, t in ipairs(AllTex(b.fwPlank)) do t:Hide() end
+        if kind == "slim" then
+            b.fwPlank.slim:Show()
+            RestoreLabel(b)
+        else
+            for _, t in ipairs({ b.fwPlank.left, b.fwPlank.mid, b.fwPlank.right }) do t:Show() end
+        end
+        -- Rand: bei der schlanken Form bleibt er (Holz mit Rand), bei der vollen Planke sind Seil und Ecken der Rand
+        if bd then for _, k in ipairs({ "top", "bottom", "left", "right" }) do bd[k]:SetShown(kind == "slim") end end
         Layout(b)
         b.fwSkinPaint = Paint
     else
         if b.fwPlank then
-            for _, t in ipairs({ b.fwPlank.left, b.fwPlank.mid, b.fwPlank.right }) do t:Hide() end
+            for _, t in ipairs(AllTex(b.fwPlank)) do t:Hide() end
         end
+        RestoreLabel(b)
         b.bg:Show()
-        local bd = b.fwBorder
         if bd then for _, k in ipairs({ "top", "bottom", "left", "right" }) do bd[k]:Show() end end
         b.fwSkinPaint = nil
     end
