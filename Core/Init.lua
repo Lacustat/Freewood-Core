@@ -41,6 +41,34 @@ function FW:Print(...)
     print(PREFIX .. ": " .. Join(...))
 end
 
+-- FW:Log(kategorie, text, ...) schreibt ins Protokoll von Freewood-Dev (Reiter "Log"). Ohne Freewood-Dev tut es nichts.
+-- Mit weiteren Werten wird text wie string.format verwendet. Je Kategorie hoechstens LOG_LIMIT Zeilen pro Minute,
+-- der Rest wird gezaehlt und als eine Zeile "n unterdrueckt" nachgetragen (so kann kein Modul das Protokoll fluten).
+local LOG_LIMIT = 20
+local logWin = {}
+function FW:Log(cat, text, ...)
+    local Dev = self.Dev
+    local diag = Dev and Dev.Diag
+    if not (diag and diag.Add) then return end
+    local now = _G.GetTime and _G.GetTime() or 0
+    local w = logWin[cat]
+    if not w or now - w.start >= 60 then
+        if w and w.dropped > 0 then pcall(diag.Add, cat, w.dropped .. " Zeilen unterdrueckt (mehr als " .. LOG_LIMIT .. " pro Minute)") end
+        w = { start = now, n = 0, dropped = 0 }
+        logWin[cat] = w
+    end
+    if w.n >= LOG_LIMIT then
+        w.dropped = w.dropped + 1
+        return
+    end
+    w.n = w.n + 1
+    if select("#", ...) > 0 then
+        local ok, res = pcall(string.format, tostring(text), ...)
+        text = ok and res or tostring(text)
+    end
+    pcall(diag.Add, cat, text)
+end
+
 function FW:Debug(...)
     if self.db and self.db.settings and self.db.settings.debug then
         print(PREFIX .. " |cff8c8a84[debug]|r " .. Join(...))
