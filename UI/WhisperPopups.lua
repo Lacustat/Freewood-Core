@@ -286,7 +286,7 @@ local function Create(name)
         local txt = self:GetText() or ""
         if txt ~= "" then CL.Send("whisper", name, txt) end
         self:SetText("")
-        self:SetFocus()
+        self:ClearFocus()      -- nach dem Absenden die Eingabe verlassen: Tasten gehen wieder ans Spiel
     end)
     win.edit = edit
 
