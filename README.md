@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.48.8 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.48.9 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -89,6 +89,8 @@ GPL-3.0, see `LICENSE`.
 ## Flüstern (0.13.0, vorbereitet, AUS) · Whisper (0.13.0, prepared, OFF)
 **DE:** `Core/Whisper.lua` sendet und empfängt Daten per unsichtbarer Flüster-Addon-Nachricht (Präfix `FWWH1`). Im Spiel gemessen: kommt an, steht nicht im Chat, 100 Nachrichten am Stück ohne Drosselung (an sich selbst). Der Schalter `settings.whisperShare` ist aus; nur Testnachrichten („T|“) gehen immer und stehen im Protokoll. Test im Dev-Addon, Reiter „Flüstertest“ (`/fwwhisper`).
 **EN:** `Core/Whisper.lua` sends and receives data by invisible whisper addon messages (prefix `FWWH1`). Measured in game: arrives, not shown in chat, 100 messages in a row without throttling (to self). The switch `settings.whisperShare` is off; only test messages ("T|") always work and are logged. Test in the Dev addon, tab "Whisper test" (`/fwwhisper`).
+**0.48.9 DE:** Greifen-Ersatzbilder: 20 Jäger-Begleiter als neue Bilder (Fuchs, Fledermaus, Krabbe, Kernhund, Teufelssaurier, Laufvogel, Skorpid, Gorilla, Eber, Adler, Schildkröte, Krokodil, Hyäne, Windnatter, Raptor, Spinne, Geier, Tiger, Luchs, Wolf), je 256x256, 32 Bit mit Transparenz (Glanz um die Figur und dunkler Hintergrund entfernt). Sie stehen unter Klassen → Jäger (und bei „Zu meinem Charakter“ für Jäger), Namen „Begleiter: …“. Neue Dateien: Spiel einmal ganz neu starten. Im Spiel nicht geprüft. **EN:** Gryphon replacement images: 20 hunter companions as new images (fox, bat, crab, core hound, devilsaur, strider, scorpid, gorilla, boar, eagle, turtle, crocolisk, hyena, wind serpent, raptor, spider, carrion bird, tiger, lynx, wolf), 256x256 each, 32-bit with transparency (glow around the figure and dark background removed). They appear under Classes → Hunter (and under "For my character" for hunters), named "Companion: ...". New files: restart the game completely once. Not verified in game.
+
 **0.48.8 DE:** Neu `FW:Log(kategorie, text, ...)`: Module schreiben damit ins Protokoll von Freewood-Dev (Reiter „Log“). Ohne Freewood-Dev passiert nichts. Mit weiteren Werten wird der Text wie `string.format` behandelt. Je Kategorie höchstens 20 Zeilen pro Minute, der Rest wird gezählt und als eine Zeile „n Zeilen unterdrückt“ nachgetragen. Getestet mit `tests/fwlog_test.lua`; nicht im Spiel geprüft.
 
 **0.48.8 EN:** New `FW:Log(category, text, ...)`: modules write to the Freewood-Dev log (tab "Log") with it. Without Freewood-Dev it does nothing. With extra values the text is treated like `string.format`. At most 20 lines per category per minute; the rest is counted and added as one "n lines suppressed" line. Tested with `tests/fwlog_test.lua`; not verified in game.

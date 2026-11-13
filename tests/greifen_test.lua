@@ -52,11 +52,11 @@ eq(tabs.greifen.category, "interface", "Kategorie")
 -- Katalog, Filter, Groesse
 local n = 0
 for _, e in ipairs(FW.GreifenList) do n = n + 1 end
-eq(n, 57, "57 Bilder im Katalog")
-eq(#FW.GreifenFiles, 57, "Dateiliste passt")
+eq(n, 77, "77 Bilder im Katalog")
+eq(#FW.GreifenFiles, 77, "Dateiliste passt")
 local seen = {}
 for _, e in ipairs(FW.GreifenList) do eq(seen[e.id], nil, "Id einmalig " .. e.id); seen[e.id] = true end
-eq(#Gr.Filter("all"), 57, "Alle")
+eq(#Gr.Filter("all"), 77, "Alle")
 eq(#Gr.Filter("affen"), 10, "Legion der Affen")
 eq(#Gr.Filter("skyborn"), 5, "Skyborn")
 eq(#Gr.Filter("horde"), 18, "Horde")
@@ -106,3 +106,24 @@ local s3 = { x = 0, y = 0 }
 Gr.KeepVisible(fr3, s3)
 eq(s3.y, -(1200 - 1060), "oben: Rest sichtbar")
 print(fails == 0 and "OK" or ("FEHLER: "..fails))
+
+-- jedes Bild der Liste hat eine Datei (Kopf: 32 Bit, unkomprimiert, 256x256 oder 512x256)
+do
+    local list = {}
+    local chunk = assert(loadfile("Media/Greifen/Greifen.lua"))
+    local FWt = {}
+    chunk("Freewood-Core", FWt)
+    local hunter = 0
+    for _, e in ipairs(FWt.GreifenList) do
+        local f = io.open("Media/Greifen/" .. e.id .. ".tga", "rb")
+        if not f then print("FEHLER Datei fehlt: " .. e.id) os.exit(1) end
+        local h = f:read(18) f:close()
+        local w, hgt = h:byte(13) + h:byte(14) * 256, h:byte(15) + h:byte(16) * 256
+        if h:byte(3) ~= 2 or h:byte(17) ~= 32 or (w ~= 256 and w ~= 512) or hgt ~= 256 then
+            print("FEHLER TGA-Kopf: " .. e.id, h:byte(3), h:byte(17), w, hgt) os.exit(1)
+        end
+        if e.class == "HUNTER" and e.id:find("^pet_") then hunter = hunter + 1 end
+    end
+    if hunter ~= 20 then print("FEHLER erwartet 20 Begleiter, gefunden " .. hunter) os.exit(1) end
+    print("greifen files OK")
+end
