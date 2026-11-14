@@ -18,7 +18,7 @@ FW.Profile = Profile
 Profile.PERSONAL = {
     minimap = true, scale = true, scaleUser = true, windowPos = true, windowSize = true, tabOrder = true, tabHidden = true,
     settingsCat = true, chatStyle = true, chatWin = true, bubbles = true, greifen = true, design = true, animation = true,
-    tooltips = true, whisperSend = true, whisperPopup = true, whisperPopupAlways = true,
+    tooltips = true, notesWin = true, whisperSend = true, whisperPopup = true, whisperPopupAlways = true,
 }
 local PERSONAL = Profile.PERSONAL
 

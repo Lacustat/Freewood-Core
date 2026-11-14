@@ -14,4 +14,7 @@
     <Binding name="FREEWOOD_CORE_SETTINGS" category="ADDONS">
         Freewood_ToggleTab("settings")
     </Binding>
+    <Binding name="FREEWOOD_CORE_NOTES" category="ADDONS">
+        Freewood_ToggleNotes()
+    </Binding>
 </Bindings>
