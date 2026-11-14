@@ -63,4 +63,31 @@ local toggled
 N.Toggle = function() toggled = true end
 _G.SlashCmdList.FREEWOODNOTES("")
 assert(toggled)
+-- Zettel (0.51.0)
+do
+    local calls = 0
+    N.Listen(function() calls = calls + 1 end)
+    local me = N.CharKey()
+    local nn = N.Add(me, "Zettel")
+    assert(not N.IsPinned(nn.id))
+    local p = N.Pin(nn.id)
+    assert(p and p.w == 220 and p.a == 0.95 and N.IsPinned(nn.id), "angeheftet mit Standardwerten")
+    assert(calls >= 1, "Aenderung gemeldet")
+    assert(N.Pin(nn.id) == p, "zweimal anheften = derselbe Zettel")
+    local t = N.Pin("todo")
+    assert(t and t.x ~= p.x, "zweiter Zettel versetzt")
+    assert(#N.PinList() == 2)
+    assert(N.Pin(99999) == nil, "unbekannte Notiz nicht anheftbar")
+    local before = calls
+    N.SetText(me, nn.id, "neu")
+    assert(calls > before, "Text aendern meldet")
+    assert(N.TogglePin("todo") == false and not N.IsPinned("todo"), "ToDo geloest")
+    N.Delete(me, nn.id)
+    assert(not N.IsPinned(nn.id) and #N.PinList() == 0, "geloeschte Notiz verliert den Zettel")
+    assert(N.HideInCombat() == false, "Standard: im Kampf sichtbar")
+    N.SetHideInCombat(true)
+    assert(N.HideInCombat() == true)
+    N.SetHideInCombat(false)
+    assert(N.HideInCombat() == false)
+end
 print("notes_test OK")

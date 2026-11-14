@@ -222,8 +222,14 @@ local function Build()
         W.OpenPicker(area.edit)
     end, "default")
     linkBtn:SetPoint("LEFT", editBtn, "RIGHT", 6, 0)
+    local pinBtn = UI.CreateButton(right, L().NOTES_PIN, 100, 24, function()
+        local d = N.Data(Key())
+        if Own() and d and d.cur then W.SaveBody() N.TogglePin(d.cur) Refresh() end
+    end, "default")
+    pinBtn:SetPoint("LEFT", linkBtn, "RIGHT", 6, 0)
+    W.pinBtn = pinBtn
     local hint = UI.CreateLabel(right, L().NOTES_SHIFT_HINT, { size = 10, color = "textDim" })
-    hint:SetPoint("LEFT", linkBtn, "RIGHT", 10, 0)
+    hint:SetPoint("LEFT", pinBtn, "RIGHT", 10, 0)
     hint:SetPoint("RIGHT", right, "RIGHT", 0, 0)
     hint:SetWordWrap(true)
 
@@ -273,6 +279,10 @@ local function Build()
         btnDel:SetButtonEnabled(can and n ~= nil)
         editBtn:SetButtonEnabled(can and n ~= nil)
         linkBtn:SetButtonEnabled(can and n ~= nil)
+        local pinned = Own() and n ~= nil and N.IsPinned(n.id)
+        pinBtn:SetButtonEnabled(Own() and n ~= nil)
+        pinBtn:SetLabel(pinned and L().NOTES_UNPIN or L().NOTES_PIN)
+        pinBtn:SetStyle(pinned and "primary" or "default")
         titleBox.edit:EnableMouse(can and n ~= nil)
         if not titleBox.edit:HasFocus() then titleBox.edit:SetText(n and n.title or "") end
         if not can then view.edit = false end
@@ -304,7 +314,7 @@ local function Build()
     tf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -12, 12)
     local todoIn = Input(tf, 300, 500)
     todoIn:SetPoint("TOPLEFT", tf, "TOPLEFT", 0, 0)
-    todoIn:SetPoint("TOPRIGHT", tf, "TOPRIGHT", -232, 0)
+    todoIn:SetPoint("TOPRIGHT", tf, "TOPRIGHT", -338, 0)
     local function AddTodo()
         if not CanEdit() then return end
         if N.TodoAdd(Key(), todoIn.edit:GetText()) then todoIn.edit:SetText("") Refresh() end
@@ -314,6 +324,11 @@ local function Build()
     addBtn:SetPoint("LEFT", todoIn, "RIGHT", 6, 0)
     local tLinkBtn = UI.CreateButton(tf, L().NOTES_LINK, 110, 24, function() W.OpenPicker(todoIn.edit) end, "default")
     tLinkBtn:SetPoint("LEFT", addBtn, "RIGHT", 6, 0)
+    local tPinBtn = UI.CreateButton(tf, L().NOTES_PIN, 100, 24, function()
+        if Own() then N.TogglePin("todo") Refresh() end
+    end, "default")
+    tPinBtn:SetPoint("LEFT", tLinkBtn, "RIGHT", 6, 0)
+    W.tPinBtn = tPinBtn
 
     local tlist = UI.CreateScrollFrame(tf, 100, 100)
     tlist:SetPoint("TOPLEFT", todoIn, "BOTTOMLEFT", 0, -8)
@@ -364,6 +379,10 @@ local function Build()
         local can = CanEdit()
         addBtn:SetButtonEnabled(can)
         tLinkBtn:SetButtonEnabled(can)
+        local tpinned = Own() and N.IsPinned("todo")
+        tPinBtn:SetButtonEnabled(Own())
+        tPinBtn:SetLabel(tpinned and L().NOTES_UNPIN or L().NOTES_PIN)
+        tPinBtn:SetStyle(tpinned and "primary" or "default")
         todoIn.edit:EnableMouse(can)
         local open, done = N.TodoOpen(Key()), N.TodoDone(Key())
         local i, y = 0, 0
@@ -529,6 +548,20 @@ function N.Toggle()
 end
 
 function N.Refresh() if Refresh then Refresh() end end
+
+-- Von einem Zettel aus oeffnen: eigener Charakter, Reiter und (bei Notizen) die Notiz waehlen
+function N.Open(tab, noteId)
+    if not FW.db then return end
+    win = win or Build()
+    if win:IsShown() and W.SaveBody then W.SaveBody() end
+    view.key, view.unlock, view.edit = nil, false, false
+    view.tab = (tab == "todo") and "todo" or "notes"
+    if noteId then
+        local d = N.Data()
+        if d and N.Find(nil, noteId) then d.cur = noteId end
+    end
+    if win:IsShown() then Refresh() else win:Show() end
+end
 
 -- Shift-Klick auf Items/Rezepte: Link ins gerade aktive Notiz- oder ToDo-Feld (wie im Chat)
 if G.hooksecurefunc and G.ChatEdit_InsertLink then

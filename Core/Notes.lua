@@ -78,6 +78,15 @@ local function NextId(d)
     return d.seq
 end
 
+-- Benachrichtigung bei Aenderungen (z. B. angeheftete Zettel aktualisieren)
+local listeners = {}
+function Notes.Listen(fn) listeners[#listeners + 1] = fn end
+local function Changed(key)
+    key = key or Notes.CharKey()
+    for _, fn in ipairs(listeners) do fn(key) end
+end
+Notes.Changed = Changed
+
 local function Clean(text, max)
     text = type(text) == "string" and text or ""
     if #text > max then text = text:sub(1, max) end
@@ -112,6 +121,7 @@ function Notes.SetTitle(key, id, title)
     title = Clean(title, MAX_TITLE):gsub("^%s+", ""):gsub("%s+$", "")
     if title == "" then return false end
     n.title, n.t = title, Now()
+    Changed(key)
     return true
 end
 
@@ -119,6 +129,7 @@ function Notes.SetText(key, id, text)
     local n = Notes.Find(key, id)
     if not n then return false end
     n.text, n.t = Clean(text, MAX_TEXT), Now()
+    Changed(key)
     return true
 end
 
@@ -128,6 +139,8 @@ function Notes.Delete(key, id)
     if not (d and i) then return false end
     table.remove(d.notes, i)
     if d.cur == id then d.cur = d.notes[1] and d.notes[1].id or nil end
+    if d.pins then d.pins["n" .. tostring(id)] = nil end
+    Changed(key)
     return true
 end
 
@@ -141,6 +154,7 @@ function Notes.TodoAdd(key, text)
     if not d or text == "" or #d.todo >= MAX_TODO then return nil end
     local e = { id = NextId(d), text = text, done = false, t = Now() }
     d.todo[#d.todo + 1] = e
+    Changed(key)
     return e
 end
 
@@ -181,6 +195,7 @@ function Notes.TodoToggle(key, id)
         table.remove(d.todo, i)
         d.todo[#d.todo + 1] = e
     end
+    Changed(key)
     return true
 end
 
@@ -189,6 +204,7 @@ function Notes.TodoSetText(key, id, text)
     text = Clean(text, 500):gsub("^%s+", ""):gsub("%s+$", "")
     if not e or text == "" then return false end
     e.text = text
+    Changed(key)
     return true
 end
 
@@ -197,6 +213,7 @@ function Notes.TodoDelete(key, id)
     local _, i = TodoFind(d, id)
     if not i then return false end
     table.remove(d.todo, i)
+    Changed(key)
     return true
 end
 
@@ -213,10 +230,99 @@ function Notes.TodoMove(key, id, dir)
             local j = open[k + (dir < 0 and -1 or 1)]
             if not j then return false end
             d.todo[i], d.todo[j] = d.todo[j], d.todo[i]
+            Changed(key)
             return true
         end
     end
     return false
+end
+
+------------------------------------------------------------------------
+-- Angeheftete Zettel (Sticky Notes), nur fuer den eigenen Charakter.
+-- d.pins["n<id>"] = Notiz, d.pins.todo = ToDo-Liste. Je Zettel: Lage (x, y = Mitte relativ zur Bildschirmmitte),
+-- Groesse (w, h), Hintergrund (r, g, b), Schrift (tr, tg, tb), Deckkraft a, Schriftgroesse size, gesperrt locked.
+-- d.stickyHideCombat: alle Zettel im Kampf ausblenden (Standard aus = immer sichtbar).
+------------------------------------------------------------------------
+
+Notes.STICKY_DEFAULT = { w = 220, h = 170, r = 1, g = 0.92, b = 0.55, tr = 0.16, tg = 0.12, tb = 0.04, a = 0.95, size = 12 }
+
+local function PinKey(id)
+    if id == "todo" then return "todo" end
+    if tonumber(id) then return "n" .. tonumber(id) end
+    return nil
+end
+Notes.PinKey = PinKey
+
+local function OwnData()
+    local me = Notes.CharKey()
+    return me and Notes.Data(me) or nil
+end
+
+function Notes.GetPin(id)
+    local d, k = OwnData(), PinKey(id)
+    return d and k and d.pins and d.pins[k] or nil
+end
+
+function Notes.IsPinned(id) return Notes.GetPin(id) ~= nil end
+
+function Notes.Pin(id)
+    local d, k = OwnData(), PinKey(id)
+    if not (d and k) then return nil end
+    if id ~= "todo" and not Notes.Find(nil, tonumber(id)) then return nil end
+    d.pins = d.pins or {}
+    if not d.pins[k] then
+        local count = 0
+        for _ in pairs(d.pins) do count = count + 1 end
+        local p = {}
+        for a, v in pairs(Notes.STICKY_DEFAULT) do p[a] = v end
+        p.x, p.y = -240 + (count % 8) * 26, 160 - (count % 8) * 26
+        d.pins[k] = p
+    end
+    Changed()
+    return d.pins[k]
+end
+
+function Notes.Unpin(id)
+    local d, k = OwnData(), PinKey(id)
+    if not (d and k and d.pins and d.pins[k]) then return false end
+    d.pins[k] = nil
+    Changed()
+    return true
+end
+
+function Notes.TogglePin(id)
+    if Notes.IsPinned(id) then Notes.Unpin(id) return false end
+    return Notes.Pin(id) ~= nil
+end
+
+-- Liste der angehefteten Zettel: { pinKey, id (Zahl oder "todo"), pin }. Zettel geloeschter Notizen werden entfernt.
+function Notes.PinList()
+    local d = OwnData()
+    local out = {}
+    if not (d and d.pins) then return out end
+    for k, p in pairs(d.pins) do
+        local id = (k == "todo") and "todo" or tonumber(k:match("^n(%d+)$") or "")
+        if type(p) ~= "table" or not id or (id ~= "todo" and not Notes.Find(nil, id)) then
+            d.pins[k] = nil
+        else
+            for a, v in pairs(Notes.STICKY_DEFAULT) do if p[a] == nil then p[a] = v end end
+            out[#out + 1] = { pinKey = k, id = id, pin = p }
+        end
+    end
+    table.sort(out, function(a, b) return a.pinKey < b.pinKey end)
+    return out
+end
+
+function Notes.HideInCombat()
+    local d = OwnData()
+    return d and d.stickyHideCombat == true or false
+end
+
+function Notes.SetHideInCombat(on)
+    local d = OwnData()
+    if not d then return end
+    d.stickyHideCombat = on and true or nil
+    Changed()
 end
 
 ------------------------------------------------------------------------
