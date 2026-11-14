@@ -320,6 +320,7 @@ function FW:InitDB()
     for _, set in ipairs(sets) do
         local db = set.db
         local fresh = next(db) == nil
+        if set.kind == "char" then self.charFresh = fresh end
         local stored = tonumber(db.dbVersion)
 
         if fresh then
@@ -341,6 +342,8 @@ function FW:InitDB()
     self.db = FreewoodDB
     self.settings = FreewoodDB.settings
     self.chardb = FreewoodCharDB
+    -- Persoenliche Einstellungen gelten je Charakter (Core/Profile.lua ersetzt FW.settings durch eine Weiche)
+    if self.Profile and self.Profile.Setup then self.Profile.Setup() end
 end
 
 function FW:ApplyLocale()
