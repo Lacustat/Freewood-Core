@@ -1,5 +1,6 @@
 -- Freewood: Namen der Tastenbelegungen (Optionen > Tastaturbelegung). Die Belegungen selbst stehen in Bindings.xml.
 local de = (GetLocale and GetLocale() == "deDE")
+BINDING_CATEGORY_FREEWOOD = "Freewood"   -- eigener Bereich in Optionen > Tastaturbelegung (statt "AddOns")
 
 BINDING_HEADER_FREEWOOD_CORE = de and "Freewood" or "Freewood"
 BINDING_NAME_FREEWOOD_CORE_TOGGLE = de and "Freewood-Fenster auf/zu" or "Toggle Freewood window"
