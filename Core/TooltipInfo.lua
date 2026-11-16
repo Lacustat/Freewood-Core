@@ -234,6 +234,9 @@ end
 
 T.unitLines = T.unitLines or {}
 function T.AddUnitLine(fn) T.unitLines[#T.unitLines + 1] = fn end
+-- Zusaetzliche Zeilen unter Item-Tooltips (Haupt-Tooltip und Link-Fenster), seit 0.52.0: fn(tt, link, data)
+T.itemLines = T.itemLines or {}
+function T.AddItemLine(fn) T.itemLines[#T.itemLines + 1] = fn end
 T.Money = Tip.Money
 
 Tip.fired = { item = 0, unit = 0, object = 0, vendor = 0, quest = 0 }
@@ -244,7 +247,10 @@ local function IsMain(tt) return tt == _G.GameTooltip or tt == _G.ItemRefTooltip
 local function OnItem(tt, link, data)
     Tip.fired.item = Tip.fired.item + 1
     if not link then return end
-    if IsMain(tt) then pcall(AddVendor, tt, link, data) end
+    if IsMain(tt) then
+        pcall(AddVendor, tt, link, data)
+        for _, fn in ipairs(T.itemLines) do pcall(fn, tt, link, data) end
+    end
     if T.CompareHook then pcall(T.CompareHook, tt, link) end
 end
 
