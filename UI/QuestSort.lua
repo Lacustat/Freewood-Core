@@ -70,11 +70,22 @@ function QS.Progress(questID)
     return need > 0 and got / need or 0
 end
 
--- Entfernung (Quadrat), unbekannt = sehr gross
+-- Entfernung als geschaetzte Laufzeit in Sekunden, unbekannt = sehr gross (seit 0.52.2).
+-- 1. Freewood-Quest (FW.QuestDistance): Weg zum naechsten Zielort aus dem Codex (Sammel-Items, Gegner, Abgabe).
+--    Das Spiel kennt fuer viele Sammelquests keinen Ort (GetDistanceSqToQuest liefert nichts), dann rutschten sie
+--    bisher ans Ende.
+-- 2. Sonst das Spiel: Quadrat der Entfernung in Yards -> Sekunden zu Fuss (7 Yards je Sekunde), gleiche Einheit.
+QS.WALK_YDS = 7
 function QS.Distance(questID)
+    local fd = FW.QuestDistance
+    if type(fd) == "function" then
+        local ok, secs = pcall(fd, questID)
+        if ok and type(secs) == "number" and secs >= 0 and secs < math.huge then return secs end
+    end
     local C = G.C_QuestLog
-    local d = C and C.GetDistanceSqToQuest and C.GetDistanceSqToQuest(questID)
-    if type(d) == "number" and not Secret(d) then return d end
+    local ok, d = false, nil
+    if C and C.GetDistanceSqToQuest then ok, d = pcall(C.GetDistanceSqToQuest, questID) end
+    if ok and type(d) == "number" and not Secret(d) and d >= 0 then return math.sqrt(d) / QS.WALK_YDS end
     return math.huge
 end
 
@@ -267,7 +278,7 @@ local function HookTracker()
         local infos = orig(self, ...)
         local o = Opts()
         if not o.enabled or o.tracker == "default" or type(infos) ~= "table" then return infos end
-        if (self.numCachedBlocks or 0) > 0 and QS.lastIds then
+        if QS.settling and QS.lastIds then
             local ok, res = pcall(QS.OrderByIds, infos, QS.lastIds)
             return ok and res or infos
         end
@@ -282,10 +293,13 @@ end
 
 -- Nach Abgabe/Entfernen: erst nach der Animation sauber neu aufbauen
 local settlePending = false
+-- Waehrend der Abgabe-Animation (SETTLE Sekunden) bleibt die letzte Reihenfolge; danach neu sortieren.
+-- (Vorher hing das an numCachedBlocks; blieb der Wert stehen, wurde nie neu sortiert, 0.52.2.)
 local function Settle()
-    if settlePending or not G.C_Timer or not G.C_Timer.After then return end
+    QS.settling = true
+    if settlePending or not G.C_Timer or not G.C_Timer.After then QS.settling = false return end
     settlePending = true
-    G.C_Timer.After(SETTLE, function() settlePending = false; pcall(QS.Refresh) end)
+    G.C_Timer.After(SETTLE, function() settlePending = false; QS.settling = false; pcall(QS.Refresh) end)
 end
 QS.Settle = Settle
 FW:RegisterEvent("QUEST_TURNED_IN", function() Settle() end)
@@ -296,7 +310,7 @@ function QS.DistanceTick()
     local o = Opts()
     local t = G.QuestObjectiveTracker
     if not o.enabled or o.tracker ~= "distance" or not t or not t.BuildQuestWatchInfos then return false end
-    if (t.numCachedBlocks or 0) > 0 then return false end
+    if QS.settling then return false end
     local before = table.concat(QS.lastIds or {}, ",")
     local ok = pcall(t.BuildQuestWatchInfos, t)
     local after = table.concat(QS.lastIds or {}, ",")
@@ -304,9 +318,22 @@ function QS.DistanceTick()
     return false
 end
 
+-- Questlog (Kartenfenster) offen und nach Entfernung sortiert: regelmaessig neu ordnen (Spieler laeuft)
+function QS.LogDistanceTick()
+    local o = Opts()
+    if not o.enabled or o.log ~= "distance" then return false end
+    local sf = G.QuestScrollFrame
+    if not (sf and sf.IsVisible and sf:IsVisible()) then return false end
+    local ok = pcall(SortLog)
+    return ok
+end
+
 local function StartTicker()
     if QS.ticker or not G.C_Timer or not G.C_Timer.NewTicker then return end
-    QS.ticker = G.C_Timer.NewTicker(DIST_TICK, function() pcall(QS.DistanceTick) end)
+    QS.ticker = G.C_Timer.NewTicker(DIST_TICK, function()
+        pcall(QS.DistanceTick)
+        pcall(QS.LogDistanceTick)
+    end)
 end
 
 local function NextMode(cur, step)

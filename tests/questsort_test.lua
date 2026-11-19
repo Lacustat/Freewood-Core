@@ -104,14 +104,16 @@ menus.MENU_QUEST_MAP_FRAME_SETTINGS(nil, root)
 eq(#rows, 7, "7 Sortierungen im Menue")
 eq(type(tabs.questsort.build(Proxy())), "table", "Einstellungsabschnitt gebaut")
 
--- Abgabe: waehrend zwischengespeicherte Bloecke da sind, bleibt die letzte Reihenfolge
+-- Abgabe: waehrend der Abgabe-Animation (QS.settling) bleibt die letzte Reihenfolge
 QS.Opts().enabled = true; QS.Opts().tracker = "nameAsc"
 eq(Wid(tr.BuildQuestWatchInfos(tr)), "2,1,4", "Name A-Z (alpha, Charlie, Delta)")
-tr.numCachedBlocks = 1
+QS.settling = true
 QS.Opts().tracker = "nameDesc"   -- wuerde sonst anders sortieren
-eq(Wid(tr.BuildQuestWatchInfos(tr)), "2,1,4", "mit Zwischenspeicher: letzte Reihenfolge bleibt")
+eq(Wid(tr.BuildQuestWatchInfos(tr)), "2,1,4", "waehrend der Abgabe: letzte Reihenfolge bleibt")
+QS.settling = false
+tr.numCachedBlocks = 1           -- stehen gebliebener Zwischenspeicher darf die Sortierung nicht mehr sperren
+eq(Wid(tr.BuildQuestWatchInfos(tr)), "4,1,2", "danach neu sortiert (auch mit numCachedBlocks)")
 tr.numCachedBlocks = 0
-eq(Wid(tr.BuildQuestWatchInfos(tr)), "4,1,2", "ohne Zwischenspeicher: neu sortiert")
 eq(Wid(QS.OrderByIds({ Q(4), Q(3), Q(2) }, { 2, 4 })), "2,4,3", "OrderByIds: unbekannte hinten")
 
 -- Nach Abgabe/Entfernen: ein Neuaufbau nach 2,5 s (nur einer)
@@ -125,6 +127,9 @@ timers[#timers][2]()
 eq(dirty >= 1, true, "Neuaufbau macht den Tracker neu")
 ev.QUEST_TURNED_IN()
 eq(#timers - before, 2, "danach wieder planbar")
+eq(QS.settling, true, "waehrend der Abgabe gesperrt")
+timers[#timers][2]()
+eq(QS.settling, false, "nach 2,5 s frei")
 
 -- Entfernung: Ticker baut nur bei geaenderter Reihenfolge neu auf
 eq(#tickers, 1, "Ticker gestartet")
@@ -141,8 +146,26 @@ eq(QS.DistanceTick(), false, "gleiche Reihenfolge: kein Neuaufbau")
 data[1].dist = 10
 eq(QS.DistanceTick(), true, "geaenderte Reihenfolge: Neuaufbau")
 eq(dirty, 1, "Tracker neu angestossen")
-tr.numCachedBlocks = 1; data[4].dist = 1
-eq(QS.DistanceTick(), false, "mit Zwischenspeicher: nichts")
+QS.settling = true; data[4].dist = 1
+eq(QS.DistanceTick(), false, "waehrend der Abgabe: nichts")
+QS.settling = false
+-- Entfernung: Freewood-Quest-Schaetzung (Sekunden) geht vor, Spiel-Wert wird in Sekunden umgerechnet
+FW.QuestDistance = function(id) if id == 3 then return 5 end end
+eq(QS.Distance(3), 5, "Sammelquest: Wert aus Freewood-Quest")
+data[2].dist = 49 * 49
+eq(QS.Distance(2), 7, "Spiel: 49 Yards = 7 Sekunden")
+data[2].dist = nil
+eq(QS.Distance(2), math.huge, "nichts bekannt: ganz hinten")
+FW.QuestDistance = nil
 QS.Opts().tracker = "default"
 eq(QS.DistanceTick(), false, "andere Sortierung: nichts")
+-- Questlog offen und nach Entfernung sortiert: Ticker ordnet neu
+QS.Opts().log = "distance"
+local visible = true
+_G.QuestScrollFrame = {}
+_G.QuestScrollFrame.IsVisible = function() return visible end
+eq(QS.LogDistanceTick(), true, "Questlog offen: neu geordnet")
+visible = false
+eq(QS.LogDistanceTick(), false, "Questlog zu: nichts")
+QS.Opts().log = "default"
 print(checks .. " Pruefungen, " .. fails .. " Fehler")
