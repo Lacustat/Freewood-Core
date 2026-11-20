@@ -41,6 +41,7 @@ local function Time(t)
 end
 
 local function InfoText(name)
+    if CL.IsBN and CL.IsBN(name) then return "Battle.net" end
     local r = CL.Detail(name)
     if not r then return FW.L.POP_INFO_NONE end
     local parts = {}
@@ -186,7 +187,7 @@ local function Create(name)
         if l and b then PosDB()[name] = { l = l, b = b } end
     end)
 
-    win.title = UI.CreateLabel(win, name, { font = "heading", size = 14, color = "gold", justify = "LEFT" })
+    win.title = UI.CreateLabel(win, (CL.Display and CL.Display(name)) or name, { font = "heading", size = 14, color = "gold", justify = "LEFT" })
     win.title:SetPoint("TOPLEFT", win, "TOPLEFT", 12, -8)
     win.title:SetPoint("TOPRIGHT", win, "TOPRIGHT", -160, -8)
     win.info = UI.CreateLabel(win, "", { size = 11, color = "textDim", justify = "LEFT" })
@@ -318,6 +319,8 @@ function Pop.UpdateLocation(win)
     if not (win and win.locFs) then return end
     local L = FW.L
     local Wh = FW.Whisper
+    local CLx = FW.ChatLog
+    if CLx and CLx.IsBN and CLx.IsBN(win.name) then return end   -- Battle.net: kein Standort
     if Wh and Wh.RequestLocation then pcall(Wh.RequestLocation, win.name) end
     local zone, rec = LocationOf(win.name)
     -- Klickziel: genaue Position (Freewood-Spieler) oder wenigstens die Karte des Gebiets
@@ -404,6 +407,9 @@ local function Notify(name)
 end
 
 FW:RegisterEvent("CHAT_MSG_WHISPER", function(text, sender) Notify(sender) end)
+-- Battle.net-Fluestern (seit 0.53.0): Name "BN:<BattleTag>" kommt aus dem Chat-Protokoll
+FW:On("CHAT_BN_WHISPER", function(name) Notify(name) end)
+FW:On("CHAT_BN_WHISPER_INFORM", function(name) Notify(name) end)
 FW:RegisterEvent("CHAT_MSG_WHISPER_INFORM", function(text, target)
     if FW.Whisper and FW.Whisper.NoteTalked then FW.Whisper.NoteTalked(target) end
     Notify(target)

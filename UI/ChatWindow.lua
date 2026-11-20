@@ -266,6 +266,13 @@ end
 
 local function Now() return (G.time and G.time()) or 0 end
 
+-- Anzeigename: Battle.net-Freunde ("BN:Lujin#2467") als "Lujin", alle anderen unveraendert (seit 0.53.0)
+function W.Disp(name)
+    local CL = FW.ChatLog
+    if CL and CL.Display then return CL.Display(name) end
+    return name
+end
+
 local IsMe
 
 local function ListName(kind)
@@ -914,9 +921,9 @@ function W.ClassicParts(m, CL, L, txt)
     if kind == "whisper" then
         if m.o then
             local to = m.x or who
-            return (L.CHATWIN_WHISPER_TO or "To") .. " ", to, Lv(to) .. ": " .. txt, NameColor(to)
+            return (L.CHATWIN_WHISPER_TO or "To") .. " ", W.Disp(to), Lv(to) .. ": " .. txt, NameColor(to)
         end
-        return "", who, Lv(who) .. " " .. (L.CHATWIN_WHISPERS or "whispers") .. ": " .. txt, NameColor(who)
+        return "", W.Disp(who), Lv(who) .. " " .. (L.CHATWIN_WHISPERS or "whispers") .. ": " .. txt, NameColor(who)
     end
     local tag
     if kind == "guild" then tag = L.CHATWIN_TAB_GUILD or "Guild"
@@ -1040,7 +1047,7 @@ function W.Draw()
             elseif m.kind == "whisper" then tag = "  [" .. (L.CHAN_WHISPER or "Whisper") .. "]"
             elseif KIND_LABEL[m.kind] then tag = "  [" .. (L[KIND_LABEL[m.kind]] or m.kind) .. "]" end
             local ttl = (m.o and FW.Ach and FW.Ach.TitleTag) and FW.Ach.TitleTag() or ""
-            b.name:SetText(who .. ttl .. (tag ~= "" and (Hex(kr, kg, kb) .. tag .. "\124r") or ""))
+            b.name:SetText(W.Disp(who) .. ttl .. (tag ~= "" and (Hex(kr, kg, kb) .. tag .. "\124r") or ""))
             b.time:SetText(Stamp(m.t))
             local nameW = (b.name:GetStringWidth() or 60) + (b.time:GetStringWidth() or 40) + 40
             pw = math.floor(math.max(math.min(math.max(tw, nameW) + 22, maxBub), 110))
@@ -1241,7 +1248,7 @@ function W.RefreshInput()
     local label, kind
     local k = W.sendKind or "say"
     if W.target then
-        label = (L.CHATWIN_TO or "To") .. ": " .. W.target .. "  (x)"; kind = "whisper"
+        label = (L.CHATWIN_TO or "To") .. ": " .. W.Disp(W.target) .. "  (x)"; kind = "whisper"
     elseif k == "guild" then label = L.CHAT_GUILD; kind = "guild"
     elseif k == "group" then label = L.CHAT_GROUP; kind = "group"
     elseif k == "yell" then label = L.CHATWIN_K_YELL; kind = "yell"
@@ -2019,6 +2026,14 @@ function W.StartWhisper(name, msg)
     return true
 end
 
+-- Battle.net-Fluestern beginnen (Freundesliste: Klick auf einen Battle.net-Freund). name: Kontoname des Spiels
+function W.StartBNWhisper(name, msg)
+    local CL = FW.ChatLog
+    local bn = CL and CL.BNFromAccountName and CL.BNFromAccountName(name)
+    if not bn then return false end
+    return W.StartWhisper(bn, msg)
+end
+
 -- Name des letzten Fluesterers (fuer die Antworten-Taste)
 function W.LastTell()
     if W.lastTell then return W.lastTell end
@@ -2096,6 +2111,11 @@ function W.InstallHooks()
     for _, fname in ipairs({ "ChatFrame_ReplyTell", "ChatFrame_ReplyTell2" }) do
         if G[fname] and pcall(hs, fname, Reply) then n = n + 1 end
     end
+    -- Battle.net-Freunde (Freundesliste, Rechtsklick-Menue): eigenes Ziel "BN:<BattleTag>", seit 0.53.0
+    local function BNTell(name, msg) W.StartBNWhisper(name, msg) end
+    for _, fname in ipairs({ "ChatFrame_SendBNetTell" }) do
+        if G[fname] and pcall(hs, fname, BNTell) then n = n + 1; W.hookBN = true end
+    end
     if type(G.ChatFrameUtil) == "table" then
         local U = G.ChatFrameUtil
         for _, fname in ipairs({ "SendTell", "SendTellWithMessage" }) do
@@ -2104,6 +2124,7 @@ function W.InstallHooks()
         for _, fname in ipairs({ "ReplyTell", "ReplyTell2" }) do
             if U[fname] and pcall(hs, U, fname, Reply) then n = n + 1 end
         end
+        if U.SendBNetTell and pcall(hs, U, "SendBNetTell", BNTell) then n = n + 1; W.hookBN = true end
         if U.ActivateChat and pcall(hs, U, "ActivateChat", function(eb)
             if W.UseBlizz() then pcall(W.StyleBlizzEdit, true) end
             W.OnBlizzActivate(eb, G.IsShiftKeyDown and G.IsShiftKeyDown() or false)
@@ -2320,6 +2341,11 @@ function W.Probe()
             .. ", ChatFrame_InsertLink: " .. Has("ChatFrame_InsertLink"),
         "DEFAULT_CHAT_FRAME: " .. Has("DEFAULT_CHAT_FRAME") .. ", editBox: " .. ((dc and dc.editBox) and "ja" or "nein")
             .. ", ChatFrame1EditBox: " .. Has("ChatFrame1EditBox") .. ", SetOverrideBindingClick: " .. Has("SetOverrideBindingClick"),
+        "Battle.net: ChatFrame_SendBNetTell: " .. Has("ChatFrame_SendBNetTell") .. ", ChatFrameUtil.SendBNetTell: "
+            .. ((type(G.ChatFrameUtil) == "table" and G.ChatFrameUtil.SendBNetTell) and "ja" or "nein")
+            .. ", BNSendWhisper: " .. Has("BNSendWhisper") .. ", C_BattleNet: " .. Has("C_BattleNet")
+            .. ", BNet_GetBNetIDAccount: " .. Has("BNet_GetBNetIDAccount") .. ", BNGetNumFriends: " .. Has("BNGetNumFriends")
+            .. ", abgefangen: " .. tostring(W.hookBN == true),
         "Haken gesetzt: " .. tostring(W.hookCount or 0) .. ", Aktivierung abgefangen: " .. tostring(W.hookActivate == true)
             .. ", Haupt-Chat: " .. tostring(W.Opts().main == true),
     }

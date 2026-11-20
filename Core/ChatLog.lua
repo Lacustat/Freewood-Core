@@ -405,8 +405,8 @@ function CL.Add(key, sender, text, out)
     if not (CL.viewVisible and CL.viewKey == key) then
         CL.unread[key] = (CL.unread[key] or 0) + 1
     end
-    if sender then CL.NoteByName(sender) end
-    if sender and not out and not vol then CL.Ask(sender) end
+    if sender and not CL.IsBN(sender) then CL.NoteByName(sender) end
+    if sender and not out and not vol and not CL.IsBN(sender) then CL.Ask(sender) end
     CL.version = CL.version + 1
     local bub = FW.ChatBubbles
     if bub and bub.Push then pcall(bub.Push, key, sender, text, out) end
@@ -467,6 +467,112 @@ end
 function CL.CloseWhisper(name)
     local c = DB()
     if c and name then c.open[name] = nil; CL.version = CL.version + 1 end
+end
+
+------------------------------------------------------------------------
+-- Battle.net-Fluestern (seit 0.53.0)
+-- Ein Battle.net-Freund heisst im Chat "BN:<BattleTag>", z. B. "BN:Lujin#2467". Die BattleTag bleibt ueber Anmeldungen
+-- gleich; der Name, den das Spiel in Ereignissen liefert ("|K...|k"), wechselt bei jeder Anmeldung und taugt nicht
+-- als Schluessel. Gesendet wird ueber die Battle.net-Kennung (bnetAccountID), die je Sitzung nachgeschlagen wird.
+------------------------------------------------------------------------
+
+CL.BN_PREFIX = "BN:"
+local bnIdByTag = {}
+
+function CL.IsBN(name)
+    return type(name) == "string" and not Secret(name) and string.sub(name, 1, 3) == CL.BN_PREFIX
+end
+-- Anzeige: BattleTag ohne Nummer ("Lujin"), sonst der Name unveraendert
+function CL.Display(name)
+    if not CL.IsBN(name) then return name end
+    local tag = string.sub(name, 4)
+    return string.match(tag, "^([^#]+)") or tag
+end
+
+-- Konto-Angaben eines Freundes: Kennung, BattleTag, Kontoname (Spielform)
+local function AccountByID(id)
+    local B = G.C_BattleNet
+    if B and B.GetAccountInfoByID then
+        local ok, a = pcall(B.GetAccountInfoByID, id)
+        if ok and type(a) == "table" then return a.bnetAccountID or id, a.battleTag, a.accountName end
+    end
+    if type(G.BNGetFriendInfoByID) == "function" then
+        local ok, bid, acc, tag = pcall(G.BNGetFriendInfoByID, id)
+        if ok and bid then return bid, tag, acc end
+    end
+    return nil
+end
+local function EachFriend(fn)
+    local n = 0
+    if type(G.BNGetNumFriends) == "function" then
+        local ok, v = pcall(G.BNGetNumFriends)
+        if ok then n = tonumber(v) or 0 end
+    end
+    local B = G.C_BattleNet
+    for i = 1, n do
+        local id, tag, acc
+        if B and B.GetFriendAccountInfo then
+            local ok, a = pcall(B.GetFriendAccountInfo, i)
+            if ok and type(a) == "table" then id, tag, acc = a.bnetAccountID, a.battleTag, a.accountName end
+        end
+        if not id and type(G.BNGetFriendInfo) == "function" then
+            local ok, bid, a2, t2 = pcall(G.BNGetFriendInfo, i)
+            if ok then id, acc, tag = bid, a2, t2 end
+        end
+        if id and fn(id, tag, acc) then return end
+    end
+end
+
+-- BattleTag zu einer Kennung ("BN:Lujin#2467") oder nil
+function CL.BNNameFromID(id)
+    id = tonumber(id)
+    if not id or id <= 0 then return nil end
+    local _, tag = AccountByID(id)
+    if type(tag) ~= "string" or tag == "" or Secret(tag) then return nil end
+    bnIdByTag[tag] = id
+    return CL.BN_PREFIX .. tag
+end
+
+-- Kennung zu "BN:<BattleTag>" (zwischengespeichert, sonst Freundesliste durchsuchen)
+function CL.BNID(name)
+    if not CL.IsBN(name) then return nil end
+    local tag = string.sub(name, 4)
+    if bnIdByTag[tag] then return bnIdByTag[tag] end
+    local found
+    EachFriend(function(id, t) if t == tag then found = id return true end end)
+    if found then bnIdByTag[tag] = found end
+    return found
+end
+
+-- Name aus der Freundesliste oder einem Klick ("|K...|k" oder Kontoname) -> "BN:<BattleTag>"
+function CL.BNFromAccountName(acc)
+    if type(acc) ~= "string" or acc == "" then return nil end
+    if CL.IsBN(acc) then return acc end
+    local id
+    if type(G.BNet_GetBNetIDAccount) == "function" then
+        local ok, v = pcall(G.BNet_GetBNetIDAccount, acc)
+        if ok then id = tonumber(v) end
+    end
+    if not id then
+        EachFriend(function(fid, tag, a) if a == acc or tag == acc then id = fid return true end end)
+    end
+    return id and CL.BNNameFromID(id) or nil
+end
+
+-- Senden an "BN:<BattleTag>"; Rueckgabe true, wenn abgeschickt
+function CL.BNSend(name, text)
+    local id = CL.BNID(name)
+    if not id then
+        if FW.Print then FW:Print((FW.L and FW.L.CHAT_BN_UNKNOWN) or "Battle.net friend not found (offline or not in your list).") end
+        return false
+    end
+    local B = G.C_BattleNet
+    if type(G.BNSendWhisper) == "function" then
+        return (pcall(G.BNSendWhisper, id, text))
+    elseif B and B.SendWhisper then
+        return (pcall(B.SendWhisper, id, text))
+    end
+    return false
 end
 
 ------------------------------------------------------------------------
@@ -624,6 +730,27 @@ FW:RegisterEvent("CHAT_MSG_WHISPER_INFORM", function(text, target)
     CL.Add("w:" .. target, G.UnitName("player"), text, true)
 end)
 
+-- Battle.net-Fluestern: 13. Wert ist die Kennung des Kontos
+local function BNName(sender, bnID)
+    return CL.BNNameFromID(bnID) or (Str(sender) and CL.BNFromAccountName(sender)) or nil
+end
+FW:RegisterEvent("CHAT_MSG_BN_WHISPER", function(text, sender, _, _, _, _, _, _, _, _, _, _, bnID)
+    if not Str(text) then return end
+    local name = BNName(sender, bnID)
+    if not name then return end
+    CL.OpenWhisper(name)
+    CL.Add("w:" .. name, name, text, false)
+    FW:Fire("CHAT_BN_WHISPER", name, text)
+end)
+FW:RegisterEvent("CHAT_MSG_BN_WHISPER_INFORM", function(text, target, _, _, _, _, _, _, _, _, _, _, bnID)
+    if not Str(text) then return end
+    local name = BNName(target, bnID)
+    if not name then return end
+    CL.OpenWhisper(name)
+    CL.Add("w:" .. name, G.UnitName("player"), text, true)
+    FW:Fire("CHAT_BN_WHISPER_INFORM", name, text)
+end)
+
 FW:RegisterEvent("GUILD_ROSTER_UPDATE", function() CL.RefreshGuild() end)
 FW:RegisterEvent("WHO_LIST_UPDATE", OnWho)
 FW:RegisterEvent("PLAYER_TARGET_CHANGED", function() NoteUnit("target") end)
@@ -658,6 +785,7 @@ function CL.Send(kind, target, text)
     elseif kind == "group" then
         pcall(G.SendChatMessage, text, CL.GroupChatType())
     elseif kind == "whisper" then
+        if CL.IsBN(target) then return CL.BNSend(target, text) end
         pcall(G.SendChatMessage, text, "WHISPER", nil, target)
     end
 end

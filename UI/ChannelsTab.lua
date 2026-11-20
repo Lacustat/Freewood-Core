@@ -574,7 +574,7 @@ local function Build(content)
         local ws = CL.OpenWhispers()
         k = 1
         while k <= table.getn(ws) do
-            Put("whisper", { key = "w:" .. ws[k].name, kind = "whisper", mode = "bubble", label = ws[k].name,
+            Put("whisper", { key = "w:" .. ws[k].name, kind = "whisper", mode = "bubble", label = (CL.Display and CL.Display(ws[k].name)) or ws[k].name,
                 icon = ICON_WHISPER, closable = true, name = ws[k].name })
             k = k + 1
         end
