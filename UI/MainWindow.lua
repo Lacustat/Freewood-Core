@@ -359,6 +359,16 @@ function UI:GetActiveTab()
     return activeId
 end
 
+-- Rahmen und Beschriftung eines Reiters (fuer die Modul-Einstellungen, seit 0.54.0)
+function UI:GetTabFrame(id)
+    local tab = tabsById[id]
+    return tab and tab.frame or nil
+end
+function UI:GetTabLabel(id)
+    local tab = tabsById[id]
+    return tab and ResolveLabel(tab.def) or id
+end
+
 local function BuildOnce()
     if built then
         return

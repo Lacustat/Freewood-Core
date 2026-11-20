@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.53.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.54.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -16,6 +16,7 @@ Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert
 ### Funktionen
 - Hauptfenster mit Reitern: jedes Modul bringt seinen eigenen Reiter mit; fehlt ein Modul, fehlt nur sein Reiter.
 - Einstellungen: Fenstergröße (50 bis 150 %) und die Optionen der einzelnen Module an einer Stelle.
+- Einstellungen im Modul (seit 0.54.0): Meldet ein Modul seinen Einstellungsbereich mit `module = "<Reiter-ID>"` an, steht er nicht mehr im Reiter „Einstellungen“, sondern hinter dem Knopf „Einstellungen“ oben rechts im Modul-Reiter (Klick öffnet, „< Zurück“ oder erneuter Klick schließt, Reiterwechsel auch). Unter Einstellungen > Module führen Knöpfe direkt dorthin. Als Erstes nutzt das Beute-Modul (Loot 0.2.0) das, die anderen folgen. Funktionen: `UI:ShowModuleSettings(id)`, `UI:HideModuleSettings(back)`, `UI:HasModuleSettings(id)`, `UI:ModuleSettingsTabs()`. Test `tests/modset_test.lua`. Im Spiel ungeprüft (Lage des Knopfs, auch im Design „Legion der Affen“).
 - Austausch: Datenarten (zum Beispiel Wildtiere) als Text-Code exportieren und bei einem anderen Spieler importieren. Der Code ist komprimiert, nicht verschlüsselt.
 - Beobachten-Fenster (`/fwwatch`): eigene Merkliste für Rezepte mit Materialien und Taschenbestand; andere Module (zum Beispiel Guild, später Auction) legen Rezepte hinein.
 - Statistik-Reiter (0.10.0): Unterreiter „Charakter“ und „Account“ (Charakterliste links, Summe aller Charaktere). Einklappbare Kategorien: Überblick, Werte, Kampf, Erfahrung, Gold (nach Quelle), Beute, Reisen (zu Fuß, Reittier, Schwimmen, Flug), Soziales, Tode. Knopf „Wegenetz anzeigen“ blendet die Karte der gelaufenen Wege (Codex) ein. Alle Daten werden nur lokal gezählt; Fehlendes füllt sich mit dem Spielen.
@@ -52,6 +53,7 @@ The base addon of the Freewood family for World of Warcraft: Forever. It provide
 ### Features
 - Main window with tabs: every module adds its own tab; a missing module only removes its tab.
 - Settings: window size (50 to 150 %) and the options of all modules in one place.
+- Settings in the module (since 0.54.0): if a module registers its settings section with `module = "<tab id>"`, it is no longer in the "Settings" tab but behind the "Settings" button at the top right of the module tab (click opens, "< Back" or another click closes, so does switching tabs). Under Settings > Modules, buttons lead straight there. The Loot module (Loot 0.2.0) uses it first, the others follow. Functions: `UI:ShowModuleSettings(id)`, `UI:HideModuleSettings(back)`, `UI:HasModuleSettings(id)`, `UI:ModuleSettingsTabs()`. Test `tests/modset_test.lua`. Not verified in game (position of the button, also with the design "Legion der Affen").
 - Exchange: export data kinds (for example wild beasts) as a text code and import them on another player's game. The code is compressed, not encrypted.
 - Watch window (`/fwwatch`): its own list for recipes with materials and live bag counts; other modules (for example Guild, later Auction) put recipes into it.
 - Statistics tab (0.10.0): sub-tabs "Character" and "Account" (character list on the left, sum of all characters). Collapsible categories: overview, values, combat, experience, gold (by source), loot, travel (foot, mount, swimming, flight), social, deaths. A "Show path network" button toggles the map of walked paths (Codex). Everything is counted locally; gaps fill as you play.

@@ -250,6 +250,8 @@ end
 
 -- Module koennen eigene Abschnitte in den Einstellungen anmelden:
 --   UI:RegisterSettingsSection(id, { order = 100, height = 260, build = function(parent) return frame end, refresh = function(frame) end })
+-- def.module (seit 0.54.0, optional) = Reiter-ID eines Moduls: der Abschnitt steht dann NICHT im Reiter Einstellungen, sondern
+-- hinter dem Zahnrad oben rechts im Modul-Reiter (UI:ShowModuleSettings). Im Reiter Einstellungen > Module stehen Knoepfe dorthin.
 -- def.category (optional) ordnet den Abschnitt einem Unter-Reiter zu: "general" (Standard, mit den allgemeinen Einstellungen
 -- links), "database", "tooltips", "quest" oder "modules". Reiter ohne Abschnitte werden nicht gezeigt.
 -- Die Abschnitte stehen in Spalten (allgemein: zwei Spalten rechts neben den allgemeinen Einstellungen). Die Hoehe eines Abschnitts
@@ -271,8 +273,10 @@ end
 local function CountCats()
     local counts = {}
     for _, def in ipairs(settingsSections) do
-        local c = CatOf(def)
-        counts[c] = (counts[c] or 0) + 1
+        if not def.module then
+            local c = CatOf(def)
+            counts[c] = (counts[c] or 0) + 1
+        end
     end
     return counts
 end
@@ -353,7 +357,9 @@ local function DoLayout()
     settingsLeft:SetWidth(leftW)
     for _, def in ipairs(settingsSections) do
         local frame = def.frame
-        if CatOf(def) ~= cat then
+        if def.module then
+            -- gehoert in die Modul-Einstellungen: hier nicht anfassen
+        elseif CatOf(def) ~= cat then
             if frame then frame:Hide() end
         else
             local best = 1                                   -- jeweils in die kuerzeste Spalte
@@ -436,14 +442,17 @@ local function SelectCategory(cat)
     LayoutSections()
 end
 
-local function BuildSection(def)
-    if def.frame or not settingsBody then
+local ModuleLayout
+local moduleView      -- { frame, scroll, body, title, tab }
+local function BuildSection(def, parent)
+    parent = parent or settingsBody
+    if def.frame or not parent then
         return
     end
-    local ok, frame = pcall(def.build, settingsBody)
+    local ok, frame = pcall(def.build, parent)
     if ok and frame then
         def.frame = frame
-        frame.onFlow = LayoutSections
+        frame.onFlow = def.module and function() if ModuleLayout then ModuleLayout() end end or LayoutSections
         if def.refresh then
             pcall(def.refresh, frame)
         end
@@ -457,8 +466,226 @@ function UI:RegisterSettingsSection(id, def)
     table.sort(settingsSections, function(a, b)
         return a.order < b.order
     end)
-    BuildSection(def)
+    if def.module then
+        if moduleView and moduleView.tab == def.module and moduleView.frame:IsShown() then
+            BuildSection(def, moduleView.body)
+            ModuleLayout()
+        end
+        FW:Fire("UI_MODULE_SETTINGS", def.module)
+    else
+        BuildSection(def)
+    end
     LayoutSections()
+end
+
+------------------------------------------------------------------------
+-- Modul-Einstellungen (seit 0.54.0): Zahnrad oben rechts im Modul-Reiter
+------------------------------------------------------------------------
+
+function UI:ModuleSections(tabId)
+    local list = {}
+    for _, def in ipairs(settingsSections) do
+        if def.module == tabId then list[#list + 1] = def end
+    end
+    return list
+end
+function UI:HasModuleSettings(tabId)
+    return tabId ~= nil and #UI:ModuleSections(tabId) > 0
+end
+-- Reiter mit eigenen Einstellungen: { { id, label } } in der Reihenfolge der Reiter
+function UI:ModuleSettingsTabs()
+    local seen, list = {}, {}
+    for _, def in ipairs(settingsSections) do
+        if def.module then seen[def.module] = true end
+    end
+    for _, t in ipairs(UI.GetTabList and UI:GetTabList() or {}) do
+        if seen[t.id] then list[#list + 1] = { id = t.id, label = t.label } seen[t.id] = nil end
+    end
+    for id in pairs(seen) do list[#list + 1] = { id = id, label = UI.GetTabLabel and UI:GetTabLabel(id) or id } end
+    return list
+end
+
+local MOD_COL_W, MOD_GAP = 420, 36
+ModuleLayout = function()
+    local v = moduleView
+    if not v or not v.tab then return end
+    local W = v.body:GetWidth() or 0
+    if W < 200 then W = 1000 end
+    local ncol = FW.Util.Clamp(math.floor((W + MOD_GAP) / (MOD_COL_W + MOD_GAP)), 1, 3)
+    local colW = math.max(200, math.floor((W - (ncol - 1) * MOD_GAP) / ncol))
+    local ypos = {}
+    for i = 1, ncol do ypos[i] = 0 end
+    for _, def in ipairs(settingsSections) do
+        local frame = def.frame
+        if def.module and frame then
+            if def.module ~= v.tab then
+                frame:Hide()
+            else
+                local best = 1
+                for i = 2, ncol do if ypos[i] > ypos[best] then best = i end end
+                local h = frame.flowH or def.height or 260
+                frame:Show()
+                frame:ClearAllPoints()
+                frame:SetPoint("TOPLEFT", v.body, "TOPLEFT", (best - 1) * (colW + MOD_GAP), ypos[best])
+                local wChanged = frame.laidW ~= colW
+                frame.laidW = colW
+                frame:SetWidth(colW)
+                frame:SetHeight(h)
+                if wChanged and frame.stack and frame.stack.Layout then pcall(frame.stack.Layout, frame.stack) end
+                ypos[best] = ypos[best] - h - 10
+            end
+        end
+    end
+    local h = 20
+    for i = 1, ncol do h = math.max(h, -ypos[i] + 20) end
+    v.body:SetHeight(h)
+    v.scroll:SetContentHeight(h)
+end
+UI.ModuleLayout = function() ModuleLayout() end
+
+local function BuildModuleView()
+    if moduleView then return moduleView end
+    local content = UI.window and UI.window.Content
+    if not content then return nil end
+    local L = FW.L
+    local f = CreateFrame("Frame", nil, content)
+    f:SetAllPoints(content)
+    f:SetFrameLevel((content:GetFrameLevel() or 1) + 20)
+    f:EnableMouse(true)
+    f:Hide()
+    local back = UI.CreateButton(f, L.MODSET_BACK or "Back", 110, 26, function() UI:HideModuleSettings(true) end)
+    back:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+    local title = UI.CreateLabel(f, "", { font = "heading", size = 16, color = "goldLight" })
+    title:SetPoint("LEFT", back, "RIGHT", 14, 0)
+    local divider = UI.CreateDivider(f)
+    divider:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -34)
+    divider:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, -34)
+    local scroll = UI.CreateScrollFrame(f)
+    scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -46)
+    scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
+    local body = scroll.child
+    body:SetScript("OnSizeChanged", function(self)
+        local w = self:GetWidth()
+        if type(w) == "number" and w > 0 then ModuleLayout() end
+    end)
+    moduleView = { frame = f, scroll = scroll, body = body, title = title, back = back }
+    UI.moduleView = moduleView
+    return moduleView
+end
+
+function UI:IsModuleSettingsShown(tabId)
+    return moduleView ~= nil and moduleView.frame:IsShown() and (tabId == nil or moduleView.tab == tabId)
+end
+
+function UI:ShowModuleSettings(tabId)
+    if not UI:HasModuleSettings(tabId) then return false end
+    if UI.GetActiveTab and UI:GetActiveTab() ~= tabId then UI:SelectTab(tabId) end
+    local v = BuildModuleView()
+    if not v then return false end
+    v.tab = tabId
+    v.title:SetText(string.format(FW.L.MODSET_TITLE or "%s: settings", tostring(UI.GetTabLabel and UI:GetTabLabel(tabId) or tabId)))
+    for _, def in ipairs(UI:ModuleSections(tabId)) do
+        BuildSection(def, v.body)
+        if def.frame and def.refresh then pcall(def.refresh, def.frame) end
+    end
+    local tf = UI.GetTabFrame and UI:GetTabFrame(tabId)
+    if tf then tf:Hide() end
+    v.frame:Show()
+    ModuleLayout()
+    FW:Fire("UI_MODULE_SETTINGS_SHOWN", tabId)
+    return true
+end
+
+-- back = true: den Modul-Reiter wieder zeigen (Zurueck-Knopf / Zahnrad)
+function UI:HideModuleSettings(back)
+    if not moduleView or not moduleView.frame:IsShown() then return end
+    local tabId = moduleView.tab
+    moduleView.frame:Hide()
+    if back and tabId and UI.GetActiveTab and UI:GetActiveTab() == tabId then UI:SelectTab(tabId) end
+    FW:Fire("UI_MODULE_SETTINGS_SHOWN", nil)
+end
+
+-- Zahnrad: oben rechts ueber dem Inhalt, nur bei Reitern mit eigenen Einstellungen
+local gear
+local function UpdateGear()
+    if not gear then return end
+    local id = UI.GetActiveTab and UI:GetActiveTab()
+    if UI:HasModuleSettings(id) then
+        gear:Show()
+        gear:SetStyle(UI:IsModuleSettingsShown(id) and "primary" or "default")
+    else
+        gear:Hide()
+    end
+end
+UI.UpdateModuleGear = UpdateGear
+local function BuildGear()
+    local content = UI.window and UI.window.Content
+    if gear or not content then return end
+    gear = UI.CreateButton(UI.window, "      " .. (FW.L.MODSET_BUTTON or "Settings"), 120, 22, function()
+        local id = UI:GetActiveTab()
+        if UI:IsModuleSettingsShown(id) then UI:HideModuleSettings(true) else UI:ShowModuleSettings(id) end
+    end)
+    gear:SetPoint("BOTTOMRIGHT", content, "TOPRIGHT", 0, -2)
+    gear:SetFrameLevel((content:GetFrameLevel() or 1) + 30)
+    local icon = gear:CreateTexture(nil, "OVERLAY")
+    icon:SetTexture("Interface\\Buttons\\UI-OptionsButton")
+    icon:SetSize(14, 14)
+    icon:SetPoint("LEFT", gear, "LEFT", 8, 0)
+    gear.icon = icon
+    UI.AttachTooltip(gear, function() return FW.L.MODSET_BUTTON or "Settings" end, function() return FW.L.MODSET_TIP or "" end)
+    UI.moduleGear = gear
+    gear:Hide()
+end
+BuildGear()
+FW:On("UI_TAB_SELECTED", function(id)
+    -- jeder Reiterwechsel (auch erneutes Waehlen desselben Reiters) zeigt wieder den Reiter selbst
+    if moduleView and moduleView.frame:IsShown() then moduleView.frame:Hide() end
+    UpdateGear()
+end)
+FW:On("UI_MODULE_SETTINGS", function() UpdateGear() end)
+FW:On("UI_MODULE_SETTINGS_SHOWN", function() UpdateGear() end)
+
+-- Reiter Einstellungen > Module: Knoepfe zu den Einstellungen in den Modulen
+local function BuildModuleLinks(parent)
+    local L = FW.L
+    local f, stack = UI.CreateSection(parent, L.MODSET_LINKS_HEADER or "Settings in the modules")
+    stack:Add(UI.CreateLabel(f, L.MODSET_LINKS_NOTE or "", { size = 11, color = "textDim", justifyV = "TOP" }), { fit = true, gap = 8 })
+    local holder = CreateFrame("Frame", nil, f)
+    holder:SetHeight(30)
+    stack:Add(holder, { height = 30, gap = 4, stretch = true })
+    f.buttons = {}
+    function f.Fill()
+        local list = UI:ModuleSettingsTabs()
+        local x, y, w = 0, 0, holder:GetWidth() or 400
+        if w < 100 then w = 400 end
+        for i, t in ipairs(list) do
+            local b = f.buttons[i]
+            if not b then
+                b = UI.CreateButton(holder, "", 120, 26, function(self) if self.tab then UI:ShowModuleSettings(self.tab) end end)
+                f.buttons[i] = b
+            end
+            b.tab = t.id
+            b:SetLabel(t.label)
+            local bw = math.max(90, math.ceil((b.label and b.label:GetStringWidth() or 60) + 24))
+            b:SetWidth(bw)
+            if x > 0 and x + bw > w then x, y = 0, y - 30 end
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", holder, "TOPLEFT", x, y)
+            b:Show()
+            x = x + bw + 6
+        end
+        for i = #list + 1, #f.buttons do f.buttons[i]:Hide() end
+        local h = (#list == 0) and 20 or (-y + 30)
+        if f.holderH ~= h then
+            f.holderH = h
+            for _, it in ipairs(stack.items) do if it.w == holder then it.height = h end end
+            stack:Layout()
+        end
+    end
+    stack:Layout()
+    f.Fill()
+    UI.moduleLinks = f
+    return f
 end
 
 local function BuildSettings(content)
@@ -599,7 +826,7 @@ local function BuildSettings(content)
         RefreshScale()
         RefreshLang()
         for _, def in ipairs(settingsSections) do
-            if def.frame and def.refresh then
+            if def.frame and def.refresh and not def.module then
                 pcall(def.refresh, def.frame)
             end
         end
@@ -624,7 +851,7 @@ local function BuildSettings(content)
         end
     end)
     for _, def in ipairs(settingsSections) do
-        BuildSection(def)
+        if not def.module then BuildSection(def) end
     end
     stack:Layout()
     LayoutSections()
@@ -632,6 +859,14 @@ local function BuildSettings(content)
     f.Refresh()
     return f
 end
+
+UI:RegisterSettingsSection("module-links", {
+    category = "modules",
+    order = 1,
+    height = 120,
+    build = BuildModuleLinks,
+    refresh = function(frame) frame.Fill() end,
+})
 
 ------------------------------------------------------------------------
 -- Anmelden
