@@ -699,6 +699,7 @@ S.Swatch = Swatch   -- Farbfeld, auch vom Chatfenster fuer die Blasenfarben genu
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-style", {
+        module = "channels",       -- Einstellungen im Modul (Core 0.54.0)
         category = "chat",
         order = 20,
         height = 630,
@@ -769,6 +770,7 @@ if UI.RegisterSettingsSection then
     })
 
     UI:RegisterSettingsSection("chat-style-colors", {
+        module = "channels",       -- Einstellungen im Modul (Core 0.54.0)
         category = "chat",
         order = 30,
         height = 440,

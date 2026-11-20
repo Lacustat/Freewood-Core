@@ -15,6 +15,8 @@ function M.GetScript(f, k) return f.scripts and f.scripts[k] end
 function M.GetFrameLevel() return 3 end
 function M.SetPoint(f, ...) f.points = f.points or {} f.points[#f.points + 1] = { ... } end
 function M.ClearAllPoints(f) f.points = {} end
+function M.SetParent(f, p) f.parent = p end
+function M.GetParent(f) return f.parent end
 function M.CreateTexture() return setmetatable({}, M) end
 function M.CreateFontString() return setmetatable({}, M) end
 function M.SetText(f, t) f.text = t end
@@ -37,6 +39,8 @@ function UI:RegisterTab(id, def) tabs[id] = def end
 function UI:GetActiveTab() return active end
 function UI:SelectTab(id) active = id selected[#selected + 1] = id if tabFrames[id] then tabFrames[id]:Show() end FW:Fire("UI_TAB_SELECTED", id) end
 function UI:GetTabFrame(id) return tabFrames[id] end
+local known = { overview = true, loot = true, settings = true }
+function UI:HasTab(id) return known[id] == true end
 function UI:GetTabLabel(id) return id == "loot" and "Beute" or id end
 function UI:GetTabList() return { { id = "overview", label = "Übersicht" }, { id = "loot", label = "Beute" }, { id = "settings", label = "Einstellungen" } } end
 UI.window = setmetatable({ Content = setmetatable({}, M) }, M)
@@ -139,4 +143,16 @@ assert(lf.buttons[1] and lf.buttons[1].shown and lf.buttons[1].label.text == "Be
 UI:SelectTab("settings")
 lf.buttons[1].onClick(lf.buttons[1])
 assert(active == "loot" and v.frame.shown, "Knopf oeffnet die Modul-Einstellungen")
+-- Rueckfall: Modul ohne Reiter (z. B. Quest-Sortierung ohne Quest-Modul) bleibt im Reiter Einstellungen
+local qbuilt
+UI:RegisterSettingsSection("questsort", { module = "quest", category = "quest", build = function(p) qbuilt = p return UI.CreateSection(p, "Q") end })
+assert(not UI:HasModuleSettings("quest"), "ohne Reiter: keine Modul-Einstellungen")
+assert(UI.SettingsModuleOf({ module = "quest" }) == nil and UI.SettingsModuleOf({ module = "loot" }) == "loot")
+assert(qbuilt ~= nil and qbuilt ~= v.body, "im Reiter Einstellungen gebaut")
+known.quest = true
+assert(UI:HasModuleSettings("quest"), "Reiter da: im Modul")
+UI:ShowModuleSettings("quest")
+local qdef
+for _, d in ipairs(UI:ModuleSections("quest")) do qdef = d end
+assert(qdef.frame.parent == v.body, "umgehaengt")
 print("modset_test: ok")

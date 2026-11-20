@@ -2443,6 +2443,7 @@ end
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-window", {
+        module = "channels",       -- Einstellungen im Modul (Core 0.54.0)
         category = "chat",
         order = 5,
         height = 830,
@@ -2530,6 +2531,7 @@ if FW.AddLocale and UI.RegisterSettingsSection then
         BUBBLECOL_RESET = "Farben zurücksetzen", BUBBLECOL_own = "Meine Nachrichten", BUBBLECOL_say = "Sagen", BUBBLECOL_yell = "Rufen", BUBBLECOL_emote = "Emote",
         BUBBLECOL_guild = "Gilde", BUBBLECOL_group = "Gruppe / Schlachtzug", BUBBLECOL_whisper = "Flüstern", BUBBLECOL_channel = "Kanäle" })
     UI:RegisterSettingsSection("chat-bubble-colors", {
+        module = "channels",       -- Einstellungen im Modul (Core 0.54.0)
         category = "chat",
         order = 5.5,
         height = 330,

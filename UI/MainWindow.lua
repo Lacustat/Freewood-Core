@@ -364,6 +364,9 @@ function UI:GetTabFrame(id)
     local tab = tabsById[id]
     return tab and tab.frame or nil
 end
+function UI:HasTab(id)
+    return id ~= nil and tabsById[id] ~= nil
+end
 function UI:GetTabLabel(id)
     local tab = tabsById[id]
     return tab and ResolveLabel(tab.def) or id

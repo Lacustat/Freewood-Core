@@ -267,13 +267,21 @@ local CAT_LABEL = {
     general = "SETTINGS_CAT_GENERAL", database = "SETTINGS_CAT_DATABASE", tooltips = "SETTINGS_CAT_TOOLTIPS", interface = "SETTINGS_CAT_INTERFACE", design = "SETTINGS_CAT_DESIGN", animation = "SETTINGS_CAT_ANIMATION", chat = "SETTINGS_CAT_CHAT",
     quest = "SETTINGS_CAT_QUEST", profiles = "SETTINGS_CAT_PROFILES", modules = "SETTINGS_CAT_MODULES",
 }
+-- Modul eines Abschnitts, aber nur wenn es den Reiter gibt (sonst bleibt der Abschnitt im Reiter Einstellungen,
+-- z. B. Quest-Sortierung ohne geladenes Quest-Modul)
+local function ModOf(def)
+    local m = def.module
+    if m and UI.HasTab and UI:HasTab(m) then return m end
+    return nil
+end
+UI.SettingsModuleOf = ModOf
 local function CatOf(def)
     return CAT_LABEL[def.category] and def.category or "general"
 end
 local function CountCats()
     local counts = {}
     for _, def in ipairs(settingsSections) do
-        if not def.module then
+        if not ModOf(def) then
             local c = CatOf(def)
             counts[c] = (counts[c] or 0) + 1
         end
@@ -357,7 +365,7 @@ local function DoLayout()
     settingsLeft:SetWidth(leftW)
     for _, def in ipairs(settingsSections) do
         local frame = def.frame
-        if def.module then
+        if ModOf(def) then
             -- gehoert in die Modul-Einstellungen: hier nicht anfassen
         elseif CatOf(def) ~= cat then
             if frame then frame:Hide() end
@@ -452,7 +460,13 @@ local function BuildSection(def, parent)
     local ok, frame = pcall(def.build, parent)
     if ok and frame then
         def.frame = frame
-        frame.onFlow = def.module and function() if ModuleLayout then ModuleLayout() end end or LayoutSections
+        frame.onFlow = function()
+            if ModOf(def) then
+                if ModuleLayout then ModuleLayout() end
+            else
+                LayoutSections()
+            end
+        end
         if def.refresh then
             pcall(def.refresh, frame)
         end
@@ -466,7 +480,7 @@ function UI:RegisterSettingsSection(id, def)
     table.sort(settingsSections, function(a, b)
         return a.order < b.order
     end)
-    if def.module then
+    if ModOf(def) then
         if moduleView and moduleView.tab == def.module and moduleView.frame:IsShown() then
             BuildSection(def, moduleView.body)
             ModuleLayout()
@@ -485,7 +499,7 @@ end
 function UI:ModuleSections(tabId)
     local list = {}
     for _, def in ipairs(settingsSections) do
-        if def.module == tabId then list[#list + 1] = def end
+        if ModOf(def) == tabId then list[#list + 1] = def end
     end
     return list
 end
@@ -496,7 +510,8 @@ end
 function UI:ModuleSettingsTabs()
     local seen, list = {}, {}
     for _, def in ipairs(settingsSections) do
-        if def.module then seen[def.module] = true end
+        local m = ModOf(def)
+        if m then seen[m] = true end
     end
     for _, t in ipairs(UI.GetTabList and UI:GetTabList() or {}) do
         if seen[t.id] then list[#list + 1] = { id = t.id, label = t.label } seen[t.id] = nil end
@@ -517,8 +532,8 @@ ModuleLayout = function()
     for i = 1, ncol do ypos[i] = 0 end
     for _, def in ipairs(settingsSections) do
         local frame = def.frame
-        if def.module and frame then
-            if def.module ~= v.tab then
+        if frame and ModOf(def) then
+            if ModOf(def) ~= v.tab then
                 frame:Hide()
             else
                 local best = 1
@@ -586,6 +601,8 @@ function UI:ShowModuleSettings(tabId)
     v.title:SetText(string.format(FW.L.MODSET_TITLE or "%s: settings", tostring(UI.GetTabLabel and UI:GetTabLabel(tabId) or tabId)))
     for _, def in ipairs(UI:ModuleSections(tabId)) do
         BuildSection(def, v.body)
+        -- frueher im Reiter Einstellungen gebaut (Reiter kam spaeter dazu): umhaengen
+        if def.frame and def.frame.GetParent and def.frame:GetParent() ~= v.body and def.frame.SetParent then def.frame:SetParent(v.body) end
         if def.frame and def.refresh then pcall(def.refresh, def.frame) end
     end
     local tf = UI.GetTabFrame and UI:GetTabFrame(tabId)
@@ -829,7 +846,7 @@ local function BuildSettings(content)
         RefreshScale()
         RefreshLang()
         for _, def in ipairs(settingsSections) do
-            if def.frame and def.refresh and not def.module then
+            if def.frame and def.refresh and not ModOf(def) then
                 pcall(def.refresh, def.frame)
             end
         end
@@ -854,7 +871,7 @@ local function BuildSettings(content)
         end
     end)
     for _, def in ipairs(settingsSections) do
-        if not def.module then BuildSection(def) end
+        if not ModOf(def) then BuildSection(def) end
     end
     stack:Layout()
     LayoutSections()

@@ -464,6 +464,7 @@ end)
 ------------------------------------------------------------------------
 if UI and UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("questsort", {
+        module = "quest",       -- Einstellungen im Modul (Core 0.54.0)
         category = "quest",
         order = 120,
         height = 230,

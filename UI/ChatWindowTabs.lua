@@ -277,6 +277,7 @@ FW:RegisterEvent("UPDATE_CHAT_WINDOWS", function() pcall(W.HookCombat) end)
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-window-tabs", {
+        module = "channels",       -- Einstellungen im Modul (Core 0.54.0)
         category = "chat",
         order = 6,
         height = 300,
@@ -324,6 +325,7 @@ if UI.RegisterSettingsSection then
     })
 
     UI:RegisterSettingsSection("chat-window-styles", {
+        module = "channels",       -- Einstellungen im Modul (Core 0.54.0)
         category = "chat",
         order = 7,
         height = 520,

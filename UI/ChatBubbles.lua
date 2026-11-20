@@ -328,6 +328,7 @@ FW:RegisterEvent("CHAT_MSG_TEXT_EMOTE", function(text, sender) B.OnChat("emote",
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("chat-bubbles", {
+        module = "channels",       -- Einstellungen im Modul (Core 0.54.0)
         category = "chat",
         order = 10,
         height = 440,

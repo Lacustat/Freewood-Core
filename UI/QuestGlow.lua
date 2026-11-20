@@ -79,6 +79,7 @@ end)
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("quest-glow", {
+        module = "quest",       -- Einstellungen im Modul (Core 0.54.0)
         category = "quest",
         order = 110,
         height = 190,
