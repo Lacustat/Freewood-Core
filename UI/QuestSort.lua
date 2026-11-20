@@ -61,10 +61,16 @@ function QS.Progress(questID)
     local objs = C.GetQuestObjectives and C.GetQuestObjectives(questID)
     local got, need = 0, 0
     for _, o in ipairs(objs or {}) do
-        local req = o.numRequired
+        local req, have = o.numRequired, o.numFulfilled
+        -- Manche Ziele liefern keine Zahlen, nur Text wie "Wolfsfleisch: 3/8" (seit 0.53.1)
+        if (type(req) ~= "number" or req <= 0) and type(o.text) == "string" and not Secret(o.text) then
+            local a, b = string.match(o.text, "(%d+)%s*/%s*(%d+)")
+            if a and b then have, req = tonumber(a), tonumber(b) end
+        end
         if type(req) == "number" and req > 0 then
+            if o.finished and (type(have) ~= "number" or have < req) then have = req end
             need = need + req
-            got = got + math.min(o.numFulfilled or 0, req)
+            got = got + math.min(tonumber(have) or 0, req)
         end
     end
     return need > 0 and got / need or 0
@@ -305,11 +311,12 @@ QS.Settle = Settle
 FW:RegisterEvent("QUEST_TURNED_IN", function() Settle() end)
 FW:RegisterEvent("QUEST_REMOVED", function() Settle() end)
 
--- Entfernung aendert sich beim Laufen: Reihenfolge regelmaessig pruefen, nur bei Aenderung neu aufbauen
-function QS.DistanceTick()
+-- Questverfolgung: Reihenfolge neu berechnen und nur bei Aenderung neu aufbauen lassen (seit 0.53.1 fuer jede
+-- Sortierung, nicht nur Entfernung). Rueckgabe true, wenn neu aufgebaut wird.
+function QS.CheckTracker()
     local o = Opts()
     local t = G.QuestObjectiveTracker
-    if not o.enabled or o.tracker ~= "distance" or not t or not t.BuildQuestWatchInfos then return false end
+    if not o.enabled or o.tracker == "default" or not t or not t.BuildQuestWatchInfos then return false end
     if QS.settling then return false end
     local before = table.concat(QS.lastIds or {}, ",")
     local ok = pcall(t.BuildQuestWatchInfos, t)
@@ -317,15 +324,51 @@ function QS.DistanceTick()
     if ok and before ~= after and t.MarkDirty then pcall(t.MarkDirty, t); return true end
     return false
 end
+-- Entfernung aendert sich beim Laufen: regelmaessig pruefen
+function QS.DistanceTick()
+    if Opts().tracker ~= "distance" then return false end
+    return QS.CheckTracker()
+end
 
--- Questlog (Kartenfenster) offen und nach Entfernung sortiert: regelmaessig neu ordnen (Spieler laeuft)
-function QS.LogDistanceTick()
+-- Questlog (Kartenfenster) offen: neu ordnen (jede Sortierung; Entfernung zusaetzlich regelmaessig)
+function QS.CheckLog()
     local o = Opts()
-    if not o.enabled or o.log ~= "distance" then return false end
+    if not o.enabled or o.log == "default" then return false end
     local sf = G.QuestScrollFrame
     if not (sf and sf.IsVisible and sf:IsVisible()) then return false end
     local ok = pcall(SortLog)
     return ok
+end
+function QS.LogDistanceTick()
+    if Opts().log ~= "distance" then return false end
+    return QS.CheckLog()
+end
+
+-- Jede Quest-Aenderung (annehmen, Fortschritt, Ziel erfuellt, abgeben, abbrechen, beobachten, Gebietswechsel,
+-- Taschen fuer Sammelziele): kurz gebuendelt neu pruefen. Blizzard baut die Listen meist selbst neu auf; das hier
+-- faengt die Faelle ab, in denen das nicht passiert (seit 0.53.1).
+QS.CHANGE_EVENTS = { "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_WATCH_LIST_CHANGED", "QUEST_WATCH_UPDATE",
+    "UNIT_QUEST_LOG_CHANGED", "QUEST_POI_UPDATE", "QUEST_COMPLETE", "BAG_UPDATE_DELAYED", "ZONE_CHANGED_NEW_AREA",
+    "PLAYER_LEVEL_UP" }
+QS.CHANGE_DELAY = 0.3
+local changePending = false
+function QS.OnQuestChange()
+    if changePending then return end
+    local o = Opts()
+    if not o.enabled or (o.tracker == "default" and o.log == "default") then return end
+    changePending = true
+    local function Run()
+        changePending = false
+        pcall(QS.CheckTracker)
+        pcall(QS.CheckLog)
+    end
+    if G.C_Timer and G.C_Timer.After then G.C_Timer.After(QS.CHANGE_DELAY, Run) else Run() end
+end
+for _, e in ipairs(QS.CHANGE_EVENTS) do
+    FW:RegisterEvent(e, function(unit)
+        if e == "UNIT_QUEST_LOG_CHANGED" and unit ~= "player" then return end
+        QS.OnQuestChange()
+    end)
 end
 
 local function StartTicker()

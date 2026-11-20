@@ -168,4 +168,54 @@ eq(QS.LogDistanceTick(), true, "Questlog offen: neu geordnet")
 visible = false
 eq(QS.LogDistanceTick(), false, "Questlog zu: nichts")
 QS.Opts().log = "default"
+-- 0.53.1: auf jede Quest-Aenderung reagieren
+for _, e in ipairs(QS.CHANGE_EVENTS) do eq(type(ev[e]), "function", e .. " registriert") end
+-- Fortschritt aus dem Text, wenn das Spiel keine Zahlen liefert
+local oldObj = _G.C_QuestLog.GetQuestObjectives
+_G.C_QuestLog.GetQuestObjectives = function(id)
+    if id == 3 then return { { text = "Wolfsfleisch: 3/6" }, { text = "Rede mit Ogg'marr", finished = false } } end
+    return oldObj(id)
+end
+eq(QS.Progress(3), 0.5, "Fortschritt aus Text 3/6")
+_G.C_QuestLog.GetQuestObjectives = function(id)
+    if id == 3 then return { { numRequired = 5, numFulfilled = 0, finished = true } } end
+    return oldObj(id)
+end
+eq(QS.Progress(3), 1, "Ziel als erfuellt gemeldet zaehlt voll")
+_G.C_QuestLog.GetQuestObjectives = oldObj
+-- Fortschritt aendert die Reihenfolge der Questverfolgung: nach dem Ereignis wird neu aufgebaut
+QS.settling = false
+QS.Opts().enabled = true
+QS.Opts().tracker = "progress"
+local dirty = 0
+tr.MarkDirty = function() dirty = dirty + 1 end
+QS.CheckTracker()
+dirty = 0
+data[4].progress = 0.75
+timers = {}
+ev.QUEST_LOG_UPDATE()
+eq(#timers, 1, "gebuendelt geplant")
+ev.QUEST_LOG_UPDATE()
+eq(#timers, 1, "nur einmal geplant")
+timers[1][2]()
+eq(dirty, 1, "neue Reihenfolge: Questverfolgung neu aufgebaut")
+timers = {}
+ev.QUEST_LOG_UPDATE(); timers[1][2]()
+eq(dirty, 1, "nichts geaendert: kein Neuaufbau")
+-- nur Spieler-Einheit
+timers = {}
+ev.UNIT_QUEST_LOG_CHANGED("party1")
+eq(#timers, 0, "andere Einheit: nichts")
+ev.UNIT_QUEST_LOG_CHANGED("player")
+eq(#timers, 1, "eigene Einheit: pruefen")
+-- Questlog offen, Sortierung Stufe: wird bei Aenderung geordnet
+QS.Opts().log = "levelAsc"
+_G.QuestScrollFrame = { IsVisible = function() return true end }
+eq(QS.CheckLog(), true, "Questlog offen: geordnet")
+QS.Opts().log = "default"
+eq(QS.CheckLog(), false, "Standard: nichts")
+QS.Opts().tracker = "default"
+timers = {}
+ev.QUEST_ACCEPTED()
+eq(#timers, 0, "alles Standard: keine Arbeit")
 print(checks .. " Pruefungen, " .. fails .. " Fehler")
