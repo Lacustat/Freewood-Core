@@ -611,6 +611,8 @@ local function UpdateGear()
     if not gear then return end
     local id = UI.GetActiveTab and UI:GetActiveTab()
     if UI:HasModuleSettings(id) then
+        -- Beschriftung jedes Mal neu: beim Bau ist die Sprache noch nicht gesetzt (zeigte "Settings")
+        gear:SetLabel("      " .. (FW.L.MODSET_BUTTON or "Settings"))
         gear:Show()
         gear:SetStyle(UI:IsModuleSettingsShown(id) and "primary" or "default")
     else
@@ -625,7 +627,8 @@ local function BuildGear()
         local id = UI:GetActiveTab()
         if UI:IsModuleSettingsShown(id) then UI:HideModuleSettings(true) else UI:ShowModuleSettings(id) end
     end)
-    gear:SetPoint("BOTTOMRIGHT", content, "TOPRIGHT", 0, -2)
+    -- auf Hoehe der ersten Ueberschrift im Reiter (z. B. Beute: "Item hinzufuegen"), rechtsbuendig
+    gear:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, 2)
     gear:SetFrameLevel((content:GetFrameLevel() or 1) + 30)
     local icon = gear:CreateTexture(nil, "OVERLAY")
     icon:SetTexture("Interface\\Buttons\\UI-OptionsButton")

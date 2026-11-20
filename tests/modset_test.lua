@@ -94,6 +94,8 @@ UI:SelectTab("overview")
 assert(not gear.shown, "Uebersicht: kein Zahnrad")
 UI:SelectTab("loot")
 assert(gear.shown and gear.style == "default", "Beute: Zahnrad")
+assert(gear.label.text:find("MODSET_BUTTON", 1, true), "Beschriftung nach Sprache")
+assert(gear.points[#gear.points][1] == "TOPRIGHT" and gear.points[#gear.points][3] == "TOPRIGHT", "auf Hoehe der Ueberschrift")
 
 -- Oeffnen
 gear.onClick(gear)
