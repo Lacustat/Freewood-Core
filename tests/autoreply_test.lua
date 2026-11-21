@@ -207,7 +207,8 @@ FW.UI = {
     CreatePanel = function() return W() end,
     CreateLabel = function() return W() end,
     CreateButton = function(_, _, _, _, fn) local b = W() if fn then b.scripts = { OnClick = fn } end return b end,
-    CreateCheckbox = function(_, _, g, s) local c = W() c.get, c.set = g, s return c end,
+    -- wie im Spiel: das Kaestchen fragt seinen Wert sofort ab (0.59.1)
+    CreateCheckbox = function(_, _, g, s) local c = W() c.get, c.set = g, s g() c.Refresh = function() g() end return c end,
     CreateScrollFrame = function() return W() end,
     CreateTextArea = function() return W() end,
     CreateDropdown = function(_, _, _, o) local d = W() d.opts = o d.SetValue = function(s, v) s.value = v end return d end,

@@ -248,7 +248,7 @@ local function BuildTab(content)
     master:SetPoint("TOPLEFT", root, "TOPLEFT", 0, 0)
     Info(root, Lx.TAB_AUTOREPLY, Lx.AR_ON_INFO):SetPoint("LEFT", master.label, "RIGHT", 6, 0)
     local bLog = UI.CreateButton(root, Lx.AR_LOG, 110, 24)
-    bLog:SetPoint("TOPRIGHT", root, "TOPRIGHT", -120, 0)
+    bLog:SetPoint("TOPRIGHT", root, "TOPRIGHT", 0, 0)
     local bRules = UI.CreateButton(root, Lx.AR_RULES, 110, 24)
     bRules:SetPoint("RIGHT", bLog, "LEFT", -6, 0)
 
@@ -286,7 +286,13 @@ local function BuildTab(content)
     stack.onHeight = function(h) formScroll:SetContentHeight(h + 16) end
 
     local cur      -- bearbeitete Regel
-    local state = {}
+    -- Zustand des Formulars; von Anfang an mit allen Tabellen, die Kaestchen fragen ihn schon beim Bau ab
+    -- (0.59.1: leerer Zustand brach den Aufbau nach "Woher" ab, der Reiterwechsel blieb bei "Gilde" haengen)
+    local function EmptyState()
+        return { on = true, kind = "chat", whole = false, report = false, src = {}, cond = {}, classes = {},
+            classMode = "all", char = nil, buffReply = "WHISPER" }
+    end
+    local state = EmptyState()
 
     local function Row(height)
         local r = CreateFrame("Frame", nil, form)
@@ -480,7 +486,7 @@ local function BuildTab(content)
         bDel.armed = nil
         bDel:SetLabel(Lx.AR_DELETE)
         saved:SetText("")
-        if not r then formScroll:Hide() none:Show() return end
+        if not r then state = EmptyState() formScroll:Hide() none:Show() return end
         none:Hide()
         formScroll:Show()
         state = {
