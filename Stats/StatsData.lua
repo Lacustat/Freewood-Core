@@ -163,9 +163,58 @@ end
 
 function Stats.Key()
     local name = Call(G.UnitName, "player")
-    local realm = Call(G.GetRealmName)
+    -- leerer Realmname vom Spiel zaehlt nicht (0.57.0, Forever_Failure F-37)
+    local realm = (FW.Util and FW.Util.RealmName and FW.Util.RealmName()) or Call(G.GetRealmName)
     if type(name) ~= "string" then return nil end
     return name .. "-" .. tostring(realm or "?")
+end
+
+-- Zwei Datensaetze desselben Charakters zusammenfuehren (old <- new). Zaehler addieren, maxMoney und played als
+-- Hoechstwert, Zonen vereinen, Erfolge: der fruehere Eintrag bleibt (hoehere Stufe gewinnt), Zustand (info, snap, w):
+-- der neuere Datensatz.
+function Stats.MergeRecords(old, new)
+    local function Sum(dst, src)
+        for k, v in pairs(src or {}) do
+            if type(v) == "number" then dst[k] = (tonumber(dst[k]) or 0) + v end
+        end
+    end
+    for _, f in ipairs({ "c", "sp", "inst", "dz", "ch", "z", "sz", "spn", "ach" }) do old[f] = old[f] or {} end
+    local maxMoney = math.max(tonumber(old.c.maxMoney) or 0, tonumber((new.c or {}).maxMoney) or 0)
+    Sum(old.c, new.c)
+    old.c.maxMoney = maxMoney
+    Sum(old.sp, new.sp)
+    Sum(old.inst, new.inst)
+    Sum(old.dz, new.dz)
+    Sum(old.ch, new.ch)
+    for k, v in pairs(new.z or {}) do if old.z[k] == nil then old.z[k] = v end end
+    for k, v in pairs(new.sz or {}) do if old.sz[k] == nil then old.sz[k] = v end end
+    for k, v in pairs(new.spn or {}) do old.spn[k] = v end
+    for id, e in pairs(new.ach or {}) do
+        local o = old.ach[id]
+        if not o or ((type(e) == "table" and e.l or 0) > (type(o) == "table" and o.l or 0)) then old.ach[id] = e end
+    end
+    old.achInit = old.achInit or new.achInit
+    old.played = math.max(tonumber(old.played) or 0, tonumber(new.played) or 0)
+    old.first = math.min(tonumber(old.first) or math.huge, tonumber(new.first) or math.huge)
+    if old.first == math.huge then old.first = nil end
+    if (tonumber(new.last) or 0) >= (tonumber(old.last) or 0) then
+        old.info, old.snap, old.w = new.info or old.info, new.snap or old.snap, new.w or old.w
+        old.last = new.last
+    end
+    return old
+end
+
+-- Datensatz unter "Name-" (leerer Realm) in den richtigen Charakter uebernehmen (0.57.0)
+function Stats.FixEmptyRealm()
+    -- roh aus FW.db: laeuft beim Anmelden vor dem Start der Module
+    local raw = FW.db and FW.db.modules and FW.db.modules.Stats
+    local chars = raw and raw.chars
+    local realm = FW.Util and FW.Util.RealmName and FW.Util.RealmName()
+    local emptyKey, key = FW.Util.EmptyRealmKeys("-", realm)
+    if not (chars and emptyKey and chars[emptyKey] and emptyKey ~= key) then return false end
+    if chars[key] then Stats.MergeRecords(chars[key], chars[emptyKey]) else chars[key] = chars[emptyKey] end
+    chars[emptyKey] = nil
+    return true
 end
 
 function Stats.NewRecord()
@@ -553,4 +602,8 @@ function Stats.CharList(chars)
         return a.name < b.name
     end)
     return list
+end
+
+if FW.Util and FW.Util.OnRealmFix then
+    FW.Util.OnRealmFix("Statistik", Stats.FixEmptyRealm)
 end

@@ -498,6 +498,9 @@ end
 
 function FW:OnLogin()
     self.loggedIn = true
+    -- Daten ohne Realmnamen (Forever lieferte zeitweise "") in den richtigen Charakter uebernehmen, bevor die Module
+    -- starten (0.57.0, Forever_Failure F-37)
+    if self.Util and self.Util.FixEmptyRealms then pcall(self.Util.FixEmptyRealms) end
     self:Fire("FW_LOGIN")
     for _, mod in ipairs(self.moduleList) do
         self:InitModule(mod)

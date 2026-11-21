@@ -24,9 +24,49 @@ local function Now() return _G.time and _G.time() or 0 end
 -- Schluessel des Charakters: voller Name (Forever: Vor- und Nachname) und Realm
 function Notes.CharKey()
     local name = _G.UnitName and _G.UnitName("player")
-    local realm = _G.GetRealmName and _G.GetRealmName()
+    -- Realm ueber Util.RealmName: ein leerer Text vom Spiel zaehlt nicht (0.57.0, Forever_Failure F-37)
+    local realm = (FW.Util and FW.Util.RealmName and FW.Util.RealmName()) or (_G.GetRealmName and _G.GetRealmName())
     if type(name) ~= "string" or name == "" then return nil end
     return name .. " - " .. (realm or "?")
+end
+
+-- Notizen, die unter "Name - " (leerer Realm) entstanden sind, in den richtigen Charakter uebernehmen (0.57.0).
+-- Notizen und ToDo bekommen neue Nummern hinter den vorhandenen; angeheftete Zettel ziehen mit.
+function Notes.FixEmptyRealm()
+    local root = FW.db and FW.db.notes
+    local realm = FW.Util and FW.Util.RealmName and FW.Util.RealmName()
+    local emptyKey, key = FW.Util.EmptyRealmKeys(" - ", realm)
+    if not (root and emptyKey and root[emptyKey] and emptyKey ~= key) then return 0 end
+    local src = root[emptyKey]
+    local dst = root[key]
+    if not dst then
+        root[key], root[emptyKey] = src, nil
+        return #(src.notes or {}) + #(src.todo or {})
+    end
+    dst.notes, dst.todo, dst.seq = dst.notes or {}, dst.todo or {}, dst.seq or 0
+    local map, n = {}, 0
+    for _, note in ipairs(src.notes or {}) do
+        dst.seq = dst.seq + 1
+        map[note.id] = dst.seq
+        note.id = dst.seq
+        dst.notes[#dst.notes + 1] = note
+        n = n + 1
+    end
+    for _, t in ipairs(src.todo or {}) do
+        dst.seq = dst.seq + 1
+        t.id = dst.seq
+        dst.todo[#dst.todo + 1] = t
+        n = n + 1
+    end
+    for pk, pin in pairs(src.pins or {}) do
+        local newKey = pk
+        local old = tonumber(type(pk) == "string" and pk:match("^n(%d+)$") or "")
+        if old and map[old] then newKey = "n" .. map[old] end
+        dst.pins = dst.pins or {}
+        if not dst.pins[newKey] then dst.pins[newKey] = pin end
+    end
+    root[emptyKey] = nil
+    return n
 end
 
 local function Root()
@@ -378,3 +418,7 @@ _G.SLASH_FREEWOODNOTES1 = "/fwnotiz"
 _G.SLASH_FREEWOODNOTES2 = "/fwnotes"
 _G.SlashCmdList = _G.SlashCmdList or {}
 _G.SlashCmdList.FREEWOODNOTES = function() _G.Freewood_ToggleNotes() end
+
+if FW.Util and FW.Util.OnRealmFix then
+    FW.Util.OnRealmFix("Notizblock", Notes.FixEmptyRealm)
+end

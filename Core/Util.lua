@@ -270,8 +270,135 @@ function Util.GetPlayerLocation()
     }
 end
 
+------------------------------------------------------------------------
+-- Realmname (seit 0.57.0). Forever liefert seit dem 20.11.2026 zeitweise "" fuer GetRealmName und
+-- GetNormalizedRealmName. Ein leerer Text ist in Lua wahr, "GetRealmName() or ..." greift dann nicht, und alle
+-- Daten, die nach Charakter und Realm gespeichert werden (Notizen, Statistik, Levelplaner, Begleiter, Auktion),
+-- landeten unter einem zweiten Schluessel ohne Realm (Forever_Failure F-37).
+-- Util.RealmName(): Realm wie GetRealmName ("CAMWOW EU5 Realm 8 PvP"), leer zaehlt nicht; der letzte echte Name wird
+-- je Charakter gemerkt (FW.db.realmOf). Ist nichts gemerkt, wird er aus den vorhandenen Daten des Charakters erkannt.
+-- Util.NormalizedRealm(): ohne Leerzeichen und Bindestriche ("CAMWOWEU5Realm8PvP").
+------------------------------------------------------------------------
+
+local function NonEmpty(v)
+    if type(v) == "string" and v ~= "" and not Util.IsSecret(v) then return v end
+    return nil
+end
+Util.NonEmpty = NonEmpty
+
+local function SafeCall(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    local ok, v = pcall(fn, ...)
+    if ok then return v end
+    return nil
+end
+
+local function PlayerName()
+    return NonEmpty(SafeCall(_G.UnitName, "player"))
+end
+
+-- Realm aus vorhandenen Daten dieses Charakters erkennen (Statistik: der zuletzt benutzte Datensatz; sonst Notizen)
+function Util.GuessRealm(name)
+    local db = FW.db
+    if not (db and name) then return nil end
+    local best, bestLast
+    local stats = db.modules and db.modules.Stats and db.modules.Stats.chars
+    for k, rec in pairs(type(stats) == "table" and stats or {}) do
+        if type(k) == "string" and k:sub(1, #name + 1) == name .. "-" then
+            local r = NonEmpty(k:sub(#name + 2))
+            local last = type(rec) == "table" and tonumber(rec.last) or 0
+            if r and r ~= "?" and (not bestLast or last > bestLast) then best, bestLast = r, last end
+        end
+    end
+    if best then return best end
+    for k in pairs(type(db.notes) == "table" and db.notes or {}) do
+        if type(k) == "string" and k:sub(1, #name + 3) == name .. " - " then
+            local r = NonEmpty(k:sub(#name + 4))
+            if r and r ~= "?" then return r end
+        end
+    end
+    return nil
+end
+
+function Util.RealmName()
+    local name = PlayerName()
+    local db = FW.db
+    local r = NonEmpty(SafeCall(_G.GetRealmName))
+    if r then
+        if db and name then
+            db.realmOf = db.realmOf or {}
+            db.realmOf[name] = r
+        end
+        return r
+    end
+    if db and name then
+        local known = db.realmOf and NonEmpty(db.realmOf[name])
+        if known then return known end
+        local guess = Util.GuessRealm(name)
+        if guess then
+            db.realmOf = db.realmOf or {}
+            db.realmOf[name] = guess
+            return guess
+        end
+    end
+    -- kein GetRealmName: wenigstens der normalisierte Name
+    return NonEmpty(SafeCall(_G.GetNormalizedRealmName))
+end
+
+function Util.NormalizedRealm()
+    local r = Util.RealmName()
+    if r then return NonEmpty((r:gsub("[%s%-]", ""))) end
+    return NonEmpty(SafeCall(_G.GetNormalizedRealmName))
+end
+
+-- Schluessel "Name-<Realm>" einer Tabelle, die frueher unter "Name-" (leerer Realm) gefuellt wurde, finden.
+-- sep: Trenner ("-" oder " - "), realm: Realm in der Schreibweise des Moduls. Rueckgabe: leerer Schluessel, richtiger Schluessel
+function Util.EmptyRealmKeys(sep, realm)
+    local name = PlayerName()
+    if not (name and NonEmpty(realm)) then return nil end
+    return name .. sep, name .. sep .. realm
+end
+
+-- src in dst uebernehmen: Tabellen werden zusammengefuehrt, sonst gewinnt src (der neuere Stand)
+function Util.MergeNewer(dst, src)
+    for k, v in pairs(src or {}) do
+        if type(v) == "table" and type(dst[k]) == "table" then Util.MergeNewer(dst[k], v) else dst[k] = v end
+    end
+    return dst
+end
+
+-- Eintrag t[name..sep] (leerer Realm) nach t[name..sep..realm] uebernehmen (MergeNewer). Rueckgabe true, wenn etwas da war
+function Util.FixEmptyRealmEntry(t, sep, realm)
+    if type(t) ~= "table" then return false end
+    local emptyKey, key = Util.EmptyRealmKeys(sep, realm)
+    if not (emptyKey and t[emptyKey] ~= nil and emptyKey ~= key) then return false end
+    if type(t[key]) == "table" and type(t[emptyKey]) == "table" then Util.MergeNewer(t[key], t[emptyKey]) else t[key] = t[emptyKey] end
+    t[emptyKey] = nil
+    return true
+end
+
+-- Zusammenfuehren beim Anmelden: jedes Modul meldet hier seine Funktion an (laeuft vor dem Start der Module, in
+-- FW:OnLogin). Rueckgabe der Funktion: Zahl/true, wenn etwas uebernommen wurde (fuer die Chat-Meldung).
+Util.realmFixers = Util.realmFixers or {}
+function Util.OnRealmFix(name, fn)
+    Util.realmFixers[#Util.realmFixers + 1] = { name = name, fn = fn }
+end
+function Util.FixEmptyRealms()
+    if not Util.RealmName() then return {} end
+    local done = {}
+    for _, f in ipairs(Util.realmFixers) do
+        local ok, res = pcall(f.fn)
+        if ok and res and res ~= 0 then done[#done + 1] = f.name end
+        if not ok and FW.Debug then FW:Debug("Realm-Fix " .. tostring(f.name) .. ": " .. tostring(res)) end
+    end
+    if #done > 0 and FW.Print then
+        FW:Print(string.format(FW.L and FW.L.REALM_FIXED or "Data without realm name merged: %s", table.concat(done, ", ")))
+    end
+    return done
+end
+
 function Util.GetPlayerKey()
     local name = UnitName("player")
-    local realm = GetRealmName() or ""
+    local realm = Util.RealmName() or ""
     return name .. "-" .. (realm:gsub("%s", ""))
 end
