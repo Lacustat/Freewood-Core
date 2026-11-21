@@ -1,4 +1,4 @@
--- Freewood-Core: Reiter "Auto-Antwort" (seit 0.59.0), Fenster "Ignorieren?" und "Melden"
+-- Freewood-Core: Reiter "Auto-Antwort" (seit 0.59.0; Ausloeser, Aktion, Vorlagen, Export seit 0.60.0), Fenster "Ignorieren?", "Melden" und "Code"
 --
 -- Links die Regeln (Neue Regel, Klick = bearbeiten, gedimmt = aus), rechts das Formular einer Regel; oben der
 -- Hauptschalter und der Wechsel zwischen "Regeln" und "Verlauf". Die Logik steht in Core/AutoReply.lua.
@@ -183,7 +183,7 @@ end
 
 function AR.AskIgnore(who, rule)
     BuildIgnore()
-    local k = rule.id .. "|" .. AR.Lower(who)
+    local k = rule.id .. "|" .. AR.Norm(who)
     ignoreQueue[#ignoreQueue + 1] = { who = who, rule = rule.name, count = AR.counts[k] or 0 }
     if not ignoreWin.who then NextIgnore() end
 end
@@ -232,10 +232,148 @@ function AR.OpenReport(who, extra)
 end
 
 ------------------------------------------------------------------------
+-- Texte für 0.60.0 (Auslöser, Bedingungen, Aktion, Vorlagen, Export)
+------------------------------------------------------------------------
+
+FW:AddLocale("enUS", {
+    AR_TRIGGER = "Trigger",
+    AR_TRIGGER_INFO = "Level-up in the guild: the game has no event for it, the guild list is compared every minute (up to ~1 min later). Level-up nearby: the game only reports levels of group members, your target and players with a visible nameplate. Online, joins and guild level-ups stay silent for 60 s after you log in.",
+    AR_K_chat = "Chat message", AR_K_buff = "Buff from a player", AR_K_friendon = "Friend comes online",
+    AR_K_guildon = "Guild member comes online", AR_K_rollwon = "Item won (roll)", AR_K_levelup = "My level-up",
+    AR_K_guildlevel = "Level-up in the guild", AR_K_nearlevel = "Level-up nearby", AR_K_invite = "Group invite",
+    AR_K_trade = "Trade request", AR_K_duel = "Duel request", AR_K_rez = "Resurrected",
+    AR_K_groupjoin = "Someone joins the group", AR_K_guildjoin = "New guild member", AR_K_boss = "Boss defeated",
+    AR_MATCH_ITEM = "Item names (empty = every item)", AR_MATCH_BOSS = "Boss names (empty = every boss)",
+    AR_COND_SELF = "Conditions about you", AR_COND_OTHER = "Conditions about the other player",
+    AR_C_COMBAT = "In combat", AR_C_INSTANCE = "In an instance",
+    AR_O_GUILD = "Guild member", AR_O_PARTY = "Group member", AR_O_FRIEND = "Friend",
+    AR_TIME = "Time from - to", AR_TIME_INFO2 = "Only between these times (HH:MM), e.g. 22:00 to 06:00 across midnight. Empty = always.",
+    AR_ONCE = "Only once per session per player",
+    AR_ACTION = "Action", AR_ACT_TEXT = "Text", AR_ACT_EMOTE = "Emote", AR_ACT_BOTH = "Text and emote",
+    AR_DEST = "Text goes to", AR_DEST_SAME = "The same chat", AR_DEST_WHISPER = "Whisper to the player",
+    AR_DEST_GUILD = "Guild", AR_DEST_GROUP = "Group or raid",
+    AR_EMOTE = "Emote", AR_EMOTE_TARGET = "Aim at the player",
+    AR_EMOTE_INFO = "Voice emotes: your character speaks. Blizzard allows them without a key press (about 4 per second at most). Your own emote text (/e ...) is blocked like say.",
+    AR_DELAY = "Delay from - to (s)",
+    AR_REPLIES_INFO2 = "One answer per line, one is picked at random. Placeholders: {name} first name of the other player, {me} your first name, {level} level, {item} won item, {boss} boss, {spell} buff, {zone} zone, {class} your class, {time} time. At most 255 characters.",
+    AR_TEMPLATE = "Template ...", AR_EXPORT = "Export", AR_IMPORT = "Import",
+    AR_CODE_EXPORT = "Export: %s", AR_CODE_IMPORT = "Import rules",
+    AR_CODE_INFO = "Copy the code with Ctrl+C and share it. To import paste a code and press \"Apply\". Imported rules start switched off so you can check them first.",
+    AR_CODE_APPLY = "Apply", AR_IMPORTED = "%d rule(s) imported (switched off, please check).", AR_IMPORT_ERR = "Import failed: %s",
+    AR_T_PORT = "Warlock: no ports", AR_T_PORT_M = "port and gold\nport and pay\nsummon", AR_T_PORT_R = "Sorry {name}, I am not summoning right now.",
+    AR_T_GN = "Good night in the guild", AR_T_GN_M = "good night\ngn8\ngn", AR_T_GN_R = "Good night!\nSleep well!",
+    AR_T_GLVL = "Congratulate level-up (guild)", AR_T_GLVL_R = "Grats on level {level}, {name}!",
+    AR_T_LVL = "My level-up", AR_T_LVL_R = "Level {level}!",
+    AR_T_BUFF = "Thanks for the buff", AR_T_BUFF_R = "Thanks for {spell}, {name}!",
+    AR_T_GJOIN = "Welcome to the guild", AR_T_GJOIN_R = "Welcome to the guild, {name}!",
+    AR_T_PJOIN = "Welcome to the group", AR_T_PJOIN_R = "Hi {name}!",
+    AR_T_REZ = "Thanks for the rez", AR_T_REZ_R = "Thanks for the resurrection, {name}!",
+    AR_T_DUEL = "Decline duels", AR_T_DUEL_R = "No duels please, thanks!",
+    AR_T_BOSS = "gg after the boss", AR_T_BOSS_R = "gg!\nWell done!",
+    AR_T_INVITE = "Busy (DND)", AR_T_INVITE_R = "I am busy right now, thanks!",
+    AR_T_FRIEND = "Greet friends", AR_T_FRIEND_R = "Hi {name}!",
+})
+FW:AddLocale("deDE", {
+    AR_TRIGGER = "Auslöser",
+    AR_TRIGGER_INFO = "Level-up in der Gilde: Dafür gibt es kein Ereignis, die Gildenliste wird jede Minute verglichen (bis zu ~1 min später). Level-up in der Umgebung: Das Spiel meldet Stufen nur von Gruppenmitgliedern, deinem Ziel und Spielern mit sichtbarer Namensplakette. Online, Beitritte und Gilden-Level-ups bleiben 60 s nach dem Einloggen still.",
+    AR_K_chat = "Chatnachricht", AR_K_buff = "Buff von einem Spieler", AR_K_friendon = "Freund kommt online",
+    AR_K_guildon = "Gildenmitglied kommt online", AR_K_rollwon = "Item gewonnen (Würfeln)", AR_K_levelup = "Mein Level-up",
+    AR_K_guildlevel = "Level-up in der Gilde", AR_K_nearlevel = "Level-up in der Umgebung", AR_K_invite = "Gruppeneinladung",
+    AR_K_trade = "Handelsanfrage", AR_K_duel = "Duellanfrage", AR_K_rez = "Wiederbelebt worden",
+    AR_K_groupjoin = "Jemand tritt der Gruppe bei", AR_K_guildjoin = "Neues Gildenmitglied", AR_K_boss = "Boss besiegt",
+    AR_MATCH_ITEM = "Itemnamen (leer = jedes Item)", AR_MATCH_BOSS = "Bossnamen (leer = jeder Boss)",
+    AR_COND_SELF = "Bedingungen über dich", AR_COND_OTHER = "Bedingungen über den anderen",
+    AR_C_COMBAT = "Im Kampf", AR_C_INSTANCE = "In Instanz",
+    AR_O_GUILD = "Gildenmitglied", AR_O_PARTY = "Gruppenmitglied", AR_O_FRIEND = "Freund",
+    AR_TIME = "Uhrzeit von - bis", AR_TIME_INFO2 = "Nur zwischen diesen Zeiten (HH:MM), z. B. 22:00 bis 06:00 über Mitternacht. Leer = immer.",
+    AR_ONCE = "Nur einmal pro Sitzung je Spieler",
+    AR_ACTION = "Aktion", AR_ACT_TEXT = "Text", AR_ACT_EMOTE = "Emote", AR_ACT_BOTH = "Text und Emote",
+    AR_DEST = "Text geht an", AR_DEST_SAME = "Denselben Chat", AR_DEST_WHISPER = "Flüstern an den Spieler",
+    AR_DEST_GUILD = "Gilde", AR_DEST_GROUP = "Gruppe bzw. Schlachtzug",
+    AR_EMOTE = "Emote", AR_EMOTE_TARGET = "Auf den Spieler richten",
+    AR_EMOTE_INFO = "Voice-Emotes: Dein Charakter spricht. Blizzard erlaubt sie ohne Tastendruck (höchstens etwa 4 pro Sekunde). Eigener Emote-Text (/e ...) ist wie Sagen gesperrt.",
+    AR_DELAY = "Verzögerung von - bis (s)",
+    AR_REPLIES_INFO2 = "Je Zeile eine Antwort, eine wird zufällig gewählt. Platzhalter: {name} Vorname des anderen, {me} dein Vorname, {level} Stufe, {item} gewonnenes Item, {boss} Boss, {spell} Buff, {zone} Gebiet, {class} deine Klasse, {time} Uhrzeit. Höchstens 255 Zeichen.",
+    AR_TEMPLATE = "Vorlage ...", AR_EXPORT = "Export", AR_IMPORT = "Import",
+    AR_CODE_EXPORT = "Export: %s", AR_CODE_IMPORT = "Regeln importieren",
+    AR_CODE_INFO = "Code mit Strg+C kopieren und teilen. Zum Importieren einen Code einfügen und „Übernehmen“ drücken. Importierte Regeln sind erst aus, damit du sie prüfen kannst.",
+    AR_CODE_APPLY = "Übernehmen", AR_IMPORTED = "%d Regel(n) übernommen (ausgeschaltet, bitte prüfen).", AR_IMPORT_ERR = "Import fehlgeschlagen: %s",
+    AR_T_PORT = "Hexer: kein Porten", AR_T_PORT_M = "port und gold\nport und bezahl\nsummon\nbeschwör", AR_T_PORT_R = "Sorry {name}, ich porte gerade nicht.",
+    AR_T_GN = "Gute Nacht in der Gilde", AR_T_GN_M = "gute nacht\ngn8\ngn", AR_T_GN_R = "Gute Nacht!\nSchlaf gut!",
+    AR_T_GLVL = "Level-up gratulieren (Gilde)", AR_T_GLVL_R = "Grats zu Stufe {level}, {name}!",
+    AR_T_LVL = "Mein Level-up", AR_T_LVL_R = "Stufe {level}!",
+    AR_T_BUFF = "Danke für den Buff", AR_T_BUFF_R = "Danke für {spell}, {name}!",
+    AR_T_GJOIN = "Willkommen in der Gilde", AR_T_GJOIN_R = "Willkommen in der Gilde, {name}!",
+    AR_T_PJOIN = "Willkommen in der Gruppe", AR_T_PJOIN_R = "Hallo {name}!",
+    AR_T_REZ = "Danke fürs Rezzen", AR_T_REZ_R = "Danke fürs Wiederbeleben, {name}!",
+    AR_T_DUEL = "Duelle ablehnen", AR_T_DUEL_R = "Keine Duelle bitte, danke!",
+    AR_T_BOSS = "gg nach dem Boss", AR_T_BOSS_R = "gg!\nGut gemacht!",
+    AR_T_INVITE = "Beschäftigt (DND)", AR_T_INVITE_R = "Bin gerade beschäftigt, danke!",
+    AR_T_FRIEND = "Freunde begrüßen", AR_T_FRIEND_R = "Hallo {name}!",
+})
+
+------------------------------------------------------------------------
+-- Fenster für Export- und Import-Code
+------------------------------------------------------------------------
+
+local codeWin
+
+local function BuildCode()
+    if codeWin then return codeWin end
+    local f = UI.CreatePanel(G.UIParent, "bg", "gold")
+    f:SetSize(560, 260)
+    f:SetPoint("CENTER", G.UIParent, "CENTER", 0, 80)
+    f:SetFrameStrata("DIALOG")
+    Movable(f)
+    f:Hide()
+    f.title = UI.CreateLabel(f, "", { font = "heading", size = 14, color = "goldLight" })
+    f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -12)
+    Info(f, function() return f.title:GetText() end, L().AR_CODE_INFO):SetPoint("LEFT", f.title, "RIGHT", 6, 0)
+    local x = UI.CreateButton(f, "X", 22, 22, function() f:Hide() end)
+    x:SetPoint("TOPRIGHT", f, "TOPRIGHT", -8, -8)
+    f.area = UI.CreateTextArea(f, 532, 160)
+    f.area:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -40)
+    f.area:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -14, 48)
+    local all = UI.CreateButton(f, L().AR_REPORT_ALL, 140, 26, function() f.area:SelectAll() end)
+    all:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 14, 12)
+    f.apply = UI.CreateButton(f, L().AR_CODE_APPLY, 140, 26, function()
+        local n, err = AR.ImportRules(f.area:GetText() or "")
+        if n then
+            FW:Print(string.format(L().AR_IMPORTED, n))
+            f:Hide()
+            if f.onDone then f.onDone() end
+        else
+            FW:Print(string.format(L().AR_IMPORT_ERR, tostring(L()[err] or err)))
+        end
+    end, "primary")
+    f.apply:SetPoint("LEFT", all, "RIGHT", 8, 0)
+    local close = UI.CreateButton(f, L().AR_REPORT_CLOSE, 110, 26, function() f:Hide() end)
+    close:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -14, 12)
+    codeWin = f
+    return f
+end
+
+function AR.ShowCode(mode, rule, onDone)
+    local f = BuildCode()
+    f.onDone = onDone
+    if mode == "export" then
+        local code, err = AR.ExportRules({ rule })
+        f.title:SetText(string.format(L().AR_CODE_EXPORT, rule.name))
+        f.area:SetText(code or tostring(err))
+        f.apply:Hide()
+    else
+        f.title:SetText(L().AR_CODE_IMPORT)
+        f.area:SetText("")
+        f.apply:Show()
+    end
+    f:Show()
+end
+
+------------------------------------------------------------------------
 -- Reiter
 ------------------------------------------------------------------------
 
-local LIST_W = 220
+local LIST_W = 230
 local LABEL_W = 170
 
 local function BuildTab(content)
@@ -260,7 +398,7 @@ local function BuildTab(content)
     logView:Hide()
 
     --------------------------------------------------------------
-    -- Regeln: Liste links
+    -- Liste links: Neue Regel, Vorlage, Regeln, Export/Import
     --------------------------------------------------------------
     local left = UI.CreatePanel(rulesView, "card", "bronze")
     left:SetPoint("TOPLEFT", rulesView, "TOPLEFT", 0, 0)
@@ -268,15 +406,38 @@ local function BuildTab(content)
     left:SetWidth(LIST_W)
     local bNew = UI.CreateButton(left, Lx.AR_NEW, LIST_W - 12, 24, nil, "primary")
     bNew:SetPoint("TOPLEFT", left, "TOPLEFT", 6, -6)
+    local Load, RefreshList, Save
+    local cur
+    local tplDD = UI.CreateDropdown(left, LIST_W - 12, 24, {
+        getOptions = function()
+            local o = {}
+            for _, t in ipairs(AR.TEMPLATES) do o[#o + 1] = { value = t.id, text = Lx["AR_T_" .. t.id] or t.id } end
+            return o
+        end,
+        textOf = function(v) if not v then return Lx.AR_TEMPLATE end return Lx["AR_T_" .. tostring(v)] or Lx.AR_TEMPLATE end,
+        onChange = function(v)
+            if not v then return end
+            if cur and Save then Save(true) end
+            local r = AR.FromTemplate(v)
+            if r then Load(r) RefreshList() end
+        end,
+    })
+    tplDD:SetPoint("TOPLEFT", bNew, "BOTTOMLEFT", 0, -6)
+    local function ResetTpl() tplDD:SetValue(nil) if tplDD.SetLabel then tplDD:SetLabel(Lx.AR_TEMPLATE) end end
+    ResetTpl()
+    local bExport = UI.CreateButton(left, Lx.AR_EXPORT, math.floor((LIST_W - 18) / 2), 22)
+    bExport:SetPoint("BOTTOMLEFT", left, "BOTTOMLEFT", 6, 6)
+    local bImport = UI.CreateButton(left, Lx.AR_IMPORT, math.floor((LIST_W - 18) / 2), 22)
+    bImport:SetPoint("LEFT", bExport, "RIGHT", 6, 0)
     local listScroll = UI.CreateScrollFrame(left)
-    listScroll:SetPoint("TOPLEFT", left, "TOPLEFT", 6, -36)
-    listScroll:SetPoint("BOTTOMRIGHT", left, "BOTTOMRIGHT", -4, 6)
+    listScroll:SetPoint("TOPLEFT", left, "TOPLEFT", 6, -68)
+    listScroll:SetPoint("BOTTOMRIGHT", left, "BOTTOMRIGHT", -4, 34)
     local listButtons = {}
     local none = UI.CreateLabel(rulesView, Lx.AR_NONE, { size = 12, color = "textDim" })
     none:SetPoint("TOPLEFT", left, "TOPRIGHT", 16, -8)
 
     --------------------------------------------------------------
-    -- Regeln: Formular rechts
+    -- Formular rechts
     --------------------------------------------------------------
     local formScroll = UI.CreateScrollFrame(rulesView)
     formScroll:SetPoint("TOPLEFT", left, "TOPRIGHT", 14, 0)
@@ -285,14 +446,16 @@ local function BuildTab(content)
     local stack = UI.CreateStack(form, { gap = 6, pad = 8 })
     stack.onHeight = function(h) formScroll:SetContentHeight(h + 16) end
 
-    local cur      -- bearbeitete Regel
-    -- Zustand des Formulars; von Anfang an mit allen Tabellen, die Kaestchen fragen ihn schon beim Bau ab
-    -- (0.59.1: leerer Zustand brach den Aufbau nach "Woher" ab, der Reiterwechsel blieb bei "Gilde" haengen)
+    -- Zustand des Formulars; von Anfang an mit allen Tabellen, die Kaestchen fragen ihn schon beim Bau ab (0.59.1)
     local function EmptyState()
-        return { on = true, kind = "chat", whole = false, report = false, src = {}, cond = {}, classes = {},
-            classMode = "all", char = nil, buffReply = "WHISPER" }
+        local st = { on = true, kind = "chat", whole = false, report = false, once = false, src = {}, cond = {},
+            classes = {}, classMode = "all", char = nil, action = "text", dest = "same", emote = "THANK", emoteTarget = true }
+        for _, k in ipairs(AR.CONDS) do st.cond[k] = "any" end
+        for _, k in ipairs(AR.OTHER) do st.cond[k] = "any" end
+        return st
     end
     local state = EmptyState()
+    local Layout
 
     local function Row(height)
         local r = CreateFrame("Frame", nil, form)
@@ -314,38 +477,43 @@ local function BuildTab(content)
         local l = UI.CreateLabel(r, text, { size = 13, color = "gold" })
         l:SetPoint("LEFT", r, "LEFT", 0, 0)
         r.label = l
-        if info then Info(r, text, info):SetPoint("LEFT", l, "RIGHT", 6, 0) end
+        if info then r.info = Info(r, text, info) r.info:SetPoint("LEFT", l, "RIGHT", 6, 0) end
         return r
     end
-    local function Dropdown(width, options, onChange)
-        return UI.CreateDropdown(form, width, 22, {
+    local function Dropdown(parent, width, options, onChange)
+        local function Opts() return type(options) == "function" and options() or options end
+        return UI.CreateDropdown(parent or form, width, 22, {
             getOptions = function()
                 local o = {}
-                for _, v in ipairs(type(options) == "function" and options() or options) do o[#o + 1] = { value = v[1], text = v[2] } end
+                for _, v in ipairs(Opts()) do o[#o + 1] = { value = v[1], text = v[2] } end
                 return o
             end,
             textOf = function(val)
-                for _, v in ipairs(type(options) == "function" and options() or options) do if v[1] == val then return v[2] end end
-                return tostring(val)
+                for _, v in ipairs(Opts()) do if v[1] == val then return v[2] end end
+                return tostring(val or "")
             end,
             onChange = onChange,
         })
     end
+    local function Add(w, opts) stack:Add(w, opts) return w end
+    local function SetShownStack(w, show)
+        w.stackHidden = not show
+        if show then w:Show() else w:Hide() end
+    end
 
-    -- Name, an/aus, Art
+    -- Name, an/aus, Auslöser
     local nameBox = Edit(form, 280)
-    stack:Add(LabeledRow(Lx.AR_NAME, nameBox), { height = 24, gap = 4, stretch = true })
-    local onCb = UI.CreateCheckbox(form, Lx.AR_RULE_ON, function() return state.on end, function(v) state.on = v and true or false end)
-    stack:Add(onCb, { fit = true, gap = 4 })
-    local Layout
-    local kindDD = Dropdown(220, { { "chat", Lx.AR_KIND_CHAT }, { "buff", Lx.AR_KIND_BUFF } }, function(v) state.kind = v Layout() end)
-    stack:Add(LabeledRow(Lx.AR_KIND, kindDD), { height = 24, gap = 6, stretch = true })
+    Add(LabeledRow(Lx.AR_NAME, nameBox), { height = 24, gap = 4, stretch = true })
+    local onCb = Add(UI.CreateCheckbox(form, Lx.AR_RULE_ON, function() return state.on end, function(v) state.on = v and true or false end), { fit = true, gap = 4 })
+    local kindOpts = {}
+    for _, k in ipairs(AR.KINDS) do kindOpts[#kindOpts + 1] = { k, Lx["AR_K_" .. k] or k } end
+    local kindDD = Dropdown(nil, 260, kindOpts, function(v) state.kind = v Layout() end)
+    local kindRow = Add(LabeledRow(Lx.AR_TRIGGER, kindDD), { height = 24, gap = 6, stretch = true })
+    Info(kindRow, Lx.AR_TRIGGER, Lx.AR_TRIGGER_INFO):SetPoint("LEFT", kindDD, "RIGHT", 6, 0)
 
-    -- Woher
-    local srcHead = Head(Lx.AR_SRC)
-    stack:Add(srcHead, { height = 20, gap = 12, stretch = true })
-    local srcBoxes = {}
-    local srcRows = {}
+    -- Woher (nur Chat)
+    local srcHead = Add(Head(Lx.AR_SRC), { height = 20, gap = 12, stretch = true })
+    local srcBoxes, srcRows = {}, {}
     for rowN = 1, 2 do
         local r = Row(24)
         for col = 1, 3 do
@@ -356,47 +524,61 @@ local function BuildTab(content)
             cb:SetWidth(150)
             srcBoxes[#srcBoxes + 1] = cb
         end
-        srcRows[rowN] = r
-        stack:Add(r, { height = 24, gap = 2, stretch = true })
+        srcRows[rowN] = Add(r, { height = 24, gap = 2, stretch = true })
     end
-    local buffDD = Dropdown(240, { { "WHISPER", Lx.AR_BUFFREPLY_W }, { "GROUP", Lx.AR_BUFFREPLY_G } }, function(v) state.buffReply = v end)
-    local buffRow = LabeledRow(Lx.AR_BUFFREPLY, buffDD)
-    stack:Add(buffRow, { height = 24, gap = 12, stretch = true })
 
-    -- Wörter
-    local matchHead = Head(Lx.AR_MATCH, Lx.AR_MATCH_INFO)
-    stack:Add(matchHead, { height = 20, gap = 12, stretch = true })
-    local matchArea = UI.CreateTextArea(form, 400, 64)
-    stack:Add(matchArea, { height = 64, gap = 4, stretch = true })
+    -- Filter
+    local matchHead = Add(Head(Lx.AR_MATCH, Lx.AR_MATCH_INFO), { height = 20, gap = 12, stretch = true })
+    local matchArea = Add(UI.CreateTextArea(form, 400, 64), { height = 64, gap = 4, stretch = true })
     local neverBox = Edit(form, 300)
     local neverRow = LabeledRow(Lx.AR_NEVER, neverBox)
     Info(neverRow, Lx.AR_NEVER, Lx.AR_NEVER_INFO):SetPoint("LEFT", neverBox, "RIGHT", 6, 0)
-    stack:Add(neverRow, { height = 24, gap = 6, stretch = true })
-    local wholeCb = UI.CreateCheckbox(form, Lx.AR_WHOLE, function() return state.whole end, function(v) state.whole = v and true or false end)
-    stack:Add(wholeCb, { fit = true, gap = 4 })
+    Add(neverRow, { height = 24, gap = 6, stretch = true })
+    local wholeCb = Add(UI.CreateCheckbox(form, Lx.AR_WHOLE, function() return state.whole end, function(v) state.whole = v and true or false end), { fit = true, gap = 4 })
 
-    -- Bedingungen
-    stack:Add(Head(Lx.AR_COND), { height = 20, gap = 12, stretch = true })
+    -- Bedingungen über dich
     local condOpts = { { "any", Lx.AR_ANY }, { "yes", Lx.AR_YES }, { "no", Lx.AR_NO } }
     local condDDs = {}
-    local condLabels = { afk = Lx.AR_C_AFK, dnd = Lx.AR_C_DND, group = Lx.AR_C_GROUP, raid = Lx.AR_C_RAID }
-    for rowN = 1, 2 do
-        local r = Row(24)
-        for col = 1, 2 do
-            local key = AR.CONDS[(rowN - 1) * 2 + col]
-            local l = UI.CreateLabel(r, condLabels[key], { size = 12 })
-            l:SetPoint("LEFT", r, "LEFT", (col - 1) * 250, 0)
-            local dd = Dropdown(120, condOpts, function(v) state.cond[key] = v end)
-            dd:SetParent(r)
-            dd:ClearAllPoints()
-            dd:SetPoint("LEFT", r, "LEFT", (col - 1) * 250 + 110, 0)
-            condDDs[key] = dd
+    local condLabels = { afk = Lx.AR_C_AFK, dnd = Lx.AR_C_DND, group = Lx.AR_C_GROUP, raid = Lx.AR_C_RAID,
+        combat = Lx.AR_C_COMBAT, instance = Lx.AR_C_INSTANCE, guild = Lx.AR_O_GUILD, party = Lx.AR_O_PARTY, friend = Lx.AR_O_FRIEND }
+    local function CondRows(keys)
+        local rows = {}
+        for rowN = 1, math.ceil(#keys / 2) do
+            local r = Row(24)
+            for col = 1, 2 do
+                local key = keys[(rowN - 1) * 2 + col]
+                if key then
+                    local l = UI.CreateLabel(r, condLabels[key], { size = 12 })
+                    l:SetPoint("LEFT", r, "LEFT", (col - 1) * 260, 0)
+                    local dd = Dropdown(r, 120, condOpts, function(v) state.cond[key] = v end)
+                    dd:SetPoint("LEFT", r, "LEFT", (col - 1) * 260 + 120, 0)
+                    condDDs[key] = dd
+                end
+            end
+            rows[#rows + 1] = Add(r, { height = 24, gap = 4, stretch = true })
         end
-        stack:Add(r, { height = 24, gap = 4, stretch = true })
+        return rows
     end
-    local classDD = Dropdown(160, { { "all", Lx.AR_CL_ALL }, { "only", Lx.AR_CL_ONLY }, { "not", Lx.AR_CL_NOT } },
+    Add(Head(Lx.AR_COND_SELF), { height = 20, gap = 12, stretch = true })
+    CondRows(AR.CONDS)
+    local otherHead = Add(Head(Lx.AR_COND_OTHER), { height = 20, gap = 10, stretch = true })
+    local otherRows = CondRows(AR.OTHER)
+
+    -- Uhrzeit, Klassen, Charakter, einmal
+    local timeRow = Row(24)
+    local tl = UI.CreateLabel(timeRow, Lx.AR_TIME, { size = 12 })
+    tl:SetPoint("LEFT", timeRow, "LEFT", 0, 0)
+    local tFrom = Edit(timeRow, 60) tFrom.edit:SetMaxLetters(5)
+    tFrom:SetPoint("LEFT", timeRow, "LEFT", LABEL_W, 0)
+    local tDash = UI.CreateLabel(timeRow, "–", { size = 12, color = "textDim" })
+    tDash:SetPoint("LEFT", tFrom, "RIGHT", 6, 0)
+    local tTo = Edit(timeRow, 60) tTo.edit:SetMaxLetters(5)
+    tTo:SetPoint("LEFT", tFrom, "RIGHT", 20, 0)
+    Info(timeRow, Lx.AR_TIME, Lx.AR_TIME_INFO2):SetPoint("LEFT", tTo, "RIGHT", 6, 0)
+    Add(timeRow, { height = 24, gap = 10, stretch = true })
+    local classDD = Dropdown(nil, 160, { { "all", Lx.AR_CL_ALL }, { "only", Lx.AR_CL_ONLY }, { "not", Lx.AR_CL_NOT } },
         function(v) state.classMode = v Layout() end)
-    stack:Add(LabeledRow(Lx.AR_CLASSES, classDD), { height = 24, gap = 8, stretch = true })
+    Add(LabeledRow(Lx.AR_CLASSES, classDD), { height = 24, gap = 6, stretch = true })
     local classRows, classBoxes = {}, {}
     for rowN = 1, 3 do
         local r = Row(24)
@@ -409,39 +591,71 @@ local function BuildTab(content)
             cb:SetWidth(150)
             classBoxes[#classBoxes + 1] = cb
         end
-        classRows[rowN] = r
-        stack:Add(r, { height = 24, gap = 2, stretch = true })
+        classRows[rowN] = Add(r, { height = 24, gap = 2, stretch = true })
     end
-    local charDD = Dropdown(260, function()
+    local charDD = Dropdown(nil, 260, function()
         return { { "all", Lx.AR_CHAR_ALL }, { "me", string.format(Lx.AR_CHAR_ONLY, AR.CharKey()) },
             state.char and state.char ~= AR.CharKey() and { "other", string.format(Lx.AR_CHAR_ONLY, state.char) } or nil }
     end, function(v)
         if v == "all" then state.char = nil elseif v == "me" then state.char = AR.CharKey() end
     end)
-    stack:Add(LabeledRow(Lx.AR_CHAR, charDD), { height = 24, gap = 8, stretch = true })
+    Add(LabeledRow(Lx.AR_CHAR, charDD), { height = 24, gap = 6, stretch = true })
+    local onceCb = Add(UI.CreateCheckbox(form, Lx.AR_ONCE, function() return state.once end, function(v) state.once = v and true or false end), { fit = true, gap = 4 })
+
+    -- Aktion
+    local actHead = Add(Head(Lx.AR_ACTION), { height = 20, gap = 12, stretch = true })
+    local actDD = Dropdown(nil, 200, { { "text", Lx.AR_ACT_TEXT }, { "emote", Lx.AR_ACT_EMOTE }, { "both", Lx.AR_ACT_BOTH } },
+        function(v) state.action = v Layout() end)
+    Add(LabeledRow(Lx.AR_ACTION, actDD), { height = 24, gap = 4, stretch = true })
+    local function DestOpts()
+        local k = state.kind or "chat"
+        local o = {}
+        if k == "chat" then o[#o + 1] = { "same", Lx.AR_DEST_SAME } end
+        if not AR.NOPERSON[k] then o[#o + 1] = { "whisper", Lx.AR_DEST_WHISPER } end
+        o[#o + 1] = { "guild", Lx.AR_DEST_GUILD }
+        o[#o + 1] = { "group", Lx.AR_DEST_GROUP }
+        return o
+    end
+    local destDD = Dropdown(nil, 220, DestOpts, function(v) state.dest = v end)
+    local destRow = Add(LabeledRow(Lx.AR_DEST, destDD), { height = 24, gap = 4, stretch = true })
+    local emoteOpts = {}
+    for _, e in ipairs(AR.EMOTES) do emoteOpts[#emoteOpts + 1] = { e, "/" .. e:lower() } end
+    local emoteDD = Dropdown(nil, 160, emoteOpts, function(v) state.emote = v end)
+    local emoteRow = LabeledRow(Lx.AR_EMOTE, emoteDD)
+    local emoteTarget = UI.CreateCheckbox(emoteRow, Lx.AR_EMOTE_TARGET, function() return state.emoteTarget end,
+        function(v) state.emoteTarget = v and true or false end)
+    emoteTarget:SetPoint("LEFT", emoteDD, "RIGHT", 12, 0)
+    Info(emoteRow, Lx.AR_EMOTE, Lx.AR_EMOTE_INFO):SetPoint("LEFT", emoteTarget.label or emoteTarget, "RIGHT", 6, 0)
+    Add(emoteRow, { height = 24, gap = 4, stretch = true })
 
     -- Antworten
-    stack:Add(Head(Lx.AR_REPLIES, Lx.AR_REPLIES_INFO), { height = 20, gap = 12, stretch = true })
-    local replyArea = UI.CreateTextArea(form, 400, 80)
-    stack:Add(replyArea, { height = 80, gap = 4, stretch = true })
+    local replyHead = Add(Head(Lx.AR_REPLIES, Lx.AR_REPLIES_INFO2), { height = 20, gap = 12, stretch = true })
+    local replyArea = Add(UI.CreateTextArea(form, 400, 80), { height = 80, gap = 4, stretch = true })
 
     -- Zeiten
     local numBoxes = {}
-    local function NumRow(key, text)
-        local b = Edit(form, 70)
+    local function NumBox(parent, key, w)
+        local b = Edit(parent, w or 70)
         b.edit:SetNumeric(true)
         b.edit:SetMaxLetters(6)
         numBoxes[key] = b
-        local r = LabeledRow(text, b)
-        stack:Add(r, { height = 24, gap = 4, stretch = true })
-        return r
+        return b
     end
-    local cdRow = NumRow("cdRule", Lx.AR_CD_RULE)
+    local delayRow = Row(24)
+    local dl = UI.CreateLabel(delayRow, Lx.AR_DELAY, { size = 12 })
+    dl:SetPoint("LEFT", delayRow, "LEFT", 0, 0)
+    local dMin = NumBox(delayRow, "delayMin", 50)
+    dMin:SetPoint("LEFT", delayRow, "LEFT", LABEL_W, 0)
+    local dDash = UI.CreateLabel(delayRow, "–", { size = 12, color = "textDim" })
+    dDash:SetPoint("LEFT", dMin, "RIGHT", 6, 0)
+    local dMax = NumBox(delayRow, "delayMax", 50)
+    dMax:SetPoint("LEFT", dMin, "RIGHT", 20, 0)
+    Add(delayRow, { height = 24, gap = 12, stretch = true })
+    local cdRow = Add(LabeledRow(Lx.AR_CD_RULE, NumBox(form, "cdRule")), { height = 24, gap = 4, stretch = true })
     Info(cdRow, Lx.AR_CD_RULE, Lx.AR_TIME_INFO):SetPoint("LEFT", numBoxes.cdRule, "RIGHT", 6, 0)
-    NumRow("cdPlayer", Lx.AR_CD_PLAYER)
-    local ignRow = NumRow("ignoreAfter", Lx.AR_IGNORE_AFTER)
-    local reportCb = UI.CreateCheckbox(form, Lx.AR_REPORT, function() return state.report end, function(v) state.report = v and true or false end)
-    stack:Add(reportCb, { fit = true, gap = 8 })
+    local cdpRow = Add(LabeledRow(Lx.AR_CD_PLAYER, NumBox(form, "cdPlayer")), { height = 24, gap = 4, stretch = true })
+    local ignRow = Add(LabeledRow(Lx.AR_IGNORE_AFTER, NumBox(form, "ignoreAfter")), { height = 24, gap = 4, stretch = true })
+    local reportCb = Add(UI.CreateCheckbox(form, Lx.AR_REPORT, function() return state.report end, function(v) state.report = v and true or false end), { fit = true, gap = 8 })
 
     -- Test
     local testBox = Edit(form, 300)
@@ -452,7 +666,7 @@ local function BuildTab(content)
     testHint:SetWordWrap(false)
     local testRes = UI.CreateLabel(testRow, "", { size = 12 })
     testRes:SetPoint("LEFT", testBox, "RIGHT", 8, 0)
-    stack:Add(testRow, { height = 24, gap = 14, stretch = true })
+    Add(testRow, { height = 24, gap = 14, stretch = true })
 
     -- Speichern / Löschen
     local btnRow = Row(28)
@@ -462,53 +676,91 @@ local function BuildTab(content)
     bDel:SetPoint("LEFT", bSave, "RIGHT", 8, 0)
     local saved = UI.CreateLabel(btnRow, "", { size = 11, color = "textDim" })
     saved:SetPoint("LEFT", bDel, "RIGHT", 10, 0)
-    stack:Add(btnRow, { height = 28, gap = 14, stretch = true })
+    Add(btnRow, { height = 28, gap = 14, stretch = true })
 
-    -- Sichtbarkeit je nach Art und Klassenwahl
-    local function SetShownStack(w, show)
-        w.stackHidden = not show
-        if show then w:Show() else w:Hide() end
-    end
+    -- Sichtbarkeit je nach Auslöser, Aktion und Klassenwahl
     Layout = function()
-        local chat = (state.kind or "chat") == "chat"
+        local k = state.kind or "chat"
+        local chat = k == "chat"
+        local person = not AR.NOPERSON[k]
+        local filtered = AR.FILTERED[k] and true or false
         SetShownStack(srcHead, chat)
         for _, r in ipairs(srcRows) do SetShownStack(r, chat) end
-        SetShownStack(buffRow, not chat)
+        SetShownStack(matchHead, filtered)
+        SetShownStack(matchArea, filtered)
+        SetShownStack(neverRow, filtered)
+        SetShownStack(wholeCb, filtered)
+        SetShownStack(testRow, filtered)
+        matchHead.label:SetText((k == "buff" and Lx.AR_MATCH_BUFF) or (k == "rollwon" and Lx.AR_MATCH_ITEM)
+            or (k == "boss" and Lx.AR_MATCH_BOSS) or Lx.AR_MATCH)
+        SetShownStack(otherHead, person)
+        for _, r in ipairs(otherRows) do SetShownStack(r, person) end
+        SetShownStack(onceCb, person)
+        SetShownStack(cdpRow, person)
         SetShownStack(ignRow, chat)
-        matchHead.label:SetText(chat and Lx.AR_MATCH or Lx.AR_MATCH_BUFF)
+        SetShownStack(reportCb, chat)
+        local act = state.action or "text"
+        local text, emote = act ~= "emote", act ~= "text"
+        SetShownStack(destRow, text)
+        SetShownStack(replyHead, text)
+        SetShownStack(replyArea, text)
+        SetShownStack(emoteRow, emote)
+        if emoteTarget then if person then emoteTarget:Show() else emoteTarget:Hide() end end
+        -- Ziel der Antwort muss zum Auslöser passen
+        local valid = false
+        for _, o in ipairs(DestOpts()) do
+            if o[1] == state.dest then valid = true end
+        end
+        if not valid then
+            state.dest = chat and "same" or (person and "whisper" or "group")
+            destDD:SetValue(state.dest)
+        end
         for _, r in ipairs(classRows) do SetShownStack(r, state.classMode and state.classMode ~= "all") end
         stack:Layout()
     end
 
     -- Formular füllen / auslesen
-    local function Load(r)
+    Load = function(r)
         cur = r
         bDel.armed = nil
         bDel:SetLabel(Lx.AR_DELETE)
         saved:SetText("")
         if not r then state = EmptyState() formScroll:Hide() none:Show() return end
+        AR.Upgrade(r)
         none:Hide()
         formScroll:Show()
-        state = {
-            on = r.on ~= false, kind = r.kind or "chat", whole = r.whole and true or false, report = r.report and true or false,
-            src = {}, cond = {}, classes = {}, classMode = r.classMode or "all", char = r.char, buffReply = r.buffReply or "WHISPER",
-        }
-        for k, v in pairs(r.src or {}) do state.src[k] = v end
-        for _, k in ipairs(AR.CONDS) do state.cond[k] = r.cond and r.cond[k] or "any" end
-        for k, v in pairs(r.classes or {}) do state.classes[k] = v end
+        state = EmptyState()
+        state.on = r.on ~= false
+        state.kind = r.kind
+        state.whole = r.whole and true or false
+        state.report = r.report and true or false
+        state.once = r.once and true or false
+        state.classMode = r.classMode or "all"
+        state.char = r.char
+        state.action = r.action or "text"
+        state.dest = r.dest or "same"
+        state.emote = r.emote or "THANK"
+        state.emoteTarget = r.emoteTarget ~= false
+        for k2, v in pairs(r.src or {}) do state.src[k2] = v end
+        for k2, v in pairs(r.cond or {}) do state.cond[k2] = v end
+        for k2, v in pairs(r.classes or {}) do state.classes[k2] = v end
         nameBox:SetText(r.name)
         matchArea:SetText(r.match or "")
         neverBox:SetText(r.never or "")
         replyArea:SetText(r.replies or "")
-        numBoxes.cdRule:SetText(tostring(r.cdRule or 0))
-        numBoxes.cdPlayer:SetText(tostring(r.cdPlayer or 0))
-        numBoxes.ignoreAfter:SetText(tostring(r.ignoreAfter or 0))
+        tFrom:SetText(r.timeFrom or "")
+        tTo:SetText(r.timeTo or "")
+        for _, key in ipairs({ "cdRule", "cdPlayer", "ignoreAfter", "delayMin", "delayMax" }) do
+            numBoxes[key]:SetText(tostring(r[key] or 0))
+        end
         kindDD:SetValue(state.kind)
-        buffDD:SetValue(state.buffReply)
+        actDD:SetValue(state.action)
+        destDD:SetValue(state.dest)
+        emoteDD:SetValue(state.emote)
         classDD:SetValue(state.classMode)
         charDD:SetValue(not state.char and "all" or (state.char == AR.CharKey() and "me" or "other"))
-        for k, dd in pairs(condDDs) do dd:SetValue(state.cond[k]) end
-        onCb:Refresh() wholeCb:Refresh() reportCb:Refresh()
+        for key, dd in pairs(condDDs) do dd:SetValue(state.cond[key] or "any") end
+        onCb:Refresh() wholeCb:Refresh() reportCb:Refresh() onceCb:Refresh() emoteTarget:Refresh()
         for _, cb in ipairs(srcBoxes) do cb:Refresh() end
         for _, cb in ipairs(classBoxes) do cb:Refresh() end
         testBox:SetText("")
@@ -516,34 +768,31 @@ local function BuildTab(content)
         Layout()
     end
 
-    local function Save(quiet)
+    Save = function(quiet)
         local r = cur
         if not r or not AR.Find(r.id) then return end
         local name = nameBox:GetText():gsub("^%s+", ""):gsub("%s+$", "")
         r.name = name ~= "" and name or r.name
-        r.on = state.on
-        r.kind = state.kind
-        r.src = state.src
+        for _, key in ipairs({ "on", "kind", "src", "whole", "cond", "classMode", "classes", "char", "report", "once",
+            "action", "dest", "emote", "emoteTarget" }) do
+            r[key] = state[key]
+        end
         r.match = matchArea:GetText() or ""
         r.never = neverBox:GetText()
-        r.whole = state.whole
-        r.cond = state.cond
-        r.classMode = state.classMode
-        r.classes = state.classes
-        r.char = state.char
         r.replies = replyArea:GetText() or ""
-        r.cdRule = tonumber(numBoxes.cdRule:GetText()) or 0
-        r.cdPlayer = tonumber(numBoxes.cdPlayer:GetText()) or 0
-        r.ignoreAfter = tonumber(numBoxes.ignoreAfter:GetText()) or 0
-        r.report = state.report
-        r.buffReply = state.buffReply
-        -- Zustand frisch anlegen, damit die Regel nicht dieselben Tabellen wie das Formular teilt
+        r.timeFrom = AR.ToMin(tFrom:GetText()) and tFrom:GetText() or ""
+        r.timeTo = AR.ToMin(tTo:GetText()) and tTo:GetText() or ""
+        for _, key in ipairs({ "cdRule", "cdPlayer", "ignoreAfter", "delayMin", "delayMax" }) do
+            r[key] = tonumber(numBoxes[key]:GetText()) or 0
+        end
+        if r.delayMax < r.delayMin then r.delayMax = r.delayMin end
+        -- Zustand frisch laden, damit Regel und Formular keine Tabellen teilen
         Load(r)
         if not quiet then saved:SetText(Lx.AR_SAVED) end
         FW:Fire("AUTOREPLY_CHANGED")
     end
 
-    local function RefreshList()
+    RefreshList = function()
         local rules = AR.DB().rules
         for i, r in ipairs(rules) do
             local b = listButtons[i]
@@ -557,7 +806,8 @@ local function BuildTab(content)
                 listButtons[i] = b
             end
             b.ruleId = r.id
-            b:SetLabel((r.kind == "buff" and "|cff9a9aa3[Buff]|r " or "") .. tostring(r.name))
+            local tag = (r.kind and r.kind ~= "chat") and ("|cff9a9aa3[" .. (Lx["AR_K_" .. r.kind] or r.kind) .. "]|r ") or ""
+            b:SetLabel(tag .. tostring(r.name))
             b:SetStyle(cur and cur.id == r.id and "primary" or "default")
             b:SetAlpha(r.on == false and 0.5 or 1)
             b:Show()
@@ -565,12 +815,12 @@ local function BuildTab(content)
         for i = #rules + 1, #listButtons do listButtons[i]:Hide() end
         listScroll:SetContentHeight(#rules * 27 + 4)
         if #rules == 0 then Load(nil) end
+        ResetTpl()
     end
 
     bNew:SetScript("OnClick", function()
         if cur then Save(true) end
-        local r = AR.NewRule("chat")
-        Load(r)
+        Load(AR.NewRule("chat"))
         RefreshList()
     end)
     bSave:SetScript("OnClick", function() Save(false) RefreshList() end)
@@ -584,9 +834,16 @@ local function BuildTab(content)
         local id = cur.id
         cur = nil
         AR.Delete(id)
-        local first = AR.DB().rules[1]
-        Load(first)
+        Load(AR.DB().rules[1])
         RefreshList()
+    end)
+    bExport:SetScript("OnClick", function()
+        if not cur then return end
+        Save(true)
+        AR.ShowCode("export", cur)
+    end)
+    bImport:SetScript("OnClick", function()
+        AR.ShowCode("import", nil, function() RefreshList() end)
     end)
     testBox.edit:SetScript("OnTextChanged", function()
         local t = testBox:GetText()
@@ -594,7 +851,8 @@ local function BuildTab(content)
         testHint:Hide()
         local probe = { match = matchArea:GetText(), never = neverBox:GetText(), whole = state.whole }
         if not AR.Matches(probe, t) then testRes:SetText(Lx.AR_TEST_NO) return end
-        local tmp = { cond = state.cond, classMode = state.classMode, classes = state.classes, char = state.char }
+        local tmp = { kind = state.kind, cond = state.cond, classMode = state.classMode, classes = state.classes,
+            char = state.char, timeFrom = tFrom:GetText(), timeTo = tTo:GetText() }
         local ok, why = AR.CondOK(tmp)
         testRes:SetText(ok and Lx.AR_TEST_YES or string.format(Lx.AR_TEST_COND, tostring(why)))
     end)
@@ -632,7 +890,8 @@ local function BuildTab(content)
             local ts = G.date and G.date("%d.%m. %H:%M", e.t) or tostring(e.t)
             r.l1:SetText(string.format("%s  ·  %s  ·  %s  ·  %s%s", ts, tostring(e.rule), tostring(e.who), tostring(e.src),
                 e.ok == false and "  |cffff6060(!)|r" or ""))
-            r.l2:SetText(string.format("„%s“  |cffffd100->|r  %s", tostring(e.msg), tostring(e.reply)))
+            local msg = tostring(e.msg or "")
+            r.l2:SetText((msg ~= "" and ("„" .. msg .. "“  ") or "") .. "|cffffd100->|r  " .. tostring(e.reply))
             r:Show()
         end
         for i = #log + 1, #logRows do logRows[i]:Hide() end
@@ -662,8 +921,9 @@ local function BuildTab(content)
         if not cur then Load(AR.DB().rules[1]) end
         ShowView(logView:IsShown() and "log" or "rules")
     end
-    root.Load = Load
-    root.Save = Save
+    root.Load = function(r) Load(r) end
+    root.Save = function(q) Save(q) end
+    root.State = function() return state end
     return root
 end
 
