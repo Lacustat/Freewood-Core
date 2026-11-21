@@ -44,6 +44,9 @@ FW:AddLocale("enUS", {
 
     TAB_OVERVIEW = "Overview",
     TAB_EXCHANGE = "Exchange",
+    TAB_NOTES = "Notes",
+    NOTES_SET_HEADER = "Notepad and sticky notes",
+    NOTES_SET_NOTE = "The notepad also opens as its own window (key binding \"Notepad\" or /fwnotiz). Sticky notes: pin a note or the to-do list with \"Pin\".",
     TAB_SETTINGS = "Settings",
 
     MONEY_G = "g",
@@ -285,6 +288,9 @@ FW:AddLocale("deDE", {
 
     TAB_OVERVIEW = "Übersicht",
     TAB_EXCHANGE = "Austausch",
+    TAB_NOTES = "Notizen",
+    NOTES_SET_HEADER = "Notizblock und Zettel",
+    NOTES_SET_NOTE = "Der Notizblock geht auch als eigenes Fenster auf (Taste „Notizblock“ oder /fwnotiz). Zettel: eine Notiz oder die ToDo-Liste mit „Anheften“ auf den Bildschirm legen.",
     TAB_SETTINGS = "Einstellungen",
 
     MONEY_G = "G",

@@ -17,14 +17,15 @@ N.Window = W
 local MIN_W, MIN_H = 560, 380
 local LIST_W = 190
 local ROW_H = 24
-local view = { key = nil, tab = "notes", edit = false, unlock = false, doneOpen = false, picker = false }
+local function NewView() return { key = nil, tab = "notes", edit = false, unlock = false, doneOpen = false, picker = false } end
+local view = NewView()
 local win
 W.view = view   -- fuer Tests
 
 local function L() return FW.L end
-local function Key() return view.key or N.CharKey() end
-local function Own() return view.key == nil or view.key == N.CharKey() end
-local function CanEdit() return Own() or view.unlock end
+-- Seit 0.56.0 gibt es den Notizblock zweimal: als eigenes Fenster (Instanz W, wie bisher) und eingebaut im Reiter
+-- "Notizen" (Instanz N.Tab). Jede Instanz hat ihre eigene Ansicht (view); die Daten sind dieselben.
+local instances = {}
 
 local function Opts()
     local s = FW.settings
@@ -44,7 +45,7 @@ local function SavePos(f)
 end
 
 -- einfache Eingabezeile in einem Rahmen
-local function Input(parent, width, maxLetters)
+local function Input(parent, width, maxLetters, inst)
     local box = UI.CreatePanel(parent, "bgDeep", "bronze")
     box:SetSize(width, 24)
     local e = CreateFrame("EditBox", nil, box)
@@ -55,7 +56,7 @@ local function Input(parent, width, maxLetters)
     if not e:SetFont(UI.GetFontPath("body"), 12, "") then e:SetFont("Fonts\\FRIZQT__.TTF", 12, "") end
     e:SetTextColor(UI.Color("text"))
     e:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    e:SetScript("OnEditFocusGained", function(self) W.target = self end)
+    e:SetScript("OnEditFocusGained", function(self) (inst or W).target = self end)
     box.edit = e
     return box
 end
@@ -84,11 +85,26 @@ end
 -- Aufbau
 ------------------------------------------------------------------------
 
-local Refresh
-
-local function Build()
-    local f = UI.CreatePanel(G.UIParent, "panel", "bronze")
-    G.FreewoodNotesWindow = f
+-- I = Instanz (W fuer das Fenster), host = Elternrahmen im Reiter (nil: eigenes Fenster)
+local function Build(I, host)
+    local view = I.view
+    local Refresh
+    local function Key() return view.key or N.CharKey() end
+    local function Own() return view.key == nil or view.key == N.CharKey() end
+    local function CanEdit() return Own() or view.unlock end
+    I.CanEdit = CanEdit
+    local embedded = host ~= nil
+    local f
+    if embedded then
+        f = CreateFrame("Frame", nil, host)
+        f:SetAllPoints(host)
+    else
+        f = UI.CreatePanel(G.UIParent, "panel", "bronze")
+    end
+    I.frame = f
+    instances[#instances + 1] = I
+    if not embedded then
+        G.FreewoodNotesWindow = f
     if G.UISpecialFrames then table.insert(G.UISpecialFrames, "FreewoodNotesWindow") end   -- ESC schliesst
     local o = Opts()
     f:SetSize(math.max(MIN_W, o.w or 680), math.max(MIN_H, o.h or 480))
@@ -102,7 +118,7 @@ local function Build()
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", function(self) self:StartMoving() end)
     f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() SavePos(self) end)
-    f:SetScript("OnHide", function() if W.SaveBody then W.SaveBody() end if W.picker then W.picker:Hide() end end)
+    f:SetScript("OnHide", function() if I.SaveBody then I.SaveBody() end if I.picker then I.picker:Hide() end end)
     f:Hide()
 
     local grip = CreateFrame("Button", nil, f)
@@ -111,12 +127,19 @@ local function Build()
     grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
     grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
     grip:SetScript("OnMouseUp", function() f:StopMovingOrSizing() SavePos(f) Refresh() end)
+    end   -- nur eigenes Fenster
+    if embedded then
+        f:SetScript("OnHide", function() if I.SaveBody then I.SaveBody() end if I.picker then I.picker:Hide() end end)
+    end
 
     local title = UI.CreateLabel(f, L().NOTES_TITLE, { font = "heading", size = 15, color = "goldLight" })
-    title:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -10)
+    title:SetPoint("TOPLEFT", f, "TOPLEFT", embedded and 0 or 12, embedded and -4 or -10)
 
-    local close = UI.CreateButton(f, "X", 22, 22, function() f:Hide() end, "default")
-    close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -8, -8)
+    local close
+    if not embedded then
+        close = UI.CreateButton(f, "X", 22, 22, function() f:Hide() end, "default")
+        close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -8, -8)
+    end
 
     -- Charakter-Auswahl und Bearbeiten-Knopf (nur bei fremden Charakteren)
     local unlock = UI.CreateButton(f, L().NOTES_UNLOCK, 110, 22, function()
@@ -124,7 +147,11 @@ local function Build()
         view.edit = false
         Refresh()
     end, "default")
-    unlock:SetPoint("RIGHT", close, "LEFT", -6, 0)
+    if close then
+        unlock:SetPoint("RIGHT", close, "LEFT", -6, 0)
+    else
+        unlock:SetPoint("TOPRIGHT", f, "TOPRIGHT", -130, -2)   -- rechts daneben sitzt der Knopf "Einstellungen"
+    end
     local charDd = UI.CreateDropdown(f, 220, 22, {
         getOptions = function()
             local list = {}
@@ -136,7 +163,7 @@ local function Build()
         textOf = function(v) return tostring(v or "") .. ((v == N.CharKey()) and (" " .. L().NOTES_YOU) or "") end,
         onChange = function(v)
             if v == nil then return end
-            W.SaveBody()
+            I.SaveBody()
             view.key = (v == N.CharKey()) and nil or v
             view.unlock, view.edit = false, false
             Refresh()
@@ -145,17 +172,18 @@ local function Build()
     charDd:SetPoint("RIGHT", unlock, "LEFT", -6, 0)
 
     -- Reiter
-    local tabNotes = UI.CreateButton(f, L().NOTES_TAB_NOTES, 120, 24, function() W.SaveBody() view.tab = "notes" Refresh() end, "default")
-    tabNotes:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -38)
-    local tabTodo = UI.CreateButton(f, L().NOTES_TAB_TODO, 120, 24, function() W.SaveBody() view.tab = "todo" Refresh() end, "default")
+    local tabNotes = UI.CreateButton(f, L().NOTES_TAB_NOTES, 120, 24, function() I.SaveBody() view.tab = "notes" Refresh() end, "default")
+    local M = embedded and 0 or 12
+    tabNotes:SetPoint("TOPLEFT", f, "TOPLEFT", M, -38)
+    local tabTodo = UI.CreateButton(f, L().NOTES_TAB_TODO, 120, 24, function() I.SaveBody() view.tab = "todo" Refresh() end, "default")
     tabTodo:SetPoint("LEFT", tabNotes, "RIGHT", 6, 0)
     local ro = UI.CreateLabel(f, "", { size = 11, color = "textDim" })
     ro:SetPoint("LEFT", tabTodo, "RIGHT", 12, 0)
 
     ------------------------------------------------------------------ Notizen
     local nf = CreateFrame("Frame", nil, f)
-    nf:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -70)
-    nf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -12, 12)
+    nf:SetPoint("TOPLEFT", f, "TOPLEFT", M, -70)
+    nf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -M, M)
 
     local list = UI.CreateScrollFrame(nf, LIST_W, 100)
     list:SetPoint("TOPLEFT", nf, "TOPLEFT", 0, 0)
@@ -163,7 +191,7 @@ local function Build()
     list:SetWidth(LIST_W)
     local rows = {}
     local btnNew = UI.CreateButton(nf, L().NOTES_NEW, 92, 24, function()
-        W.SaveBody()
+        I.SaveBody()
         local n = N.Add(Key())
         if n then view.edit = false Refresh() end
     end, "primary")
@@ -177,13 +205,13 @@ local function Build()
     local right = CreateFrame("Frame", nil, nf)
     right:SetPoint("TOPLEFT", nf, "TOPLEFT", LIST_W + 12, 0)
     right:SetPoint("BOTTOMRIGHT", nf, "BOTTOMRIGHT", 0, 0)
-    local titleBox = Input(right, 200, 60)
+    local titleBox = Input(right, 200, 60, I)
     titleBox:SetPoint("TOPLEFT", right, "TOPLEFT", 0, 0)
     titleBox:SetPoint("TOPRIGHT", right, "TOPRIGHT", 0, 0)
     local function SaveTitle(self)
         local d = N.Data(Key())
         if d and d.cur and CanEdit() then N.SetTitle(Key(), d.cur, self:GetText()) end
-        W.RefreshList()
+        I.RefreshList()
     end
     titleBox.edit:SetScript("OnEnterPressed", function(self) SaveTitle(self) self:ClearFocus() end)
     titleBox.edit:SetScript("OnEditFocusLost", SaveTitle)
@@ -209,37 +237,37 @@ local function Build()
     area:SetPoint("TOPLEFT", titleBox, "BOTTOMLEFT", 0, -6)
     area:SetPoint("BOTTOMRIGHT", right, "BOTTOMRIGHT", 0, 32)
     area.edit:SetMaxLetters(20000)
-    area.edit:HookScript("OnEditFocusGained", function(self) W.target = self end)
+    area.edit:HookScript("OnEditFocusGained", function(self) I.target = self end)
 
     local editBtn = UI.CreateButton(right, L().NOTES_WRITE, 110, 24, function()
-        if view.edit then W.SaveBody() view.edit = false else view.edit = true end
+        if view.edit then I.SaveBody() view.edit = false else view.edit = true end
         Refresh()
         if view.edit then area.edit:SetFocus() end
     end, "primary")
     editBtn:SetPoint("BOTTOMLEFT", right, "BOTTOMLEFT", 0, 0)
     local linkBtn = UI.CreateButton(right, L().NOTES_LINK, 110, 24, function()
         if not view.edit then view.edit = true Refresh() end
-        W.OpenPicker(area.edit)
+        I.OpenPicker(area.edit)
     end, "default")
     linkBtn:SetPoint("LEFT", editBtn, "RIGHT", 6, 0)
     local pinBtn = UI.CreateButton(right, L().NOTES_PIN, 100, 24, function()
         local d = N.Data(Key())
-        if Own() and d and d.cur then W.SaveBody() N.TogglePin(d.cur) Refresh() end
+        if Own() and d and d.cur then I.SaveBody() N.TogglePin(d.cur) Refresh() end
     end, "default")
     pinBtn:SetPoint("LEFT", linkBtn, "RIGHT", 6, 0)
-    W.pinBtn = pinBtn
+    I.pinBtn = pinBtn
     local hint = UI.CreateLabel(right, L().NOTES_SHIFT_HINT, { size = 10, color = "textDim" })
     hint:SetPoint("LEFT", pinBtn, "RIGHT", 10, 0)
     hint:SetPoint("RIGHT", right, "RIGHT", 0, 0)
     hint:SetWordWrap(true)
 
-    function W.SaveBody()
+    function I.SaveBody()
         if not (view.edit and CanEdit()) then return end
         local d = N.Data(Key())
         if d and d.cur then N.SetText(Key(), d.cur, area:GetText()) end
     end
 
-    function W.RefreshList()
+    function I.RefreshList()
         local d = N.Data(Key())
         local notes = d and d.notes or {}
         if d and not d.cur and notes[1] then d.cur = notes[1].id end
@@ -250,11 +278,15 @@ local function Build()
                 r:SetPoint("TOPLEFT", list.child, "TOPLEFT", 0, -(i - 1) * ROW_H)
                 r.label:ClearAllPoints()
                 r.label:SetPoint("LEFT", r, "LEFT", 6, 0)
-                r.label:SetPoint("RIGHT", r, "RIGHT", -6, 0)
+                r.label:SetPoint("RIGHT", r, "RIGHT", -20, 0)
                 r.label:SetJustifyH("LEFT")
                 r.label:SetWordWrap(false)
+                -- Farbpunkt: Notiz ist als Zettel angeheftet (in der Farbe des Zettels; seit 0.56.0)
+                r.dot = r:CreateTexture(nil, "OVERLAY")
+                r.dot:SetSize(10, 10)
+                r.dot:SetPoint("RIGHT", r, "RIGHT", -6, 0)
                 r:SetScript("OnClick", function(self)
-                    W.SaveBody()
+                    I.SaveBody()
                     local dd = N.Data(Key())
                     if dd then dd.cur = self.noteId end
                     view.edit = false
@@ -264,6 +296,13 @@ local function Build()
             end
             r.noteId = n.id
             r:SetLabel(N.Plain(n.title))
+            local pin = Own() and N.GetPin(n.id)
+            if pin then
+                r.dot:SetColorTexture(pin.r or 1, pin.g or 0.92, pin.b or 0.55, 1)
+                r.dot:Show()
+            else
+                r.dot:Hide()
+            end
             r:SetStyle(d.cur == n.id and "primary" or "default")
             r:Show()
         end
@@ -271,7 +310,7 @@ local function Build()
         list:SetContentHeight(#notes * ROW_H)
     end
 
-    function W.RefreshNote()
+    function I.RefreshNote()
         local d = N.Data(Key())
         local n = d and d.cur and N.Find(Key(), d.cur)
         local can = CanEdit()
@@ -310,9 +349,9 @@ local function Build()
 
     ------------------------------------------------------------------ ToDo
     local tf = CreateFrame("Frame", nil, f)
-    tf:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -70)
-    tf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -12, 12)
-    local todoIn = Input(tf, 300, 500)
+    tf:SetPoint("TOPLEFT", f, "TOPLEFT", M, -70)
+    tf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -M, M)
+    local todoIn = Input(tf, 300, 500, I)
     todoIn:SetPoint("TOPLEFT", tf, "TOPLEFT", 0, 0)
     todoIn:SetPoint("TOPRIGHT", tf, "TOPRIGHT", -338, 0)
     local function AddTodo()
@@ -322,13 +361,13 @@ local function Build()
     todoIn.edit:SetScript("OnEnterPressed", function() AddTodo() end)
     local addBtn = UI.CreateButton(tf, L().TODO_ADD, 110, 24, AddTodo, "primary")
     addBtn:SetPoint("LEFT", todoIn, "RIGHT", 6, 0)
-    local tLinkBtn = UI.CreateButton(tf, L().NOTES_LINK, 110, 24, function() W.OpenPicker(todoIn.edit) end, "default")
+    local tLinkBtn = UI.CreateButton(tf, L().NOTES_LINK, 110, 24, function() I.OpenPicker(todoIn.edit) end, "default")
     tLinkBtn:SetPoint("LEFT", addBtn, "RIGHT", 6, 0)
     local tPinBtn = UI.CreateButton(tf, L().NOTES_PIN, 100, 24, function()
         if Own() then N.TogglePin("todo") Refresh() end
     end, "default")
     tPinBtn:SetPoint("LEFT", tLinkBtn, "RIGHT", 6, 0)
-    W.tPinBtn = tPinBtn
+    I.tPinBtn = tPinBtn
 
     local tlist = UI.CreateScrollFrame(tf, 100, 100)
     tlist:SetPoint("TOPLEFT", todoIn, "BOTTOMLEFT", 0, -8)
@@ -375,7 +414,7 @@ local function Build()
         return r
     end
 
-    function W.RefreshTodo()
+    function I.RefreshTodo()
         local can = CanEdit()
         addBtn:SetButtonEnabled(can)
         tLinkBtn:SetButtonEnabled(can)
@@ -438,16 +477,16 @@ local function Build()
     ------------------------------------------------------------------ Verknuepfen (Suche im Codex)
     local pk = UI.CreatePanel(f, "panel", "gold")
     pk:SetSize(300, 330)
-    pk:SetPoint("TOPLEFT", f, "TOPRIGHT", 6, 0)
+    if embedded then pk:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, -70) else pk:SetPoint("TOPLEFT", f, "TOPRIGHT", 6, 0) end
     pk:SetFrameStrata("DIALOG")
     pk:EnableMouse(true)
     pk:Hide()
-    W.picker = pk
+    I.picker = pk
     local pkTitle = UI.CreateLabel(pk, L().NOTES_LINK_TITLE, { size = 13, color = "goldLight" })
     pkTitle:SetPoint("TOPLEFT", pk, "TOPLEFT", 10, -10)
     local pkClose = UI.CreateButton(pk, "X", 20, 20, function() pk:Hide() end, "default")
     pkClose:SetPoint("TOPRIGHT", pk, "TOPRIGHT", -6, -6)
-    local search = Input(pk, 280, 60)
+    local search = Input(pk, 280, 60, I)
     search:SetPoint("TOPLEFT", pk, "TOPLEFT", 10, -36)
     local pkHint = UI.CreateLabel(pk, L().NOTES_SEARCH_HINT, { size = 10, color = "textDim" })
     pkHint:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -4)
@@ -455,7 +494,7 @@ local function Build()
     pkHint:SetWordWrap(true)
     local results = {}
     local function Insert(entry)
-        local tgt = W.pickTarget
+        local tgt = I.pickTarget
         if not tgt then return end
         local link
         if entry.kind == "items" then
@@ -500,9 +539,9 @@ local function Build()
     end
     search.edit:SetScript("OnTextChanged", function() RunSearch() end)
     search.edit:SetScript("OnEnterPressed", function() if results[1] and results[1].entry then Insert(results[1].entry) end end)
-    function W.OpenPicker(target)
+    function I.OpenPicker(target)
         if not CanEdit() then return end
-        W.pickTarget = target
+        I.pickTarget = target
         search.edit:SetText("")
         RunSearch()
         pk:Show()
@@ -511,7 +550,7 @@ local function Build()
 
     ------------------------------------------------------------------ Gesamtanzeige
     Refresh = function()
-        if not f:IsShown() then return end
+        if not f:IsVisible() then return end
         charDd:SetValue(Key())
         local own = Own()
         unlock:SetShown(not own)
@@ -523,17 +562,18 @@ local function Build()
         if view.tab == "notes" then
             tf:Hide()
             nf:Show()
-            W.RefreshList()
-            W.RefreshNote()
+            I.RefreshList()
+            I.RefreshNote()
         else
             nf:Hide()
             tf:Show()
-            W.RefreshTodo()
+            I.RefreshTodo()
         end
         if not CanEdit() and pk:IsShown() then pk:Hide() end
     end
+    I.Refresh = function() Refresh() end
     f:SetScript("OnShow", function() Refresh() end)
-    f:SetScript("OnSizeChanged", function() if f:IsShown() then Refresh() end end)
+    f:SetScript("OnSizeChanged", function() if f:IsVisible() then Refresh() end end)
     return f
 end
 
@@ -543,16 +583,19 @@ end
 
 function N.Toggle()
     if not FW.db then return end
-    win = win or Build()
+    win = win or Build(W)
     if win:IsShown() then win:Hide() else win:Show() end
 end
 
-function N.Refresh() if Refresh then Refresh() end end
+-- alle Instanzen (Fenster und Reiter) neu zeichnen
+function N.Refresh()
+    for _, inst in ipairs(instances) do if inst.Refresh then inst.Refresh() end end
+end
 
 -- Von einem Zettel aus oeffnen: eigener Charakter, Reiter und (bei Notizen) die Notiz waehlen
 function N.Open(tab, noteId)
     if not FW.db then return end
-    win = win or Build()
+    win = win or Build(W)
     if win:IsShown() and W.SaveBody then W.SaveBody() end
     view.key, view.unlock, view.edit = nil, false, false
     view.tab = (tab == "todo") and "todo" or "notes"
@@ -560,15 +603,63 @@ function N.Open(tab, noteId)
         local d = N.Data()
         if d and N.Find(nil, noteId) then d.cur = noteId end
     end
-    if win:IsShown() then Refresh() else win:Show() end
+    if win:IsShown() then W.Refresh() else win:Show() end
 end
 
 -- Shift-Klick auf Items/Rezepte: Link ins gerade aktive Notiz- oder ToDo-Feld (wie im Chat)
 if G.hooksecurefunc and G.ChatEdit_InsertLink then
     G.hooksecurefunc("ChatEdit_InsertLink", function(text)
-        local t = W.target
-        if win and win:IsShown() and t and t.HasFocus and t:HasFocus() and type(text) == "string" and CanEdit() then
-            t:Insert(text)
+        if type(text) ~= "string" then return end
+        for _, inst in ipairs(instances) do
+            local t = inst.target
+            if inst.frame and inst.frame:IsVisible() and t and t.HasFocus and t:HasFocus() and inst.CanEdit() then
+                t:Insert(text)
+                return
+            end
         end
     end)
+end
+
+------------------------------------------------------------------------
+-- Reiter "Notizen" im Freewood-Fenster (seit 0.56.0): derselbe Notizblock, eingebaut. Das eigene Fenster und die
+-- Taste "Notizblock" bleiben. Einstellungen (Zettel im Kampf ausblenden) hinter "Einstellungen" im Reiter.
+------------------------------------------------------------------------
+
+local T = { view = NewView() }
+N.Tab = T
+
+if UI.RegisterTab then
+    UI:RegisterTab("notes", {
+        label = function() return FW.L.TAB_NOTES end,
+        order = 860,
+        build = function(content)
+            local host = CreateFrame("Frame", nil, content)
+            host:SetAllPoints(content)
+            Build(T, host)
+            return host
+        end,
+        onShow = function()
+            if T.Refresh then T.Refresh() end
+        end,
+    })
+end
+
+if UI.RegisterSettingsSection then
+    UI:RegisterSettingsSection("notes", {
+        module = "notes",
+        category = "interface",
+        order = 50,
+        height = 120,
+        build = function(parent)
+            local f, stack = UI.CreateSection(parent, L().NOTES_SET_HEADER)
+            stack:Add(UI.CreateLabel(f, L().NOTES_SET_NOTE, { size = 11, color = "textDim", justifyV = "TOP" }), { fit = true, gap = 8 })
+            local combat = UI.CreateCheckbox(f, L().STICKY_COMBAT, function() return N.HideInCombat() end,
+                function(v) N.SetHideInCombat(v) end)
+            stack:Add(combat, { fit = true, gap = 6 })
+            stack:Layout()
+            f.combat = combat
+            return f
+        end,
+        refresh = function(frame) frame.combat:Refresh() end,
+    })
 end

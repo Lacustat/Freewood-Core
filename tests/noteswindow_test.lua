@@ -16,6 +16,7 @@ local function Widget()
     o.Hide = function(self) local was = self.shown self.shown = false if was and self.scripts.OnHide then self.scripts.OnHide(self) end end
     o.SetShown = function(self, v) if v then self:Show() else self:Hide() end end
     o.IsShown = function(self) return self.shown end
+    o.IsVisible = function(self) return self.shown end
     o.SetText = function(self, t) self.text = t or "" if self.scripts.OnTextChanged then self.scripts.OnTextChanged(self) end end
     o.GetText = function(self) return self.text end
     o.Insert = function(self, t) self.text = self.text .. t end
@@ -80,6 +81,11 @@ UI.CreateDropdown = function(_, _, _, opts)
     d.SetValue = function(self, v) self.value = v end
     return d
 end
+local tabs, sections = {}, {}
+function UI:RegisterTab(id, def) tabs[id] = def end
+function UI:RegisterSettingsSection(id, def) sections[id] = def end
+UI.CreateCheckbox = function(_, t, g, set) local c = Widget() c.get, c.set = g, set c.Refresh = function(self) self.on = g() end return c end
+UI.CreateSection = function() local f = Widget() return f, { Add = function() end, Layout = function() end } end
 local codexShown
 local FW = { db = {}, settings = {}, UI = UI, L = setmetatable({}, { __index = function(_, k) return k end }),
     Codex = { ShowEntry = function(k, id) codexShown = k .. ":" .. id return true end,
@@ -134,4 +140,31 @@ v.tab = "notes" v.edit = false N.Refresh()
 -- Fenster schliessen speichert ohne Fehler
 win:Hide()
 assert(not win:IsShown())
+-- 0.56.0: Reiter "Notizen" mit eingebautem Notizblock (eigene Ansicht, gleiche Daten)
+assert(tabs.notes and tabs.notes.build, "Reiter angemeldet")
+local host = tabs.notes.build(Widget())
+local T = N.Tab
+assert(T.frame and T.Refresh, "eingebaute Instanz")
+assert(T.view ~= W.view, "eigene Ansicht")
+T.view.tab = "todo"
+tabs.notes.onShow()
+assert(W.view.tab == "notes", "Fenster unberuehrt")
+-- Shift-Klick geht ins aktive Feld des Reiters (Fenster zu)
+local t2 = Widget()
+t2:SetFocus()
+T.target = t2
+hooked("|cff1eff00|Hitem:2592|h[Wollstoff]|h|r")
+assert(t2.text:find("Wollstoff", 1, true), "Shift-Klick in den Reiter")
+-- angeheftete Notiz: Farbpunkt in der Liste
+local n2 = N.Add(N.CharKey(), "Zettel")
+N.Pin(n2.id)
+T.view.tab = "notes"
+N.Refresh()
+assert(N.IsPinned(n2.id), "angeheftet")
+-- Einstellungen im Reiter
+assert(sections.notes and sections.notes.module == "notes", "Einstellungen im Reiter Notizen")
+local sf = sections.notes.build(Widget())
+sf.combat.set(true)
+assert(N.HideInCombat() == true, "Im Kampf ausblenden")
+sections.notes.refresh(sf)
 print("noteswindow_test OK")
