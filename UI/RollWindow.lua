@@ -22,6 +22,7 @@ FW:AddLocale("enUS", {
     ROLLWIN_NEED = "Need",
     ROLLWIN_GREED = "Greed",
     ROLLWIN_DE = "Disenchant",
+    ROLLWIN_PASS = "Passed",
     ROLLWIN_WON = "Winner",
     ROLLWIN_WAIT = "waiting ...",
     ROLLWIN_SECTION = "Roll windows",
@@ -38,6 +39,7 @@ FW:AddLocale("deDE", {
     ROLLWIN_NEED = "Bedarf",
     ROLLWIN_GREED = "Gier",
     ROLLWIN_DE = "Entzaubern",
+    ROLLWIN_PASS = "Gepasst",
     ROLLWIN_WON = "Gewinner",
     ROLLWIN_WAIT = "wartet ...",
     ROLLWIN_SECTION = "Würfelfenster",
@@ -89,7 +91,11 @@ local function Compile(fmt)
     while true do
         local i, j, _, kind = string.find(fmt, "%%(%d*)%$?([sd])", pos)
         if not i then break end
-        pat = pat .. string.gsub(string.sub(fmt, pos, i - 1), "%W", "%%%0") .. (kind == "d" and "(%-?%d+)" or "(.-)")
+        local before = string.sub(fmt, pos, i - 1)
+        pat = pat .. string.gsub(before, "%W", "%%%0") .. (kind == "d" and "(%-?%d+)" or "(.-)")
+        -- "|HlootHistory:%d|h[Beute]|h": Nummer des Beute-Verlaufs, nicht die gewuerfelte Zahl (0.55.3; vorher stand
+        -- im Fenster z. B. "19..." statt der Zahl)
+        if kind == "d" and string.find(before, "lootHistory:$") then kind = "h" end
         caps[#caps + 1] = kind
         pos = j + 1
     end
@@ -159,7 +165,9 @@ end
 local function Split(vals, caps)
     local nums, strs, item = {}, {}, nil
     for i, v in ipairs(vals) do
-        if caps[i] == "d" then
+        if caps[i] == "h" then
+            -- Verlaufsnummer: ueberspringen
+        elseif caps[i] == "d" then
             nums[#nums + 1] = tonumber(v)
         elseif not item and string.find(v, "\124Hitem", 1, true) then
             item = v
@@ -210,8 +218,26 @@ local function GetItem(link)
 end
 R.GetItem = GetItem
 
+-- Vorname: Forever-Namen haben Vor- und Nachnamen, manche Meldungen nennen nur den Vornamen (F-20)
+local function FirstWord(n) return string.match(n or "", "^(%S+)") or n end
+
 local function Roll(it, player)
     local r = it.rolls[player]
+    if not r then
+        -- derselbe Spieler einmal mit, einmal ohne Nachnamen ("Pinky" / "Pinky Freewood"): zusammenlegen, laengeren Namen behalten
+        local fw = FirstWord(player)
+        for key, other in pairs(it.rolls) do
+            if FirstWord(key) == fw and (key == fw or player == fw) then
+                if #player > #key then
+                    it.rolls[key] = nil
+                    it.rolls[player] = other
+                    other.player = player
+                    if it.winner == key then it.winner = player end
+                end
+                return other
+            end
+        end
+    end
     if not r then
         r = { player = player }
         it.rolls[player] = r
@@ -249,9 +275,10 @@ function R.Feed(text)
                 elseif c.what == "pass" and player then
                     local it = GetItem(item)
                     it.passes = (it.passes or 0) + 1
+                    Roll(it, player).kind = "pass"      -- als Zeile zeigen (0.55.3)
                 elseif c.what == "won" and player then
                     local it = GetItem(item)
-                    it.winner, it.doneAt = player, now
+                    it.winner, it.doneAt = Roll(it, player).player, now
                     if nums[1] then
                         local r = Roll(it, player)
                         r.kind = r.kind or c.kind
@@ -307,7 +334,7 @@ function R.HandSorted()
     return list
 end
 
-local KIND_ORDER = { need = 1, greed = 2, de = 3 }
+local KIND_ORDER = { need = 1, greed = 2, de = 3, pass = 4 }
 
 -- Zeilen fuer das Beute-Fenster: je Gegenstand die Wuerfe (Bedarf vor Gier vor Entzaubern, dann hoechste Zahl)
 function R.LootRows()
@@ -360,7 +387,7 @@ end
 local DICE = "Interface\\Buttons\\UI-GroupLoot-Dice-Up"
 local QUESTION = "Interface\\Icons\\INV_Misc_QuestionMark"
 local ROW_H, ROW_GAP = 24, 2
-local WIDTH = 310
+local WIDTH = 340
 
 local function IconFor(link)
     local ok, a, b, c, d, e = pcall(function() return G.GetItemInfoInstant(link) end)
@@ -434,7 +461,7 @@ local function MakeRow(f, i)
     row.dice:SetTexture(DICE)
     row.value = row:CreateFontString(nil, "OVERLAY")
     UI.SetFont(row.value, "body", 13)
-    row.value:SetWidth(34)
+    row.value:SetWidth(30)
     row.value:SetJustifyH("RIGHT")
     row.name = row:CreateFontString(nil, "OVERLAY")
     UI.SetFont(row.name, "body", 12)
@@ -472,6 +499,7 @@ local function KindText(kind)
     if kind == "need" then return L.ROLLWIN_NEED end
     if kind == "greed" then return L.ROLLWIN_GREED end
     if kind == "de" then return L.ROLLWIN_DE end
+    if kind == "pass" then return L.ROLLWIN_PASS end
     return ""
 end
 
@@ -534,9 +562,16 @@ local function RefreshLoot()
             row.tag:SetText("")
         else
             row.dice:Show()
-            row.value:SetText(d.roll.value and tostring(d.roll.value) or "...")
+            -- Zahl; gepasst: Strich; gewaehlt, aber noch nicht gewuerfelt: "..."
+            row.value:SetText(d.roll.value and tostring(d.roll.value) or (d.roll.kind == "pass" and "-" or "..."))
             row.name:SetText(d.roll.player)
-            row.tag:SetText(d.winner and L.ROLLWIN_WON or KindText(d.roll.kind))
+            -- immer die Art (Bedarf, Gier, Entzaubern, Gepasst); beim Gewinner dazu "Gewinner" (0.55.3)
+            local kindText = KindText(d.roll.kind)
+            if d.winner then
+                row.tag:SetText(kindText ~= "" and (kindText .. " · " .. L.ROLLWIN_WON) or L.ROLLWIN_WON)
+            else
+                row.tag:SetText(kindText)
+            end
             local key = d.winner and "gold" or "text"
             ColorOf(row.value, key)
             ColorOf(row.name, key)
@@ -617,6 +652,7 @@ function R.Demo()
     local it2 = GetItem(link2)
     Roll(it2, "Cora").kind, Roll(it2, "Cora").value = "greed", 12
     Roll(it2, "Dino").kind = "need"
+    Roll(it2, "Emil").kind = "pass"
     local saved = R.InGroup
     R.InGroup = function() return true end
     R.AddHand("Anna", 64, 1, 100)

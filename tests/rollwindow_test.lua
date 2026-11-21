@@ -77,6 +77,32 @@ eq(R.Feed("Hallo Welt"), nil, "normaler Text")
 R.noUI = false; R.Reset()
 _G.GameTooltip = Proxy()
 _G.UIParent = Proxy()
+-- 0.55.3: Vorlagen mit Beute-Verlauf-Link (neuere Clients): die Verlaufsnummer ist nicht die Zahl
+R.Reset()
+_G.LOOT_ROLL_ROLLED_NEED = "|HlootHistory:%d|h[Beute]|h: Bedarfswurf (%d) für %s von %s"
+_G.LOOT_ROLL_ROLLED_GREED = "|HlootHistory:%d|h[Beute]|h: Gierwurf (%d) für %s von %s"
+_G.LOOT_ROLL_WON = "|HlootHistory:%d|h[Beute]|h: %s gewinnt: %s"
+_G.LOOT_ROLL_PASSED = "|HlootHistory:%d|h[Beute]|h: %s passt bei: %s"
+R.ResetPatterns()
+local lk = "|cff1eff00|Hitem:4000:0:0:0:0:0:0:0|h[Krautstiefel]|h|r"
+eq(R.Feed("|HlootHistory:1953|h[Beute]|h: Gierwurf (57) für " .. lk .. " von Kräuter Urlaub"), "loot", "Verlaufs-Vorlage erkannt")
+eq(R.items[1].rolls["Kräuter Urlaub"].value, 57, "Zahl statt Verlaufsnummer 1953")
+-- derselbe Spieler einmal mit Vornamen, einmal ganz
+R.Feed("Ihr habt \"Gier\" ausgewählt für: " .. lk)            -- eigener Name aus UnitName: nur "Pinky"
+R.Feed("|HlootHistory:1954|h[Beute]|h: Gierwurf (12) für " .. lk .. " von Pinky Freewood")
+local cnt = 0
+for _ in pairs(R.items[1].rolls) do cnt = cnt + 1 end
+eq(cnt, 2, "Pinky und Pinky Freewood zusammengelegt")
+eq(R.items[1].rolls["Pinky Freewood"] and R.items[1].rolls["Pinky Freewood"].value, 12, "voller Name mit Zahl")
+-- gepasst als Zeile, am Ende
+R.Feed("|HlootHistory:1955|h[Beute]|h: Uraggol Mojoweaver passt bei: " .. lk)
+local lr = R.LootRows()
+eq(lr[#lr].roll.player, "Uraggol Mojoweaver", "Gepasst als letzte Zeile")
+eq(lr[#lr].roll.kind, "pass", "Art gepasst")
+R.Feed("|HlootHistory:1956|h[Beute]|h: Kräuter Urlaub gewinnt: " .. lk)
+eq(R.items[1].winner, "Kräuter Urlaub", "Gewinner")
+eq(R.items[1].rolls["Kräuter Urlaub"].value, 57, "Gewinner behaelt seine Zahl")
+
 R.Demo()
 eq(R.lastError, nil, "Beispielansicht ohne Fehler")
 eq(#R.LootRows() >= 5, true, "Beispielzeilen")
