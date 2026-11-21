@@ -206,7 +206,15 @@ end
 local eventFrame = CreateFrame("Frame")
 local gameHandlers = {}
 
+-- Ereignisse, deren Anmeldung für Addons gesperrt ist: pcall fängt das nicht ab, das Spiel zeigt
+-- "Freewood-Core wurde geblockt" (Forever_Failure F-38). Darum gar nicht erst anmelden.
+FW.RESTRICTED_EVENTS = { COMBAT_LOG_EVENT_UNFILTERED = true, COMBAT_LOG_EVENT = true }
+
 function FW:RegisterEvent(event, fn, owner)
+    if FW.RESTRICTED_EVENTS[event] then
+        self:Debug("Ereignis gesperrt:", event)
+        return false
+    end
     local list = gameHandlers[event]
     if not list then
         local ok = pcall(eventFrame.RegisterEvent, eventFrame, event)

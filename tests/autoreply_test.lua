@@ -58,6 +58,9 @@ for _, ev in ipairs({ "CHAT_MSG_WHISPER", "CHAT_MSG_GUILD", "UNIT_AURA", "CHAT_M
     assert(events[ev], "Ereignis " .. ev)
 end
 
+-- 0.60.1: Kampflog nie anmelden (für Addons gesperrt, F-38)
+assert(not events.COMBAT_LOG_EVENT_UNFILTERED, "kein Kampflog")
+
 -- Filter: Beispiel von Lacustat
 local r = { match = "Portest UND bezahle", never = "", whole = false }
 assert(AR.Matches(r, "Hey ich bezahle dir 2g wenn du mich zu dir Portest"), "UND")

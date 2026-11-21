@@ -703,15 +703,8 @@ local function OnAura(unit, info)
     end
 end
 
-local function OnCombatLog()
-    if AR.auraSeen or not G.CombatLogGetCurrentEventInfo then return end
-    local _, sub, _, sGUID, sName, sFlags, _, dGUID, _, _, _, _, spellName, _, auraType = G.CombatLogGetCurrentEventInfo()
-    if sub ~= "SPELL_AURA_APPLIED" or auraType ~= "BUFF" then return end
-    if Secret(dGUID) or Secret(sGUID) or not G.UnitGUID or dGUID ~= G.UnitGUID("player") or sGUID == dGUID then return end
-    local isPlayer = type(sFlags) == "number" and G.bit and G.bit.band(sFlags, 0x400) > 0
-    if not isPlayer then return end
-    AR.OnBuff(Str(sName), Str(spellName), sGUID)
-end
+-- Kein Ersatz über den Kampflog: COMBAT_LOG_EVENT_UNFILTERED anzumelden ist für Addons gesperrt und löste beim
+-- Einloggen "Freewood-Core wurde geblockt" aus (0.60.1, Forever_Failure F-38).
 
 ------------------------------------------------------------------------
 -- Auslöser: Systemzeilen (online, neues Gildenmitglied), Würfeln, Level-ups, Anfragen, Gruppe, Boss
@@ -916,7 +909,6 @@ function AR.Setup()
         end)
     end
     FW:RegisterEvent("UNIT_AURA", OnAura)
-    FW:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", OnCombatLog)
     FW:RegisterEvent("CHAT_MSG_SYSTEM", function(msg) AR.OnSystem(msg) end)
     FW:RegisterEvent("BN_FRIEND_ACCOUNT_ONLINE", function(id)
         if AR.Now() - (AR.loginAt or 0) >= AR.LOGIN_QUIET then AR.OnBNOnline(id) end
