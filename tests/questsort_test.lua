@@ -27,6 +27,17 @@ _G.C_QuestLog = {
     GetQuestObjectives = function(id) return { { numRequired = 4, numFulfilled = data[id].progress * 4 } } end,
     GetDistanceSqToQuest = function(id) return data[id].dist end,
 }
+-- Beobachtungsliste (0.60.3: wir ordnen sie selbst statt den Tracker zu ersetzen)
+local watches = { 1, 2, 4 }
+local watchOps = 0
+_G.C_QuestLog.GetNumQuestWatches = function() return #watches end
+_G.C_QuestLog.GetQuestIDForQuestWatchIndex = function(i) return watches[i] end
+_G.C_QuestLog.RemoveQuestWatch = function(id) for i, w in ipairs(watches) do if w == id then table.remove(watches, i) break end end watchOps = watchOps + 1 end
+_G.C_QuestLog.AddQuestWatch = function(id) watches[#watches + 1] = id end
+local fight = false
+_G.InCombatLockdown = function() return fight end
+local tclock = 0
+_G.GetTime = function() tclock = tclock + 5 return tclock end
 local ev = {}
 local UI = setmetatable({ RegisterSettingsSection = function(_, id, def) tabs[id] = def end, CreateSection = function() return Proxy(), { Add = function() end } end },
     { __index = function() return function() return Proxy() end end })
@@ -80,22 +91,37 @@ eq(QS.SortWatchInfos(infos, "default"), infos, "Standard: gleiche Liste")
 
 -- Einrichtung
 eq(QS.Opts().enabled, true, "Standard an"); eq(QS.Opts().log, "default", "Standard Log"); eq(QS.Opts().tracker, "default", "Standard Verfolgung")
-local tr = { Header = Proxy(), MarkDirty = function() end }
-local orig = function() return { Q(1), Q(2), Q(4) } end
+local tr = { Header = Proxy() }
+local orig = function() return {} end
 tr.BuildQuestWatchInfos = orig
 _G.QuestObjectiveTracker = tr
 QS.Setup()
 eq(type(logged.QuestLogQuests_Update), "function", "Log-Hook gesetzt")
 eq(type(menus.MENU_QUEST_MAP_FRAME_SETTINGS), "function", "Menue-Erweiterung gesetzt")
-eq(tr.BuildQuestWatchInfos ~= orig, true, "Verfolgung ueberschrieben")
-local function Wid(l) local s = {} for _, i in ipairs(l) do s[#s + 1] = i.quest:GetID() end return table.concat(s, ",") end
-eq(Wid(tr.BuildQuestWatchInfos(tr)), "1,2,4", "Standard: Blizzard-Reihenfolge")
-QS.Opts().tracker = "levelDesc"
-eq(Wid(tr.BuildQuestWatchInfos(tr)), "1,2,4", "Stufe ab: 12, 8(alpha), 8(Delta)")
+eq(tr.BuildQuestWatchInfos, orig, "0.60.3: Blizzards Tracker bleibt unberuehrt (kein Taint)")
+local function W() return table.concat(watches, ",") end
+eq(QS.ApplyWatchOrder(), false, "Standard: nichts")
+eq(W(), "1,2,4", "Standard: Blizzard-Reihenfolge")
 QS.Opts().tracker = "nameDesc"
-eq(Wid(tr.BuildQuestWatchInfos(tr)), "4,1,2", "Name Z-A")
+eq(QS.ApplyWatchOrder(), true, "Name Z-A umgeordnet")
+eq(W(), "4,1,2", "Name Z-A")
+eq(QS.ApplyWatchOrder(), false, "gleiche Reihenfolge: nichts mehr")
+QS.Opts().tracker = "levelDesc"
+QS.ApplyWatchOrder()
+eq(W(), "1,2,4", "Stufe ab: 12, 8(alpha), 8(Delta)")
+fight = true
+QS.Opts().tracker = "nameDesc"
+eq(QS.ApplyWatchOrder(), false, "im Kampf: nichts")
+eq(W(), "1,2,4", "im Kampf unveraendert")
+fight = false
+ev.PLAYER_REGEN_ENABLED()
+eq(#timers > 0, true, "nach dem Kampf nachgeholt")
+timers[#timers][2]()
+eq(W(), "4,1,2", "nach dem Kampf sortiert")
 QS.Opts().enabled = false
-eq(Wid(tr.BuildQuestWatchInfos(tr)), "1,2,4", "aus: Blizzard-Reihenfolge")
+QS.Opts().tracker = "nameAsc"
+eq(QS.ApplyWatchOrder(), false, "aus: nichts")
+QS.Opts().enabled = true
 -- Menue: Eintraege entstehen
 local rows = {}
 local root = setmetatable({}, { __index = function(_, k) return function(self, text, a, b) if k == "CreateRadio" then rows[#rows + 1] = text end return Proxy() end end })
@@ -104,27 +130,24 @@ menus.MENU_QUEST_MAP_FRAME_SETTINGS(nil, root)
 eq(#rows, 7, "7 Sortierungen im Menue")
 eq(type(tabs.questsort.build(Proxy())), "table", "Einstellungsabschnitt gebaut")
 
--- Abgabe: waehrend der Abgabe-Animation (QS.settling) bleibt die letzte Reihenfolge
+-- Abgabe: waehrend der Abgabe-Animation (QS.settling) wird nicht umgeordnet
 QS.Opts().enabled = true; QS.Opts().tracker = "nameAsc"
-eq(Wid(tr.BuildQuestWatchInfos(tr)), "2,1,4", "Name A-Z (alpha, Charlie, Delta)")
+QS.ApplyWatchOrder()
+eq(W(), "2,1,4", "Name A-Z (alpha, Charlie, Delta)")
 QS.settling = true
-QS.Opts().tracker = "nameDesc"   -- wuerde sonst anders sortieren
-eq(Wid(tr.BuildQuestWatchInfos(tr)), "2,1,4", "waehrend der Abgabe: letzte Reihenfolge bleibt")
+QS.Opts().tracker = "nameDesc"
+eq(QS.ApplyWatchOrder(), false, "waehrend der Abgabe: nichts")
 QS.settling = false
-tr.numCachedBlocks = 1           -- stehen gebliebener Zwischenspeicher darf die Sortierung nicht mehr sperren
-eq(Wid(tr.BuildQuestWatchInfos(tr)), "4,1,2", "danach neu sortiert (auch mit numCachedBlocks)")
-tr.numCachedBlocks = 0
-eq(Wid(QS.OrderByIds({ Q(4), Q(3), Q(2) }, { 2, 4 })), "2,4,3", "OrderByIds: unbekannte hinten")
-
+eq(QS.ApplyWatchOrder(), true, "danach neu sortiert")
+eq(W(), "4,1,2", "Name Z-A")
 -- Nach Abgabe/Entfernen: ein Neuaufbau nach 2,5 s (nur einer)
 local before = #timers
 ev.QUEST_TURNED_IN(); ev.QUEST_REMOVED()
 eq(#timers - before, 1, "ein Neuaufbau geplant")
 eq(timers[#timers][1], 2.5, "nach 2,5 s")
-local dirty = 0
-tr.MarkDirty = function() dirty = dirty + 1 end
+QS.Opts().tracker = "nameAsc"
 timers[#timers][2]()
-eq(dirty >= 1, true, "Neuaufbau macht den Tracker neu")
+eq(W(), "2,1,4", "Neuaufbau nach der Abgabe ordnet die Liste")
 ev.QUEST_TURNED_IN()
 eq(#timers - before, 2, "danach wieder planbar")
 eq(QS.settling, true, "waehrend der Abgabe gesperrt")
@@ -134,21 +157,17 @@ eq(QS.settling, false, "nach 2,5 s frei")
 -- Entfernung: Ticker baut nur bei geaenderter Reihenfolge neu auf
 eq(#tickers, 1, "Ticker gestartet")
 QS.Opts().tracker = "distance"
-tr.BuildQuestWatchInfos = nil
-_G.QuestObjectiveTracker = tr
-local infos2 = { Q(1), Q(2), Q(3), Q(4) }
-local base = function() return { Q(1), Q(2), Q(3), Q(4) } end
-tr.fwSortHooked = nil; tr.BuildQuestWatchInfos = base; tr.numCachedBlocks = 0
-QS.Setup()
-Wid(tr.BuildQuestWatchInfos(tr))
-dirty = 0
-eq(QS.DistanceTick(), false, "gleiche Reihenfolge: kein Neuaufbau")
+watches = { 1, 2, 3, 4 }
+QS.DistanceTick()
+eq(W(), "3,2,1,4", "Entfernung: 50, 100, 300, 900")
+eq(QS.DistanceTick(), false, "gleiche Reihenfolge: nichts")
 data[1].dist = 10
-eq(QS.DistanceTick(), true, "geaenderte Reihenfolge: Neuaufbau")
-eq(dirty, 1, "Tracker neu angestossen")
+eq(QS.DistanceTick(), true, "geaenderte Reihenfolge: umgeordnet")
+eq(W(), "1,3,2,4", "neue Entfernung")
 QS.settling = true; data[4].dist = 1
 eq(QS.DistanceTick(), false, "waehrend der Abgabe: nichts")
 QS.settling = false
+watches = { 1, 2, 4 }
 -- Entfernung: Freewood-Quest-Schaetzung (Sekunden) geht vor, Spiel-Wert wird in Sekunden umgerechnet
 FW.QuestDistance = function(id) if id == 3 then return 5 end end
 eq(QS.Distance(3), 5, "Sammelquest: Wert aus Freewood-Quest")
@@ -183,25 +202,29 @@ _G.C_QuestLog.GetQuestObjectives = function(id)
 end
 eq(QS.Progress(3), 1, "Ziel als erfuellt gemeldet zaehlt voll")
 _G.C_QuestLog.GetQuestObjectives = oldObj
--- Fortschritt aendert die Reihenfolge der Questverfolgung: nach dem Ereignis wird neu aufgebaut
+-- Fortschritt aendert die Reihenfolge der Questverfolgung: nach dem Ereignis wird neu geordnet
 QS.settling = false
 QS.Opts().enabled = true
 QS.Opts().tracker = "progress"
-local dirty = 0
-tr.MarkDirty = function() dirty = dirty + 1 end
-QS.CheckTracker()
-dirty = 0
+QS.ApplyWatchOrder()
+local before2 = W()
 data[4].progress = 0.75
 timers = {}
+_G.GetTime = function() return 100 end
 ev.QUEST_LOG_UPDATE()
 eq(#timers, 1, "gebuendelt geplant")
 ev.QUEST_LOG_UPDATE()
 eq(#timers, 1, "nur einmal geplant")
 timers[1][2]()
-eq(dirty, 1, "neue Reihenfolge: Questverfolgung neu aufgebaut")
+eq(W() ~= before2, true, "neue Reihenfolge: Liste neu geordnet")
+-- eigene Umordnung (QUEST_WATCH_LIST_CHANGED) loest keine neue Pruefung aus
 timers = {}
+ev.QUEST_WATCH_LIST_CHANGED()
+eq(#timers, 0, "direkt nach eigener Umordnung: nichts")
+_G.GetTime = function() return 200 end
+local ops = watchOps
 ev.QUEST_LOG_UPDATE(); timers[1][2]()
-eq(dirty, 1, "nichts geaendert: kein Neuaufbau")
+eq(watchOps, ops, "nichts geaendert: nichts umgeordnet")
 -- nur Spieler-Einheit
 timers = {}
 ev.UNIT_QUEST_LOG_CHANGED("party1")

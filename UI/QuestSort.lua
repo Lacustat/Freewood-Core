@@ -2,7 +2,8 @@
 -- Questlog: nach dem Aufbau der Liste (QuestLogQuests_Update) werden die Quests unter jeder Gebiets-Ueberschrift neu geordnet:
 --   die Plaetze (layoutIndex, Abstand oben) bleiben, nur die Quests wechseln die Plaetze. Kampagnen bleiben in Blizzards Reihenfolge.
 --   Auswahl im Zahnrad-Menue des Questlogs ("Sortierung").
--- Questverfolgung: BuildQuestWatchInfos des Quest-Moduls liefert die Reihenfolge; wir sortieren das Ergebnis. Knopf in der Ueberschrift.
+-- Questverfolgung: seit 0.60.3 ordnen wir die Beobachtungsliste selbst (C_QuestLog Remove/AddQuestWatch, nie im Kampf),
+-- statt Blizzards BuildQuestWatchInfos zu ersetzen (Taint, F-40). Knopf in der Ueberschrift.
 -- Sortierungen: Standard, Stufe auf-/absteigend, Name A-Z/Z-A, Fortschritt (fast fertig zuerst), Entfernung (naechste zuerst).
 -- Quelle der Rahmen: Blizzard QuestMapFrame.lua / Blizzard_QuestObjectiveTracker.lua (Stand 11/2026). Alles mit pcall und Pruefung.
 
@@ -275,26 +276,59 @@ end
 local SETTLE = 2.5     -- Sekunden nach Abgabe bis zum sauberen Neuaufbau
 local DIST_TICK = 5    -- Sekunden: Entfernungs-Sortierung auf Aenderung pruefen
 
-local function HookTracker()
-    local t = G.QuestObjectiveTracker
-    if not t or t.fwSortHooked or type(t.BuildQuestWatchInfos) ~= "function" then return end
-    t.fwSortHooked = true
-    local orig = t.BuildQuestWatchInfos
-    t.BuildQuestWatchInfos = function(self, ...)
-        local infos = orig(self, ...)
-        local o = Opts()
-        if not o.enabled or o.tracker == "default" or type(infos) ~= "table" then return infos end
-        if QS.settling and QS.lastIds then
-            local ok, res = pcall(QS.OrderByIds, infos, QS.lastIds)
-            return ok and res or infos
-        end
-        local ok, res = pcall(QS.SortWatchInfos, infos, o.tracker)
-        if ok and type(res) == "table" then
-            QS.lastIds = IdsOf(res)
-            return res
-        end
-        return infos
+-- Questverfolgung sortieren ohne Blizzards Tracker anzufassen (0.60.3, F-40): Früher wurde
+-- QuestObjectiveTracker.BuildQuestWatchInfos ersetzt. Dann lief jeder Neuaufbau des Trackers als Freewood-Code
+-- ("tainted"), und im Kampf scheiterte Blizzards Szenario-Teil im selben Durchlauf an geschützten Buffs
+-- ("GetAuraDataByIndex(): Auras cannot be accessed when secret while tainted by 'Freewood-Core'").
+-- Jetzt ordnen wir die Beobachtungsliste selbst (entfernen und in der gewünschten Reihenfolge neu hinzufügen),
+-- nur außerhalb des Kampfes; Blizzard zeigt sie in dieser Reihenfolge an.
+local function HookTracker() end
+
+function QS.WatchIds()
+    local C = G.C_QuestLog
+    local ids = {}
+    if not C or not C.GetNumQuestWatches or not C.GetQuestIDForQuestWatchIndex then return ids end
+    for i = 1, (C.GetNumQuestWatches() or 0) do
+        local id = C.GetQuestIDForQuestWatchIndex(i)
+        if id then ids[#ids + 1] = id end
     end
+    return ids
+end
+
+function QS.WantIds(mode)
+    local infos = {}
+    for _, id in ipairs(QS.WatchIds()) do
+        local qid = id
+        infos[#infos + 1] = { quest = { GetID = function() return qid end } }
+    end
+    return IdsOf(QS.SortWatchInfos(infos, mode))
+end
+
+local function Same(a, b)
+    if #a ~= #b then return false end
+    for i = 1, #a do if a[i] ~= b[i] then return false end end
+    return true
+end
+
+-- Rückgabe true, wenn die Reihenfolge geändert wurde
+function QS.ApplyWatchOrder()
+    local o = Opts()
+    if not o.enabled or o.tracker == "default" or QS.settling then return false end
+    if G.InCombatLockdown and G.InCombatLockdown() then QS.combatPending = true return false end
+    local C = G.C_QuestLog
+    if not C or not C.AddQuestWatch or not C.RemoveQuestWatch then return false end
+    local cur = QS.WatchIds()
+    local want = QS.WantIds(o.tracker)
+    QS.lastIds = want
+    if Same(cur, want) then return false end
+    local first = 1
+    while cur[first] == want[first] do first = first + 1 end
+    QS.applyingAt = G.GetTime and G.GetTime() or 0
+    for i = first, #want do
+        pcall(C.RemoveQuestWatch, want[i])
+        pcall(C.AddQuestWatch, want[i])
+    end
+    return true
 end
 
 -- Nach Abgabe/Entfernen: erst nach der Animation sauber neu aufbauen
@@ -314,15 +348,7 @@ FW:RegisterEvent("QUEST_REMOVED", function() Settle() end)
 -- Questverfolgung: Reihenfolge neu berechnen und nur bei Aenderung neu aufbauen lassen (seit 0.53.1 fuer jede
 -- Sortierung, nicht nur Entfernung). Rueckgabe true, wenn neu aufgebaut wird.
 function QS.CheckTracker()
-    local o = Opts()
-    local t = G.QuestObjectiveTracker
-    if not o.enabled or o.tracker == "default" or not t or not t.BuildQuestWatchInfos then return false end
-    if QS.settling then return false end
-    local before = table.concat(QS.lastIds or {}, ",")
-    local ok = pcall(t.BuildQuestWatchInfos, t)
-    local after = table.concat(QS.lastIds or {}, ",")
-    if ok and before ~= after and t.MarkDirty then pcall(t.MarkDirty, t); return true end
-    return false
+    return QS.ApplyWatchOrder()
 end
 -- Entfernung aendert sich beim Laufen: regelmaessig pruefen
 function QS.DistanceTick()
@@ -354,6 +380,9 @@ QS.CHANGE_DELAY = 0.3
 local changePending = false
 function QS.OnQuestChange()
     if changePending then return end
+    -- eigene Umordnung löst QUEST_WATCH_LIST_CHANGED aus: kurz danach nicht erneut prüfen
+    local now = G.GetTime and G.GetTime() or 0
+    if QS.applyingAt and now - QS.applyingAt < 1 then return end
     local o = Opts()
     if not o.enabled or (o.tracker == "default" and o.log == "default") then return end
     changePending = true
@@ -431,9 +460,9 @@ end
 -- alles neu zeichnen lassen
 function QS.Refresh()
     UpdateButton()
-    if G.QuestLogQuests_Update then pcall(G.QuestLogQuests_Update) end
-    local t = G.QuestObjectiveTracker
-    if t and t.MarkDirty then pcall(t.MarkDirty, t) end
+    local fight = G.InCombatLockdown and G.InCombatLockdown()
+    if not fight and G.QuestLogQuests_Update then pcall(G.QuestLogQuests_Update) end
+    pcall(QS.ApplyWatchOrder)
     FW:Fire("QUESTSORT_CHANGED")
 end
 
@@ -452,6 +481,10 @@ local function Retry(n)
 end
 
 FW:RegisterEvent("PLAYER_LOGIN", function() Retry(6) end)
+-- im Kampf aufgeschoben: danach nachholen
+FW:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+    if QS.combatPending then QS.combatPending = false QS.OnQuestChange() end
+end)
 FW:RegisterEvent("PLAYER_ENTERING_WORLD", function()
     if G.C_Timer then G.C_Timer.After(2, function() Retry(4) end) end
 end)
