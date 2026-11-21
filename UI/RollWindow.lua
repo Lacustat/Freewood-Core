@@ -653,6 +653,7 @@ end
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("roll-window", {
+        module = "loot",       -- Wuerfelfenster bei den Beute-Einstellungen (0.55.1; ohne Beute-Modul unter Chat)
         category = "chat",
         order = 6,
         height = 150,
