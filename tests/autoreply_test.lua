@@ -32,7 +32,7 @@ _G.SendChatMessage = function(text, ch, _, target) sent[#sent + 1] = { text = te
 _G.BNSendWhisper = function(id, text) sent[#sent + 1] = { text = text, ch = "BN", to = id } end
 _G.DoEmote = function(t, target) emotes[#emotes + 1] = { t = t, to = target } end
 _G.C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
-local function Flush() local t = timers timers = {} for _, fn in ipairs(t) do fn() end end
+local function Flush() for _ = 1, 5 do local t = timers timers = {} for _, fn in ipairs(t) do fn() end end end
 local ignored = {}
 local friends = { "Lena Licht" }
 _G.C_FriendList = {
@@ -168,7 +168,7 @@ AR.Delete(fo.id) AR.Delete(go.id)
 
 -- Vorlagentexte (sonst aus UI/AutoReply.lua)
 for k, v in pairs({ AR_T_GJOIN_R = "Willkommen, {name}!", AR_T_LVL_R = "Stufe {level}!", AR_T_GLVL_R = "Grats zu {level}, {name}!",
-    AR_T_DUEL_R = "Keine Duelle", AR_T_REZ_R = "Danke, {name}!", AR_T_BOSS_R = "gg!", AR_T_PORT_R = "Sorry {name}" }) do rawset(FW.L, k, v) end
+    AR_T_DUEL_R = "Keine Duelle", AR_T_REZ_R = "Danke, {name}!", AR_T_BOSS_R = "gg!", AR_T_PORT_R = "Sorry {name}", AR_T_BUFF_R = "Danke für {spell}, {name}!" }) do rawset(FW.L, k, v) end
 -- Neues Gildenmitglied
 local gj = AR.FromTemplate("GJOIN")
 events.CHAT_MSG_SYSTEM("Cleo Cloud ist der Gilde beigetreten.") Flush()
@@ -242,6 +242,39 @@ n = #sent
 events.ENCOUNTER_END(1, "Van Cleef", 1, 5, 0) Flush()
 assert(#sent == n, "nicht bei Niederlage")
 AR.Delete(bo.id) inGroup = false
+
+-- Buff (0.60.2): Ereignisdaten nie lesen, eigene Buffs außerhalb des Kampfes durchgehen
+local bf = AR.FromTemplate("BUFF")
+bf.cond.group = "any"
+local buffs = { { auraInstanceID = 1, sourceUnit = "player", name = "Eigener" } }
+_G.C_UnitAuras = { GetBuffDataByIndex = function(_, i) return buffs[i] end }
+_G.UnitIsPlayer = function() return true end
+_G.UnitFullName = function(u) if u == "party1" then return "Pia", "Priester" end return "X", "Y" end
+local secret = setmetatable({}, { __index = function() error("secret angefasst") end })
+events.UNIT_AURA("player", secret) Flush()                 -- Ausgangsstand, Daten des Ereignisses unberührt
+n = #sent
+buffs[2] = { auraInstanceID = 2, sourceUnit = "party1", name = "Machtwort: Seelenstärke" }
+events.UNIT_AURA("player", secret) Flush()
+assert(#sent == n + 1 and sent[#sent].to == "Pia Priester" and sent[#sent].text:find("Seelenst", 1, true), "Buff-Dank")
+events.UNIT_AURA("player", secret) Flush()
+assert(#sent == n + 1, "derselbe Buff nicht doppelt")
+-- im Kampf: nichts lesen, danach neuer Ausgangsstand ohne Nachmeldung
+inCombat = true
+_G.C_UnitAuras = { GetBuffDataByIndex = function() error("im Kampf gelesen") end }
+events.UNIT_AURA("player", secret) Flush()
+inCombat = false
+buffs[3] = { auraInstanceID = 3, sourceUnit = "party1", name = "Arkane Intelligenz" }
+_G.C_UnitAuras = { GetBuffDataByIndex = function(_, i) return buffs[i] end }
+events.PLAYER_REGEN_ENABLED() Flush()
+events.UNIT_AURA("player", secret) Flush()
+assert(#sent == n + 1, "Buff aus dem Kampf nicht nachgemeldet")
+-- geschützte Werte überspringen
+FW.Util.IsSecret = function(v) return v == "SECRET" end
+buffs[4] = { auraInstanceID = 4, sourceUnit = "SECRET", name = "x" }
+events.UNIT_AURA("player", secret) Flush()
+assert(#sent == n + 1, "geheime Quelle übersprungen")
+FW.Util.IsSecret = function() return false end
+AR.Delete(bf.id)
 
 -- Schutz: höchstens 6 pro Minute
 now = now + 200

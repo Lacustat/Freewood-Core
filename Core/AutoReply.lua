@@ -691,16 +691,78 @@ function AR.UnitFull(unit)
     return n or first or (G.UnitName and Str(G.UnitName(unit)))
 end
 
-local function OnAura(unit, info)
-    if unit ~= "player" or type(info) ~= "table" or type(info.addedAuras) ~= "table" then return end
-    for _, a in ipairs(info.addedAuras) do
-        local src = a.sourceUnit
-        if a.isHelpful and type(src) == "string" and not Secret(src) and G.UnitIsPlayer and G.UnitIsPlayer(src)
-            and not (G.UnitIsUnit and G.UnitIsUnit(src, "player")) then
-            AR.auraSeen = true
-            AR.OnBuff(AR.UnitFull(src), Str(a.name), G.UnitGUID and G.UnitGUID(src))
+-- Buff-Erkennung (0.60.2): Die Daten von UNIT_AURA (updateInfo.addedAuras) sind im Kampf geschützte "Secret"-Tabellen.
+-- Sie anzufassen gab "bad argument to ipairs (got secret)" und machte danach Blizzards eigenen Code kaputt
+-- ("attempted to iterate a table ... tainted by Freewood-Core", F-39). Darum: Ereignisdaten nie lesen, im Kampf gar
+-- nichts tun, außerhalb kurz verzögert die eigenen Buffs selbst durchgehen und neue mit fremder Quelle melden.
+AR.knownAuras = nil      -- [auraInstanceID] = true; nil = noch kein Ausgangsstand
+
+local function CanRead(t)
+    if Secret(t) then return false end
+    if type(t) ~= "table" then return false end
+    if type(G.canaccesstable) == "function" then
+        local ok, res = pcall(G.canaccesstable, t)
+        if not ok or not res then return false end
+    end
+    return true
+end
+
+local function GetBuff(i)
+    local U = G.C_UnitAuras
+    if not U then return nil end
+    local fn = U.GetBuffDataByIndex or U.GetAuraDataByIndex
+    if not fn then return nil end
+    local ok, a
+    if U.GetBuffDataByIndex then ok, a = pcall(U.GetBuffDataByIndex, "player", i)
+    else ok, a = pcall(U.GetAuraDataByIndex, "player", i, "HELPFUL") end
+    if ok then return a end
+    return nil
+end
+
+-- fire = false: nur Ausgangsstand merken
+function AR.ScanBuffs(fire)
+    if AR.Env.combat() then AR.knownAuras = nil return {} end
+    local now, fired = {}, {}
+    for i = 1, 40 do
+        local a = GetBuff(i)
+        if a == nil then break end
+        if CanRead(a) then
+            local id = a.auraInstanceID
+            if id ~= nil and not Secret(id) then
+                now[id] = true
+                local src = a.sourceUnit
+                if fire and AR.knownAuras and not AR.knownAuras[id] and type(src) == "string" and not Secret(src)
+                    and src ~= "player" and G.UnitIsPlayer and G.UnitIsPlayer(src)
+                    and not (G.UnitIsUnit and G.UnitIsUnit(src, "player")) then
+                    for _, x in ipairs(AR.OnBuff(AR.UnitFull(src), Str(a.name), G.UnitGUID and Str(G.UnitGUID(src)))) do
+                        fired[#fired + 1] = x
+                    end
+                end
+            end
         end
     end
+    local had = AR.knownAuras ~= nil
+    AR.knownAuras = now
+    if not had then return {} end
+    return fired
+end
+
+local function HasBuffRule()
+    for _, r in ipairs(AR.DB().rules) do if r.on and r.kind == "buff" then return true end end
+    return false
+end
+
+-- UNIT_AURA: nur vormerken, Daten nicht anfassen
+local function OnAura(unit)
+    if unit ~= "player" or AR.auraPending or not HasBuffRule() then return end
+    if AR.Env.combat() then AR.knownAuras = nil return end
+    AR.auraPending = true
+    local function Run()
+        AR.auraPending = false
+        local ok = pcall(AR.ScanBuffs, true)
+        if not ok then AR.knownAuras = nil end
+    end
+    if G.C_Timer and G.C_Timer.After then G.C_Timer.After(0.3, Run) else Run() end
 end
 
 -- Kein Ersatz über den Kampflog: COMBAT_LOG_EVENT_UNFILTERED anzumelden ist für Addons gesperrt und löste beim
@@ -909,6 +971,8 @@ function AR.Setup()
         end)
     end
     FW:RegisterEvent("UNIT_AURA", OnAura)
+    -- nach dem Kampf neuen Ausgangsstand nehmen (Buffs aus dem Kampf nicht nachträglich melden)
+    FW:RegisterEvent("PLAYER_REGEN_ENABLED", function() if HasBuffRule() then pcall(AR.ScanBuffs, false) end end)
     FW:RegisterEvent("CHAT_MSG_SYSTEM", function(msg) AR.OnSystem(msg) end)
     FW:RegisterEvent("BN_FRIEND_ACCOUNT_ONLINE", function(id)
         if AR.Now() - (AR.loginAt or 0) >= AR.LOGIN_QUIET then AR.OnBNOnline(id) end
