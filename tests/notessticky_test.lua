@@ -16,6 +16,7 @@ local function Widget()
     o.Hide = function(self) local was = self.shown self.shown = false if was and self.scripts.OnHide then self.scripts.OnHide(self) end end
     o.SetShown = function(self, v) if v then self:Show() else self:Hide() end end
     o.IsShown = function(self) return self.shown end
+    o.IsVisible = function(self) return self.shown end
     o.SetText = function(self, t) self.text = t or "" if self.scripts.OnTextChanged then self.scripts.OnTextChanged(self) end end
     o.GetText = function(self) return self.text end
     o.Insert = function(self, t) self.text = self.text .. t end
