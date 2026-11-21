@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.55.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.55.2 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -14,6 +14,7 @@
 Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert das Hauptfenster mit den Reitern, die Einstellungen, den Datenspeicher, die Bausteine für die Oberfläche und den Austausch von Daten als Text-Code. Alle anderen Module bauen darauf auf.
 
 ### Funktionen
+- 0.55.2 (wichtig): Wer den Chat mit Enter öffnete und dann in den Kampf kam, konnte sich bis Kampfende nicht mehr bewegen. Der Tasten-Rahmen des Chatfensters schluckte den Enter-Druck und gab die Tasten erst beim nächsten Druck wieder frei, was im Kampf verboten ist. Jetzt gibt er sofort wieder frei, beim Kampfbeginn noch einmal, und schluckt im Kampf nie etwas (Forever_Failure F-35, Test `tests/chatkeys_test.lua`). Im Spiel ungeprüft.
 - Ab 0.55.0: Die Chat-Einstellungen (Chatfenster, Reiter, Stile, Blasen, Farben) stehen im Reiter Kanäle, Quest-Sortierung und Quest-Leuchten im Reiter Quest (hinter „Einstellungen“). Ohne geladenes Quest-Modul bleiben die beiden im Reiter Einstellungen (Rückfall: ein Abschnitt zieht nur um, wenn es den Reiter gibt). Im Reiter Kanäle rutschen Mitgliedersuche und Liste eine Zeile tiefer, damit der Knopf Platz hat. Im Reiter Einstellungen bleiben Allgemeines, Tooltips, Oberfläche, Design, Animationen, Profile und Flüstern. Seit 0.55.1 steht das Würfelfenster bei den Beute-Einstellungen (ohne Beute-Modul weiter unter Chat). Im Spiel ungeprüft.
 - Hauptfenster mit Reitern: jedes Modul bringt seinen eigenen Reiter mit; fehlt ein Modul, fehlt nur sein Reiter.
 - Einstellungen: Fenstergröße (50 bis 150 %) und die Optionen der einzelnen Module an einer Stelle.
@@ -52,6 +53,7 @@ GPL-3.0, siehe `LICENSE`.
 The base addon of the Freewood family for World of Warcraft: Forever. It provides the main window with its tabs, the settings, data storage, the UI building blocks and the exchange of data as text codes. All other modules build on it.
 
 ### Features
+- 0.55.2 (important): opening the chat with Enter and then entering combat blocked all keys (no movement) until combat ended. The chat window key frame swallowed Enter and only released keys on the next press, which is not allowed in combat. It now releases at once, again at the start of combat, and never swallows anything in combat (Forever_Failure F-35, test `tests/chatkeys_test.lua`). Not verified in game.
 - Since 0.55.0: the chat settings (chat window, tabs, styles, bubbles, colours) are in the Channels tab, quest sorting and quest glow in the Quest tab (behind "Settings"). Without the Quest module loaded both stay in the Settings tab (fallback: a section only moves when the tab exists). In the Channels tab the member search and list move down one row to make room for the button. The Settings tab keeps general, tooltips, interface, design, animations, profiles and whispers. Since 0.55.1 the roll window is in the Loot settings (without the Loot module still under Chat). Not verified in game.
 - Main window with tabs: every module adds its own tab; a missing module only removes its tab.
 - Settings: window size (50 to 150 %) and the options of all modules in one place.

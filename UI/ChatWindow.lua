@@ -2208,15 +2208,36 @@ function W.HandleKey(key)
     return false
 end
 
+local function InLockdown() return G.InCombatLockdown and G.InCombatLockdown() and true or false end
+
+-- Tasten wieder an das Spiel weitergeben (Bewegung usw.). Nur ausserhalb der Kampfsperre moeglich.
+function W.RestorePropagate()
+    if keyFrame and keyFrame.SetPropagateKeyboardInput and not InLockdown() then
+        pcall(keyFrame.SetPropagateKeyboardInput, keyFrame, true)
+        return true
+    end
+    return false
+end
+
 function W.ApplyKeyListener(on)
     if on and not keyFrame then
         keyFrame = CreateFrame("Frame", nil, G.UIParent)
         keyFrame:SetScript("OnKeyDown", function(self, key)
-            local handled = false
+            -- Im Kampf nie etwas schlucken: die Weitergabe laesst sich dort nicht mehr umschalten (0.55.2).
+            -- Enter oeffnet den Chat dann ueber die Belegung des Spiels (und unsere Haken).
+            if InLockdown() then return end
             local ok, res = pcall(W.HandleKey, key)
-            if ok and res then handled = true end
-            if self.SetPropagateKeyboardInput and not (G.InCombatLockdown and G.InCombatLockdown()) then pcall(self.SetPropagateKeyboardInput, self, not handled) end
+            if ok and res and self.SetPropagateKeyboardInput then
+                -- nur diesen einen Tastendruck schlucken und gleich im naechsten Bild wieder freigeben. Vorher blieb die
+                -- Weitergabe bis zum naechsten Tastendruck aus; kam man mit offenem Chat in den Kampf, wurden dort alle
+                -- Tasten (auch die Bewegung) verschluckt, bis der Kampf vorbei war.
+                pcall(self.SetPropagateKeyboardInput, self, false)
+                if G.C_Timer and G.C_Timer.After then
+                    G.C_Timer.After(0, W.RestorePropagate)
+                end
+            end
         end)
+        keyFrame:SetScript("OnKeyUp", function() W.RestorePropagate() end)
     end
     -- SetPropagateKeyboardInput ist im Kampf geschuetzt (ADDON_ACTION_BLOCKED); ApplyMain laeuft alle 2 s. Darum nur bei Aenderung
     -- und nie im Kampf; der Zustand wird nach dem Kampf nachgeholt.
@@ -2294,8 +2315,11 @@ function W.StyleBlizzEdit(on)
 end
 
 FW:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+    W.RestorePropagate()
     if bindPending then W.ApplyBindings(W.Opts().main == true and built ~= nil) end
 end)
+-- Kampfbeginn: das Ereignis kommt kurz bevor die Sperre greift, hier darf die Weitergabe noch gesetzt werden
+FW:RegisterEvent("PLAYER_REGEN_DISABLED", function() W.RestorePropagate() end)
 
 function W.ApplyMain()
     local o = W.Opts()
