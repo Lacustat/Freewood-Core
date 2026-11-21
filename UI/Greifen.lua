@@ -491,7 +491,7 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, L.GREIFEN_UNLOCK,
                 function() return Gr.unlocked == true end,
                 function(v) Gr.SetUnlocked(v) end), { fit = true })
-            stack:Add(UI.CreateLabel(f, L.GREIFEN_HINT, { size = 11, color = "textDim" }), { height = 30, gap = 6 })
+            f:AddInfo(L.GREIFEN_HINT)
             BuildSide(f, stack, "left", L.GREIFEN_LEFT, refreshers)
             BuildSide(f, stack, "right", L.GREIFEN_RIGHT, refreshers)
             f.fwRefreshers = refreshers

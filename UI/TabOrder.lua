@@ -12,7 +12,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.TABS_TITLE)
-            stack:Add(UI.CreateLabel(f, L.TABS_HINT, { size = 11, color = "textDim" }), { fit = true })
+            f:AddInfo(L.TABS_HINT)
             local boxes = {}
             for _, entry in ipairs(UI:GetTabList()) do
                 if not entry.locked then

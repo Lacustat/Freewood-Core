@@ -696,7 +696,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.ROLLWIN_SECTION)
-            stack:Add(UI.CreateLabel(f, L.ROLLWIN_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 4 })
+            f:AddInfo(L.ROLLWIN_HINT)
             stack:Add(UI.CreateCheckbox(f, L.ROLLWIN_LOOT,
                 function() return R.Opts().loot == true end,
                 function(v) R.Opts().loot = v and true or false; R.Update() end), { fit = true })

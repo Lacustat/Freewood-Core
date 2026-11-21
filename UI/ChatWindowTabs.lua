@@ -284,7 +284,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CHATWIN_TABS_TITLE)
-            stack:Add(UI.CreateLabel(f, L.CHATWIN_TABS_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 4 })
+            f:AddInfo(L.CHATWIN_TABS_HINT)
             local pick = W.CurrentTab().id
             local dd = UI.CreateDropdown(f, 240, 22, {
                 getOptions = function()
@@ -332,7 +332,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CHATWIN_STYLE_TITLE)
-            stack:Add(UI.CreateLabel(f, L.CHATWIN_STYLE_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 4 })
+            f:AddInfo(L.CHATWIN_STYLE_HINT)
             local function Box(label, kind)
                 stack:Add(UI.CreateCheckbox(f, label,
                     function() return W.Style(kind) == "bubble" end,

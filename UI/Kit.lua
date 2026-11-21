@@ -1,5 +1,5 @@
 -- Freewood-Core: UI-Bausteine im Stil "Azeroth Codex"
--- Alles aus Farbflaechen, 1-Pixel-Raendern und Spielschriften. Keine eigenen Bilddateien.
+-- Alles aus Farbflaechen, 1-Pixel-Raendern und Spielschriften. Einzige eigene Bilddatei: Media/Info.tga (das "i", 0.58.0).
 -- Farben stammen aus den DESIGN.md-Dateien der Projektideen.
 
 local ADDON, FW = ...
@@ -238,6 +238,42 @@ function UI.AttachTooltip(frame, title, lines, anchor)
     frame:HookScript("OnLeave", function()
         GameTooltip:Hide()
     end)
+end
+
+-- Info-Symbol (0.58.0): eigenes goldenes "i" (Media/Info.tga, selbst gezeichnet), Erklaerung im Tooltip statt als
+-- Text auf der Seite. Regel: Erklaerungen ins "i"; Statuszeilen und Hinweise fuer leere Listen bleiben sichtbar.
+-- title/lines wie UI.AttachTooltip (Text oder Funktion).
+UI.INFO_ICON = "Interface\\AddOns\\Freewood-Core\\Media\\Info.tga"
+
+function UI.CreateInfoIcon(parent, title, lines, size)
+    local b = CreateFrame("Button", nil, parent)
+    size = size or 16
+    b:SetSize(size, size)
+    local t = b:CreateTexture(nil, "ARTWORK")
+    t:SetAllPoints(b)
+    t:SetTexture(UI.INFO_ICON)
+    t:SetVertexColor(UI.Color("gold"))
+    b.icon = t
+    -- Text spaeter aendern
+    function b:SetInfo(newTitle, newLines)
+        title, lines = newTitle, newLines
+    end
+    b:SetScript("OnEnter", function(self)
+        t:SetVertexColor(UI.Color("goldLight"))
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        local tt = type(title) == "function" and title() or title
+        GameTooltip:SetText(tt or "", 1, 0.82, 0)
+        local l = type(lines) == "function" and lines() or lines
+        if type(l) == "string" then l = { l } end
+        for _, line in ipairs(l or {}) do GameTooltip:AddLine(line, 0.9, 0.9, 0.9, true) end
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function()
+        t:SetVertexColor(UI.Color("gold"))
+        if GameTooltip then GameTooltip:Hide() end
+    end)
+    return b
 end
 
 ------------------------------------------------------------------------

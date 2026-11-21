@@ -190,8 +190,7 @@ if UI and UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.TIPSET_HEADER)
-            local note = UI.CreateLabel(f, L.TIPSET_NOTE, { size = 11, color = "textDim", justifyV = "TOP" })
-            stack:Add(note, { fit = true, gap = 8 })
+            f:AddInfo(L.TIPSET_NOTE)
             local boxes, made = {}, {}
             local function Box(key, label)
                 local cb = UI.CreateCheckbox(f, label, function() return T.Get(key) == true end,

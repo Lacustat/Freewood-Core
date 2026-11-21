@@ -86,7 +86,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.QUESTGLOW_TITLE)
-            stack:Add(UI.CreateLabel(f, L.QUESTGLOW_NOTE, { size = 11, color = "textDim", justifyV = "TOP" }), { fit = true, gap = 8 })
+            f:AddInfo(L.QUESTGLOW_NOTE)
             local state = UI.CreateLabel(f, "", { size = 11, color = "textDim", justifyV = "TOP" })
             local function Show()
                 local c = QG.CVARS

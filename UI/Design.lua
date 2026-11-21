@@ -273,9 +273,9 @@ if UI.RegisterSettingsSection then
             themeDd:SetValue(D.GetTheme())
             stack:Add(themeDd, { height = 22, gap = 4 })
             refreshers[#refreshers + 1] = function() themeDd:SetValue(D.GetTheme()) end
-            stack:Add(UI.CreateLabel(f, L.DESIGN_THEME_NOTE, { size = 11, color = "textDim" }), { height = 44, gap = 6 })
+            f:AddInfo(L.DESIGN_THEME_NOTE)
 
-            stack:Add(UI.CreateLabel(f, L.DESIGN_HINT, { size = 11, color = "textDim" }), { height = 30, gap = 4 })
+            f:AddInfo(L.DESIGN_HINT)
 
             for _, k in ipairs(D.KEYS) do
                 local key = k[1]
@@ -329,7 +329,7 @@ if UI.RegisterSettingsSection then
             end
             FontDropdown(L.DESIGN_FONT_HEAD, "heading", "fontHeading")
             FontDropdown(L.DESIGN_FONT_BODY, "body", "fontBody")
-            stack:Add(UI.CreateLabel(f, L.DESIGN_FONT_NOTE, { size = 11, color = "textDim" }), { height = 30, gap = 6 })
+            f:AddInfo(L.DESIGN_FONT_NOTE)
             stack:Add(UI.CreateButton(f, L.DESIGN_RELOAD, 220, 24, function() G.ReloadUI() end, "primary"), { height = 24, gap = 8 })
 
             f.fwRefreshers = refreshers

@@ -475,7 +475,7 @@ if UI and UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, L.QS_ENABLE,
                 function() return Opts().enabled == true end,
                 function(v) Opts().enabled = v and true or false; QS.Refresh() end), { fit = true })
-            stack:Add(UI.CreateLabel(f, L.QS_HINT, { size = 11, color = "textDim" }), { height = 42, gap = 6 })
+            f:AddInfo(L.QS_HINT)
             local function ModeRow(label, key)
                 stack:Add(UI.CreateLabel(f, label, { size = 12 }), { height = 16, gap = 8 })
                 local dd = UI.CreateDropdown(f, 280, 22, {

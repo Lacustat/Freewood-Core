@@ -29,7 +29,7 @@ if UI.RegisterSettingsSection then
                 local n = P.Current()
                 cur:SetText(string.format(L.PROFILE_CURRENT, n or L.PROFILE_NONE))
             end
-            stack:Add(UI.CreateLabel(f, L.PROFILE_NOTE, { size = 11, color = "textDim" }), { height = 46, gap = 8 })
+            f:AddInfo(L.PROFILE_NOTE)
 
             -- Name + Speichern
             local row = CreateFrame("Frame", nil, f)
@@ -128,7 +128,7 @@ if UI.RegisterSettingsSection then
             end, "default")
             del:SetPoint("LEFT", rename, "RIGHT", 6, 0)
             stack:Add(act, { height = 24, gap = 6 })
-            stack:Add(UI.CreateLabel(f, L.PROFILE_RENAME_HINT, { size = 11, color = "textDim" }), { height = 30, gap = 10 })
+            f:AddInfo(L.PROFILE_RENAME_HINT)
 
             local reset = UI.CreateButton(f, L.PROFILE_RESET, 220, 24, function()
                 P.Reset()

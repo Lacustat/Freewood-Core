@@ -2474,7 +2474,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CHATWIN_TITLE)
-            stack:Add(UI.CreateLabel(f, L.CHATWIN_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 4 })
+            f:AddInfo(L.CHATWIN_HINT)
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_ENABLED,
                 function() return W.Opts().enabled == true end,
                 function(v) W.SetShown(v) end), { fit = true })
@@ -2493,7 +2493,7 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_MAIN,
                 function() return W.Opts().main == true end,
                 function(v) W.SetMain(v) end), { fit = true })
-            stack:Add(UI.CreateLabel(f, L.CHATWIN_MAIN_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 2 })
+            f:AddInfo(L.CHATWIN_MAIN_HINT)
             stack:Add(UI.CreateCheckbox(f, L.CHATWIN_USE_BLIZZ,
                 function() return W.Opts().useBlizz == true end,
                 function(v) W.Opts().useBlizz = v and true or false; W.ApplyMain(); W.LayoutInput() end), { fit = true })
@@ -2562,7 +2562,7 @@ if FW.AddLocale and UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.BUBBLECOL_TITLE)
-            stack:Add(UI.CreateLabel(f, L.BUBBLECOL_HINT, { size = 11, color = "textDim" }), { fit = true, gap = 4 })
+            f:AddInfo(L.BUBBLECOL_HINT)
             local swatches = {}
             local Swatch = FW.ChatStyle and FW.ChatStyle.Swatch
             for _, key in ipairs(W.BUBBLE_KEYS) do

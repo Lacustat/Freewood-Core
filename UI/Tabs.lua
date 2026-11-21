@@ -333,6 +333,20 @@ function UI.CreateSection(parent, titleText)
     end
     f.stack = stack
     f.title = title
+    -- Erklaerungen als "i" neben der Ueberschrift statt als Text im Abschnitt (0.58.0); mehrere Aufrufe werden
+    -- Absaetze desselben Tooltips
+    function f:AddInfo(text)
+        if not text or text == "" or not UI.CreateInfoIcon then return end
+        if not f.infoLines then
+            f.infoLines = {}
+            f.info = UI.CreateInfoIcon(f, titleText, f.infoLines)
+            f.info:SetPoint("LEFT", title, "RIGHT", 6, 0)
+        elseif #f.infoLines > 0 then
+            f.infoLines[#f.infoLines + 1] = " "
+        end
+        f.infoLines[#f.infoLines + 1] = text
+        return f.info
+    end
     return f, stack
 end
 
@@ -669,7 +683,7 @@ FW:On("UI_MODULE_SETTINGS_SHOWN", function() UpdateGear() end)
 local function BuildModuleLinks(parent)
     local L = FW.L
     local f, stack = UI.CreateSection(parent, L.MODSET_LINKS_HEADER or "Settings in the modules")
-    stack:Add(UI.CreateLabel(f, L.MODSET_LINKS_NOTE or "", { size = 11, color = "textDim", justifyV = "TOP" }), { fit = true, gap = 8 })
+    f:AddInfo(L.MODSET_LINKS_NOTE)
     local holder = CreateFrame("Frame", nil, f)
     holder:SetHeight(30)
     stack:Add(holder, { height = 30, gap = 4, stretch = true })
@@ -795,6 +809,9 @@ local function BuildSettings(content)
     -- Sprache: Beschriftung oben, drei Knoepfe gleich breit darunter
     local langLabel = UI.CreateLabel(lf, L.SETTINGS_LANGUAGE, { size = 12 })
     stack:Add(langLabel, { height = 16, gap = 18 })
+    -- Hinweis zur Sprache als "i" hinter der Beschriftung (0.58.0)
+    local langInfo = UI.CreateInfoIcon and UI.CreateInfoIcon(lf, L.SETTINGS_LANGUAGE, L.SETTINGS_LANGUAGE_NOTE)
+    if langInfo then langInfo:SetPoint("LEFT", langLabel, "LEFT", (langLabel.GetStringWidth and langLabel:GetStringWidth() or 60) + 6, 0) end
     local langRow = CreateFrame("Frame", nil, lf)
     langRow:SetHeight(26)
     stack:Add(langRow, { height = 26, gap = 4, stretch = true })
@@ -832,8 +849,6 @@ local function BuildSettings(content)
     langRow:SetScript("OnSizeChanged", function(self) LayoutLang(self:GetWidth()) end)
     LayoutLang(stack:Width())
 
-    local note = UI.CreateLabel(lf, L.SETTINGS_LANGUAGE_NOTE, { size = 11, color = "textDim", justifyV = "TOP" })
-    stack:Add(note, { fit = true, gap = 8 })
 
     local reset = UI.CreateButton(lf, L.SETTINGS_RESET_POS, 220, 28, function()
         UI:ResetPosition()
