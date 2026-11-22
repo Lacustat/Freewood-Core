@@ -28,7 +28,13 @@ local LOGO = "Interface\\AddOns\\Freewood-Core\\Media\\FreeWood_Logo.tga"
 FW:AddLocale("enUS", {
     CS_TITLE = "Character view", CS_TAB_TIP = "Freewood character view (full screen)",
     CS_LEVEL = "Level %d · %s", CS_BAGS = "Bags", CS_STATS = "Character stats", CS_SEARCH = "Search",
-    CS_GROW = "Grid grows with the bags (otherwise it scrolls)",
+    CS_GROW = "Grid grows with the bags (otherwise it scrolls)", CS_CATS = "Categories",
+    CS_C_gear = "Equipment", CS_C_consumable = "Consumables", CS_C_trade = "Trade goods", CS_C_recipe = "Recipes",
+    CS_C_quest = "Quest", CS_C_other = "Keys & misc", CS_C_junk = "Junk", CS_C_free = "Free", CS_C_all = "Items",
+    CS_C_ammo = "Ammo", CS_C_soul = "Soul shards", CS_C_reagent = "Reagent bag",
+    CS_SORT_bag = "As in bags", CS_SORT_quality = "Quality", CS_SORT_name = "Name", CS_SORT_count = "Count",
+    CS_SORT_TIP = "Click: change the order of this category (as in bags, quality, name, count)",
+    CS_HEAD_TIP = "Click: fold or unfold this category",
     CS_GENERAL = "General", CS_PRIMARY = "Primary attributes", CS_MELEE = "Melee", CS_RANGED = "Ranged",
     CS_SPELL = "Spells", CS_DEFENSE = "Defense", CS_RESIST = "Resistances",
     CS_HEALTH = "Health", CS_MANA = "Mana", CS_SPEED = "Movement speed",
@@ -45,7 +51,13 @@ FW:AddLocale("enUS", {
 FW:AddLocale("deDE", {
     CS_TITLE = "Charakteransicht", CS_TAB_TIP = "Freewood-Charakteransicht (Vollbild)",
     CS_LEVEL = "Stufe %d · %s", CS_BAGS = "Taschen", CS_STATS = "Charakterwerte", CS_SEARCH = "Suchen",
-    CS_GROW = "Raster wächst mit den Taschen (sonst scrollt es)",
+    CS_GROW = "Raster wächst mit den Taschen (sonst scrollt es)", CS_CATS = "Kategorien",
+    CS_C_gear = "Ausrüstung", CS_C_consumable = "Verbrauchbar", CS_C_trade = "Handwerk", CS_C_recipe = "Rezepte",
+    CS_C_quest = "Quest", CS_C_other = "Schlüssel & Sonstiges", CS_C_junk = "Plunder", CS_C_free = "Frei", CS_C_all = "Gegenstände",
+    CS_C_ammo = "Munition", CS_C_soul = "Seelensplitter", CS_C_reagent = "Reagenzientasche",
+    CS_SORT_bag = "Wie in den Taschen", CS_SORT_quality = "Qualität", CS_SORT_name = "Name", CS_SORT_count = "Anzahl",
+    CS_SORT_TIP = "Klick: Reihenfolge dieser Kategorie ändern (wie in den Taschen, Qualität, Name, Anzahl)",
+    CS_HEAD_TIP = "Klick: Kategorie ein- oder ausklappen",
     CS_GENERAL = "Allgemein", CS_PRIMARY = "Primäre Eigenschaften", CS_MELEE = "Nahkampf", CS_RANGED = "Fernkampf",
     CS_SPELL = "Zauber", CS_DEFENSE = "Verteidigung", CS_RESIST = "Widerstände",
     CS_HEALTH = "Gesundheit", CS_MANA = "Mana", CS_SPEED = "Bewegungstempo",
@@ -70,6 +82,9 @@ function CS.Opts()
     if o.tab == nil then o.tab = true end
     if o.takeC == nil then o.takeC = false end
     if o.grow == nil then o.grow = false end
+    if o.categories == nil then o.categories = true end
+    o.sort = o.sort or {}
+    o.collapsed = o.collapsed or {}
     return o
 end
 
@@ -192,7 +207,7 @@ end
 
 local function Num(v, dec)
     if v == nil then return "–" end
-    if dec then return string.format("%." .. dec .. "f", v) end
+    if dec then return (string.format("%." .. dec .. "f", v):gsub("%.", ",", 1)) end
     v = math.floor(v + 0.5)
     local s = tostring(v)
     local out = s:reverse():gsub("(%d%d%d)", "%1."):reverse()
@@ -589,6 +604,9 @@ local function Build()
     f.searchHint:SetText(L().CS_SEARCH)
     f.grow = UI.CreateCheckbox(f.bags, L().CS_GROW, function() return CS.Opts().grow end,
         function(v) CS.Opts().grow = v and true or false CS.Layout() end)
+    f.cats = UI.CreateCheckbox(f.bags, L().CS_CATS, function() return CS.Opts().categories end,
+        function(v) CS.Opts().categories = v and true or false CS.UpdateBags() end)
+    f.bagHeads = {}
     local okB, bs = pcall(CreateFrame, "ScrollFrame", "FreewoodCharacterSheetBags", f.bags, "UIPanelScrollFrameTemplate")
     if not okB then bs = CreateFrame("ScrollFrame", nil, f.bags) end
     f.bagsScroll = bs
@@ -693,6 +711,8 @@ function CS.Layout()
     f.search:SetPoint("BOTTOMRIGHT", f.searchBg, "BOTTOMRIGHT", -14, 2)
     f.grow:ClearAllPoints()
     f.grow:SetPoint("TOPLEFT", f.bags, "TOPLEFT", 22, -102)
+    f.cats:ClearAllPoints()
+    f.cats:SetPoint("TOPLEFT", f.bags, "TOPLEFT", math.max(420, bw * 0.5), -102)
     f.moneyBg:ClearAllPoints()
     f.moneyBg:SetPoint("BOTTOM", f.bags, "BOTTOM", 0, 14)
     f.moneyBg:SetSize(math.min(bw * 0.7, 380), 44)
@@ -784,54 +804,264 @@ function CS.UpdateStats()
     f.statsChild:SetHeight(math.max(1, y))
 end
 
+------------------------------------------------------------------------
+-- Kategorien (0.62.0)
+------------------------------------------------------------------------
+
+CS.CATS = { "gear", "consumable", "trade", "recipe", "quest", "other", "junk", "free" }
+CS.SPECIAL = { "ammo", "soul", "reagent" }       -- eigene Bereiche unten (Köcher/Munitionsbeutel, Seelentasche, Reagenzientasche)
+CS.SORTS = { "bag", "quality", "name", "count" }
+
+-- Spezialtasche? Taschenart aus GetContainerNumFreeSlots (Bits: 1 Köcher, 2 Munitionsbeutel, 4 Seelentasche)
+function CS.BagKind(bag)
+    if bag == 5 then return "reagent" end
+    if bag == 0 then return nil end
+    local C = G.C_Container
+    local _, family
+    if C and C.GetContainerNumFreeSlots then _, family = Safe(C.GetContainerNumFreeSlots, bag)
+    elseif G.GetContainerNumFreeSlots then _, family = Safe(G.GetContainerNumFreeSlots, bag) end
+    family = tonumber(family) or 0
+    if family % 4 >= 1 then return "ammo" end           -- Bit 1 oder 2
+    if math.floor(family / 4) % 2 == 1 then return "soul" end
+    return nil
+end
+
+-- Kategorie eines Platzes aus der Itemart des Spiels
+function CS.Category(info, bag, slot)
+    if not info or not info.iconFileID then return "free" end
+    if info.quality == 0 then return "junk" end
+    local id = info.itemID or (info.hyperlink and tonumber(info.hyperlink:match("item:(%d+)")))
+    local C = G.C_Container
+    if C and C.GetContainerItemQuestInfo and bag then
+        local q = Safe(C.GetContainerItemQuestInfo, bag, slot)
+        if type(q) == "table" and (q.isQuestItem or q.questID) then return "quest" end
+    end
+    local classID
+    local CI = G.C_Item
+    if id and CI and CI.GetItemInfoInstant then classID = select(6, Safe(CI.GetItemInfoInstant, id))
+    elseif id and G.GetItemInfoInstant then classID = select(6, Safe(G.GetItemInfoInstant, id)) end
+    if classID == 12 then return "quest" end
+    if classID == 2 or classID == 4 then return "gear" end
+    if classID == 0 then return "consumable" end
+    if classID == 5 or classID == 7 then return "trade" end
+    if classID == 9 then return "recipe" end
+    return "other"
+end
+
+local function ItemName(e) return (e.info and e.info.hyperlink and e.info.hyperlink:match("%[(.-)%]")) or "" end
+
+function CS.SortEntries(list, mode)
+    if mode == nil or mode == "bag" then return list end
+    table.sort(list, function(a, b)
+        local ia, ib = a.info or {}, b.info or {}
+        if mode == "quality" and (ia.quality or 0) ~= (ib.quality or 0) then return (ia.quality or 0) > (ib.quality or 0) end
+        if mode == "count" and (ia.stackCount or 0) ~= (ib.stackCount or 0) then return (ia.stackCount or 0) > (ib.stackCount or 0) end
+        local na, nb = ItemName(a), ItemName(b)
+        if na ~= nb then return na < nb end
+        if a.bag ~= b.bag then return a.bag < b.bag end
+        return a.slot < b.slot
+    end)
+    return list
+end
+
+-- Abschnitte bauen: { { id, title, entries = { {bag, slot, info} }, special, used, total } }
+function CS.Sections()
+    local o = CS.Opts()
+    local normal, special = {}, {}
+    for _, bag in ipairs(CS.BAGS) do
+        local n = ContainerSlots(bag)
+        if n > 0 then
+            local kind = CS.BagKind(bag)
+            for slot = 1, n do
+                local e = { bag = bag, slot = slot, info = ContainerInfo(bag, slot) }
+                if kind then
+                    special[kind] = special[kind] or { id = kind, special = true, entries = {}, used = 0, total = 0, bags = {} }
+                    local sp = special[kind]
+                    sp.entries[#sp.entries + 1] = e
+                    sp.total = sp.total + 1
+                    if e.info and e.info.iconFileID then sp.used = sp.used + 1 end
+                    sp.bags[bag] = true
+                else
+                    normal[#normal + 1] = e
+                end
+            end
+        end
+    end
+    local out = {}
+    if o.categories then
+        local byCat = {}
+        for _, e in ipairs(normal) do
+            local c = CS.Category(e.info, e.bag, e.slot)
+            byCat[c] = byCat[c] or {}
+            table.insert(byCat[c], e)
+        end
+        for _, c in ipairs(CS.CATS) do
+            if byCat[c] then
+                out[#out + 1] = { id = c, entries = (c == "free") and byCat[c] or CS.SortEntries(byCat[c], o.sort[c]) }
+            end
+        end
+    else
+        out[#out + 1] = { id = "all", entries = CS.SortEntries(normal, o.sort.all), plain = true }
+    end
+    for _, k in ipairs(CS.SPECIAL) do if special[k] then out[#out + 1] = special[k] end end
+    return out
+end
+
+local HEAD_H = 24
+
+-- Höhe aller Abschnitte bei cols Spalten und Platzgröße size
+function CS.SectionsHeight(sections, cols, size)
+    local h = 4
+    for _, sec in ipairs(sections) do
+        if not sec.plain then h = h + HEAD_H + 4 end
+        if not CS.Opts().collapsed[sec.id] or sec.plain then
+            h = h + math.ceil(#sec.entries / cols) * (size + 4) + 6
+        end
+    end
+    return h
+end
+
+function CS.FitGrid(w, h, sections, S, grow)
+    local pad = 4
+    local size = S
+    while true do
+        local cols = math.max(1, math.floor((w + pad) / (size + pad)))
+        if not grow or size <= 18 or CS.SectionsHeight(sections, cols, size) <= h then return cols, size end
+        size = size - 2
+    end
+end
+
+local function HeadButton(id)
+    local f = win
+    local hb = f.bagHeads[id]
+    if hb then return hb end
+    hb = CreateFrame("Button", nil, f.bagsChild)
+    hb:SetHeight(HEAD_H)
+    hb.bar = hb:CreateTexture(nil, "BACKGROUND")
+    hb.bar:SetTexture(MEDIA .. "StatsHeader.tga")
+    hb.bar:SetTexCoord(0, 1, 4 / 64, 59 / 64)
+    hb.bar:SetAllPoints(hb)
+    hb.text = hb:CreateFontString(nil, "OVERLAY")
+    UI.SetFont(hb.text, "heading", 14)
+    hb.text:SetTextColor(1, 0.85, 0.45)
+    hb.text:SetPoint("LEFT", hb, "LEFT", 8, 0)
+    hb:SetScript("OnClick", function()
+        local c = CS.Opts().collapsed
+        c[id] = not c[id] or nil
+        CS.UpdateBags()
+    end)
+    hb:SetScript("OnEnter", function(self)
+        if G.GameTooltip then G.GameTooltip:SetOwner(self, "ANCHOR_TOP") G.GameTooltip:SetText(L().CS_HEAD_TIP) G.GameTooltip:Show() end
+    end)
+    hb:SetScript("OnLeave", function() if G.GameTooltip then G.GameTooltip:Hide() end end)
+    -- Sortierung je Kategorie zum Durchschalten
+    hb.sort = CreateFrame("Button", nil, hb)
+    hb.sort:SetSize(150, HEAD_H)
+    hb.sort:SetPoint("RIGHT", hb, "RIGHT", -6, 0)
+    hb.sort.text = hb.sort:CreateFontString(nil, "OVERLAY")
+    UI.SetFont(hb.sort.text, "body", 12)
+    hb.sort.text:SetTextColor(0.85, 0.82, 0.7)
+    hb.sort.text:SetPoint("RIGHT", hb.sort, "RIGHT", 0, 0)
+    hb.sort:SetScript("OnClick", function()
+        local o = CS.Opts()
+        local cur = o.sort[id] or "bag"
+        local nextMode = CS.SORTS[1]
+        for i, m in ipairs(CS.SORTS) do if m == cur then nextMode = CS.SORTS[i % #CS.SORTS + 1] end end
+        o.sort[id] = nextMode ~= "bag" and nextMode or nil
+        CS.UpdateBags()
+    end)
+    hb.sort:SetScript("OnEnter", function(self)
+        if G.GameTooltip then G.GameTooltip:SetOwner(self, "ANCHOR_TOP") G.GameTooltip:SetText(L().CS_SORT_TIP) G.GameTooltip:Show() end
+    end)
+    hb.sort:SetScript("OnLeave", function() if G.GameTooltip then G.GameTooltip:Hide() end end)
+    f.bagHeads[id] = hb
+    return hb
+end
+
+local function BagNames(sec)
+    local names = {}
+    local C = G.C_Container
+    for bag in pairs(sec.bags or {}) do
+        local n = C and C.GetBagName and Safe(C.GetBagName, bag)
+        if n then names[#names + 1] = n end
+    end
+    table.sort(names)
+    return table.concat(names, ", ")
+end
+
+local function FillButton(b, info, text, size)
+    b:SetSize(size, size)
+    if b.FwFit and b.fwFitted ~= size then b:FwFit(size) b.fwFitted = size end
+    local tex = info and info.iconFileID
+    if G.SetItemButtonTexture then G.SetItemButtonTexture(b, tex) elseif b.icon then b.icon:SetTexture(tex) end
+    if G.SetItemButtonCount then G.SetItemButtonCount(b, info and info.stackCount or 0) end
+    if G.SetItemButtonDesaturated then G.SetItemButtonDesaturated(b, info and info.isLocked) end
+    if type(b.IconBorder) == "table" then
+        local r, g2, bb = QualityColor(info and info.quality)
+        if r and info.quality >= 2 then b.IconBorder:SetVertexColor(r, g2, bb) b.IconBorder:Show() else b.IconBorder:Hide() end
+    end
+    b:SetAlpha(CS.MatchSearch(info, text) and 1 or 0.25)
+    b:Show()
+end
+
 function CS.UpdateBags()
     local f = win
     if not f or not f.lay then return end
-    local list = {}
-    for _, bag in ipairs(CS.BAGS) do
-        for slot = 1, ContainerSlots(bag) do list[#list + 1] = { bag = bag, slot = slot } end
-    end
+    local o = CS.Opts()
+    local sections = CS.Sections()
     local areaW = f.bagsScroll:GetWidth()
     local areaH = f.bagsScroll:GetHeight()
     if not areaW or areaW <= 0 then areaW = f.lay.bags.w - 56 areaH = f.lay.bags.h - 200 end
-    local grow = CS.Opts().grow
-    local cols, size = CS.BagGrid(areaW, areaH, #list, f.lay.S, grow)
+    local cols, size = CS.FitGrid(areaW, areaH, sections, f.lay.S, o.grow)
     local text = f.search:GetText()
     f.bagButtons = f.bagButtons or {}
-    for i, it in ipairs(list) do
-        local key = it.bag .. ":" .. it.slot
-        local b = f.bagButtons[key]
-        if not b then
-            b = MakeBagButton(it.bag, it.slot)
-            f.bagButtons[key] = b or false
-        end
-        if b then
-            local col = (i - 1) % cols
-            local row = math.floor((i - 1) / cols)
-            b:ClearAllPoints()
-            b:SetPoint("TOPLEFT", f.bagsChild, "TOPLEFT", 4 + col * (size + 4), -(4 + row * (size + 4)))
-            b:SetSize(size, size)
-            if b.FwFit and b.fwFitted ~= size then b:FwFit(size) b.fwFitted = size end
-            local info = ContainerInfo(it.bag, it.slot)
-            local tex = info and info.iconFileID
-            if G.SetItemButtonTexture then G.SetItemButtonTexture(b, tex) elseif b.icon then b.icon:SetTexture(tex) end
-            if G.SetItemButtonCount then G.SetItemButtonCount(b, info and info.stackCount or 0) end
-            if G.SetItemButtonDesaturated then G.SetItemButtonDesaturated(b, info and info.isLocked) end
-            if type(b.IconBorder) == "table" then
-                local r, g2, bb = QualityColor(info and info.quality)
-                if r and info.quality >= 2 then b.IconBorder:SetVertexColor(r, g2, bb) b.IconBorder:Show() else b.IconBorder:Hide() end
+    local used, heads = {}, {}
+    local y = 4
+    for _, sec in ipairs(sections) do
+        if not sec.plain then
+            local hb = HeadButton(sec.id)
+            heads[sec.id] = true
+            hb:ClearAllPoints()
+            hb:SetPoint("TOPLEFT", f.bagsChild, "TOPLEFT", 4, -y)
+            hb:SetWidth(math.max(40, cols * (size + 4) - 4))
+            local fold = o.collapsed[sec.id] and "+ " or "– "
+            local title = L()["CS_C_" .. sec.id] or sec.id
+            if sec.special then
+                local names = BagNames(sec)
+                hb.text:SetText(fold .. title .. string.format("  %d/%d", sec.used, sec.total) .. (names ~= "" and ("  ·  " .. names) or ""))
+            else
+                hb.text:SetText(fold .. title .. string.format(" (%d)", #sec.entries))
             end
-            b:SetAlpha(CS.MatchSearch(info, text) and 1 or 0.25)
-            b:Show()
+            local canSort = not sec.special and sec.id ~= "free"
+            hb.sort:SetShown(canSort)
+            hb.sort.text:SetText(canSort and L()["CS_SORT_" .. (o.sort[sec.id] or "bag")] or "")
+            hb:Show()
+            y = y + HEAD_H + 4
+        end
+        if not o.collapsed[sec.id] or sec.plain then
+            for i, e in ipairs(sec.entries) do
+                local key = e.bag .. ":" .. e.slot
+                local b = f.bagButtons[key]
+                if b == nil then
+                    b = MakeBagButton(e.bag, e.slot) or false
+                    f.bagButtons[key] = b
+                end
+                if b then
+                    local col = (i - 1) % cols
+                    local row = math.floor((i - 1) / cols)
+                    b:ClearAllPoints()
+                    b:SetPoint("TOPLEFT", f.bagsChild, "TOPLEFT", 4 + col * (size + 4), -(y + row * (size + 4)))
+                    FillButton(b, e.info, text, size)
+                    used[key] = true
+                end
+            end
+            y = y + math.ceil(#sec.entries / cols) * (size + 4) + 6
         end
     end
-    -- Plätze, die es nicht mehr gibt (Tasche getauscht), verstecken
-    for key, b in pairs(f.bagButtons) do
-        local bag, slot = key:match("^(%-?%d+):(%d+)$")
-        if b and tonumber(slot) > ContainerSlots(tonumber(bag)) then b:Hide() end
-    end
-    local rows = math.ceil(#list / cols)
-    f.bagsChild:SetSize(math.max(1, areaW), math.max(1, rows * (size + 4) + 8))
+    -- nicht gezeigte Plätze (eingeklappt, Tasche getauscht) und Überschriften verstecken
+    for key, b in pairs(f.bagButtons) do if b and not used[key] then b:Hide() end end
+    for id, hb in pairs(f.bagHeads) do if not heads[id] then hb:Hide() end end
+    f.bagsChild:SetSize(math.max(1, areaW), math.max(1, y + 4))
 end
 
 function CS.UpdateAll()

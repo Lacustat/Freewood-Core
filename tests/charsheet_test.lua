@@ -75,10 +75,25 @@ _G.UnitLevel = function() return 36 end
 _G.UnitName = function() return "Pinky" end
 _G.GetMoney = function() return 124783 end
 _G.GetInventorySlotInfo = function(n) if n == "AmmoSlot" then return 0, "ammo" end return #n, "empty-" .. n end
-local bagSlots = { [0] = 16, 10, 10, 0, 0, 0 }
+local bagSlots = { [0] = 16, 10, 10, 0, 0, 4 }
+-- Tasche 2 ist ein Köcher (Taschenart 1), Tasche 5 die Reagenzientasche
+local items = {
+    ["0:1"] = { iconFileID = 1, stackCount = 1, itemID = 10, quality = 2, hyperlink = "|cff1eff00|Hitem:10|h[Grüner Hut]|h|r" },
+    ["0:2"] = { iconFileID = 2, stackCount = 5, itemID = 20, quality = 1, hyperlink = "|cffffffff|Hitem:20|h[Brot]|h|r" },
+    ["0:3"] = { iconFileID = 3, stackCount = 20, itemID = 30, quality = 1, hyperlink = "|cffffffff|Hitem:30|h[Leinenstoff]|h|r" },
+    ["0:4"] = { iconFileID = 4, stackCount = 1, itemID = 40, quality = 0, hyperlink = "|cff9d9d9d|Hitem:40|h[Zerbrochener Zahn]|h|r" },
+    ["0:5"] = { iconFileID = 5, stackCount = 3, itemID = 20, quality = 1, hyperlink = "|cffffffff|Hitem:20|h[Apfel]|h|r" },
+    ["1:1"] = { iconFileID = 6, stackCount = 1, itemID = 60, quality = 1, hyperlink = "|cffffffff|Hitem:60|h[Seltsamer Brief]|h|r" },
+    ["2:1"] = { iconFileID = 7, stackCount = 200, itemID = 70, quality = 1, hyperlink = "|cffffffff|Hitem:70|h[Pfeil]|h|r" },
+    ["5:1"] = { iconFileID = 8, stackCount = 10, itemID = 30, quality = 1, hyperlink = "|cffffffff|Hitem:30|h[Leinenstoff]|h|r" },
+}
+local classOf = { [10] = 4, [20] = 0, [30] = 7, [40] = 15, [60] = 12, [70] = 6 }
+_G.C_Item = { GetItemInfoInstant = function(id) return id, "", "", "", 0, classOf[id] end }
 _G.C_Container = {
     GetContainerNumSlots = function(b) return bagSlots[b] or 0 end,
-    GetContainerItemInfo = function(b, s) if s == 1 then return { iconFileID = 1, stackCount = 5, hyperlink = "|cff1eff00|Hitem:1|h[Grüner Hut]|h|r", quality = 2 } end end,
+    GetContainerItemInfo = function(b, s) return items[b .. ":" .. s] end,
+    GetContainerNumFreeSlots = function(b) return 0, (b == 2) and 1 or 0 end,
+    GetBagName = function(b) return b == 2 and "Leichter Köcher" or "Tasche" end,
 }
 
 assert(loadfile("UI/CharacterSheet.lua"))("Freewood-Core", FW)
@@ -117,6 +132,27 @@ assert(last.title == "Widerstände" and last.rows[1][2] == "10", "Widerstände z
 local order = CS.ClassOrder("MAGE")
 assert(order[1] == "spell", "Magier: Zauber zuerst")
 
+-- 0.62.0: Kategorien, Spezialtaschen, Sortierung
+local secs = CS.Sections()
+local ids = {}
+for _, sec in ipairs(secs) do ids[#ids + 1] = sec.id .. "=" .. #sec.entries end
+assert(table.concat(ids, ",") == "gear=1,consumable=2,trade=1,quest=1,junk=1,free=20,ammo=10,reagent=4", table.concat(ids, ","))
+assert(secs[7].special and secs[7].used == 1 and secs[7].total == 10, "Köcher eigener Bereich mit Füllstand")
+CS.Opts().sort.consumable = "name"
+secs = CS.Sections()
+assert(ItemNameOf == nil and secs[2].entries[1].info.hyperlink:find("Apfel", 1, true), "nach Name: Apfel vor Brot")
+CS.Opts().sort.consumable = "count"
+secs = CS.Sections()
+assert(secs[2].entries[1].info.stackCount == 5, "nach Anzahl")
+CS.Opts().sort.consumable = nil
+CS.Opts().categories = false
+secs = CS.Sections()
+assert(secs[1].plain and #secs[1].entries == 26 and secs[2].id == "ammo", "ohne Kategorien: ein Raster, Spezialtaschen bleiben getrennt")
+CS.Opts().categories = true
+-- Wachsen: alle Abschnitte passen in die Höhe
+local fitCols, fitSize = CS.FitGrid(400, 500, CS.Sections(), 60, true)
+assert(CS.SectionsHeight(CS.Sections(), fitCols, fitSize) <= 500 and fitSize < 60, "wachsend passt " .. fitSize)
+
 -- Gold mit Münzsymbolen
 local mt = CS.MoneyText(64333)
 assert(mt:find("^6|T", 1) and mt:find("43|T", 1, true) and mt:find("33|T", 1, true), mt)
@@ -136,13 +172,26 @@ for _, b in ipairs(win.slots) do if b then slots = slots + 1 end end
 assert(slots == 20, "19 Plätze + Munition: " .. slots)
 local bagButtons = 0
 for _, f in ipairs(created) do if f.template == "ContainerFrameItemButtonTemplate" then bagButtons = bagButtons + 1 end end
-assert(bagButtons == 36, "Blizzards Taschenknöpfe für alle Plätze: " .. bagButtons)
+assert(bagButtons == 40, "Blizzards Taschenknöpfe für alle Plätze: " .. bagButtons)
 local p = win.bagButtons["1:3"].parent
 assert(p.id == 1 and win.bagButtons["1:3"].id == 3, "Tasche und Platz über IDs (Blizzards Knopf liest sie selbst)")
 local statRows = 0
 for _, r in ipairs(win.statRows) do if r.shown and r.l.text and r.l.text ~= "" then statRows = statRows + 1 end end
 assert(statRows > 20, "Werte eingetragen: " .. statRows)
 assert(win.name.text == "Pinky" and win.level.text == "Stufe 36 · Jägerin", "Namensschild")
+-- Einklappen: Plätze der Kategorie verschwinden, Überschrift bleibt
+local freeKey = "0:10"
+assert(win.bagButtons[freeKey].shown, "freier Platz sichtbar")
+win.bagHeads.free.scripts.OnClick()
+assert(not win.bagButtons[freeKey].shown and win.bagHeads.free.shown and CS.Opts().collapsed.free, "eingeklappt und gemerkt")
+win.bagHeads.free.scripts.OnClick()
+assert(win.bagButtons[freeKey].shown, "wieder ausgeklappt")
+-- Sortierknopf schaltet durch
+win.bagHeads.trade.sort.scripts.OnClick()
+assert(CS.Opts().sort.trade == "quality", "Sortierung weiter geschaltet")
+for _ = 1, 3 do win.bagHeads.trade.sort.scripts.OnClick() end
+assert(CS.Opts().sort.trade == nil, "nach einer Runde wieder wie in den Taschen")
+assert(win.bagHeads.ammo.text.text:find("10", 1, true) and win.bagHeads.ammo.text.text:find("Köcher", 1, true), win.bagHeads.ammo.text.text)
 _G.Freewood_ToggleCharSheet()
 assert(not win.shown, "zweiter Druck schließt")
 
