@@ -8,7 +8,7 @@
 --   rechts  Taschen (Rucksack, 4 Taschen, Reagenzientasche) mit Blizzards eigenen Taschenknöpfen
 --           (ContainerFrameItemButtonTemplate: benutzen, verschieben, verkaufen ohne Taint), Suche, Gold;
 --           Haken "Raster wächst mit" (sonst scrollt es)
--- Der Rahmen wird in Ecken und Kanten geschnitten (9 Teile aus einer Grafik) und passt sich jeder Bildschirmgröße an
+-- Der Außenrahmen (0.62.2: Holzleisten mit Eisenbeschlägen, 4 Ecken + 4 Leisten von Lacustat) passt sich jeder Bildschirmgröße an
 -- (16:9, 21:9 ...). Öffnen: Reiter mit Freewood-Logo am Blizzard-Charakterfenster, Taste (Tastaturbelegung >
 -- Freewood > Charakteransicht) oder auf Wunsch die Taste des Charakterfensters (C). Esc schließt.
 -- Einstellungen: Einstellungen > Design > Charakteransicht.
@@ -104,7 +104,6 @@ end
 
 -- Grafik in Pixeln: Bildgröße W x H, sichtbarer Bereich x0..x3 / y0..y3, Ecken bis x1/x2, y1/y2
 CS.SLICES = {
-    Frame = { W = 2048, H = 1024, x = { 118, 338, 1712, 1932 }, y = { 0, 200, 819, 1020 } },
     StatsFrame = { W = 512, H = 1024, x = { 2, 48, 465, 511 }, y = { 9, 55, 970, 1016 } },
     BagFrame = { W = 512, H = 1024, x = { 2, 48, 466, 512 }, y = { 135, 181, 850, 896 } },
 }
@@ -144,13 +143,54 @@ function CS.NineSlice(parent, name, layer)
 end
 
 ------------------------------------------------------------------------
+-- Außenrahmen aus eigenen Teilen (0.62.2): Ecken 256 x 256 fest, Leisten gestreckt.
+-- Die Leisten liegen in ihren Bildern ein paar Pixel anders als in den Ecken; der Versatz wird ausgeglichen
+-- (gemessen: Holz in den Ecken links 4..82, oben 4..88, rechts 173..252, unten 172..252 von 256;
+--  in den Leisten links 9..87, rechts 166..245, oben 7..91, unten 168..248).
+------------------------------------------------------------------------
+
+CS.WOOD = { corner = 256, inner = 90, shift = { left = -5, right = 7, top = -3, bottom = 4 } }
+
+function CS.WoodFrame(parent)
+    local holder = CreateFrame("Frame", nil, parent)
+    local t = {}
+    for _, n in ipairs({ "TL", "TR", "BL", "BR", "Top", "Bottom", "Left", "Right" }) do
+        local tex = holder:CreateTexture(nil, "BORDER", nil, (#n == 2) and 2 or 1)
+        tex:SetTexture(MEDIA .. "Wood" .. n .. ".tga")
+        t[n] = tex
+    end
+    holder.parts = t
+    function holder:SetSliceScale(fs)
+        local c = CS.WOOD.corner * fs
+        local sh = CS.WOOD.shift
+        for _, tex in pairs(t) do tex:ClearAllPoints() end
+        t.TL:SetPoint("TOPLEFT", self, "TOPLEFT") t.TL:SetSize(c, c)
+        t.TR:SetPoint("TOPRIGHT", self, "TOPRIGHT") t.TR:SetSize(c, c)
+        t.BL:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT") t.BL:SetSize(c, c)
+        t.BR:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT") t.BR:SetSize(c, c)
+        t.Top:SetPoint("TOPLEFT", t.TL, "TOPRIGHT", 0, -sh.top * fs) t.Top:SetPoint("TOPRIGHT", t.TR, "TOPLEFT", 0, -sh.top * fs)
+        t.Top:SetHeight(c)
+        t.Bottom:SetPoint("BOTTOMLEFT", t.BL, "BOTTOMRIGHT", 0, -sh.bottom * fs) t.Bottom:SetPoint("BOTTOMRIGHT", t.BR, "BOTTOMLEFT", 0, -sh.bottom * fs)
+        t.Bottom:SetHeight(c)
+        t.Left:SetPoint("TOPLEFT", t.TL, "BOTTOMLEFT", sh.left * fs, 0) t.Left:SetPoint("BOTTOMLEFT", t.BL, "TOPLEFT", sh.left * fs, 0)
+        t.Left:SetWidth(c)
+        t.Right:SetPoint("TOPRIGHT", t.TR, "BOTTOMRIGHT", sh.right * fs, 0) t.Right:SetPoint("BOTTOMRIGHT", t.BR, "TOPRIGHT", sh.right * fs, 0)
+        t.Right:SetWidth(c)
+    end
+    holder:SetSliceScale(0.4)
+    return holder
+end
+
+------------------------------------------------------------------------
 -- Aufteilung (reine Rechnung, getestet): Bildschirmgröße -> Bereiche
 ------------------------------------------------------------------------
 
 -- W, H: Fenstergröße in UI-Einheiten. Rückgabe: Maßstab k der Rahmen-Grafik und die Bereiche (x, y von oben links)
 function CS.ComputeLayout(W, H)
-    local k = H / 1020                        -- Rahmenhöhe 1020 px füllt die Höhe
-    local padX, padTop, padBot = 70 * k, 64 * k, 56 * k
+    local k = H / 1020                        -- Maßstab für Abstände (wie bisher)
+    local fs = math.max(0.28, math.min(0.6, H / 2000))   -- Maßstab des Holzrahmens (Ecke 256 px -> ~13 % der Höhe)
+    local inner = CS.WOOD.inner * fs + 16                -- Innenkante der Leisten plus Luft
+    local padX, padTop, padBot = inner, inner, inner
     local cx, cy = padX, padTop
     local cw, ch = W - 2 * padX, H - padTop - padBot
     local gap = math.max(10, 24 * k)
@@ -174,7 +214,7 @@ function CS.ComputeLayout(W, H)
         S = S - 2
     end
     return {
-        k = k, S = S, sg = sg,
+        k = k, fs = fs, S = S, sg = sg,
         content = { x = cx, y = cy, w = cw, h = ch },
         char = { x = cx, y = cy, w = charW, h = ch },
         plate = { x = cx, y = cy, w = charW, h = plateH },
@@ -509,7 +549,7 @@ local function Build()
     f.leather = f:CreateTexture(nil, "BACKGROUND", nil, -7)
     f.leather:SetTexture(MEDIA .. "Leather.tga")
     f.leather:SetTexCoord(0.02, 0.70, 0.14, 0.72)   -- nur der ruhige Teil (ohne Linie oben und Blatt unten rechts)
-    f.frame = CS.NineSlice(f, "Frame", "BORDER")
+    f.frame = CS.WoodFrame(f)
     f.frame:SetAllPoints(f)
     f.frame:SetFrameLevel(f:GetFrameLevel() + 20)
 
@@ -641,14 +681,15 @@ function CS.Layout()
     local lay = CS.ComputeLayout(W, H)
     f.lay = lay
     local k, S, sg = lay.k, lay.S, lay.sg
-    f.frame:SetSliceScale(k)
+    f.frame:SetSliceScale(lay.fs)
     f.leather:ClearAllPoints()
     f.leather:SetPoint("TOPLEFT", f, "TOPLEFT", 8 * k, -8 * k)
     f.leather:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8 * k, 8 * k)
-    -- X genau in die Aussparung des Rahmens (Grafik: x 1856..1916, y 12..76)
-    f.close:SetSize(60 * k, 64 * k)
+    -- X auf dem Eisenbeschlag oben rechts (0.62.2; der neue Rahmen hat keine Aussparung mehr)
+    local xs = math.max(24, 76 * lay.fs)
+    f.close:SetSize(xs, xs)
     f.close:ClearAllPoints()
-    f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -(1932 - 1916) * k, -12 * k)
+    f.close:SetPoint("CENTER", f, "TOPRIGHT", -62 * lay.fs, -58 * lay.fs)
 
     -- Charakter
     Place(f.plate, lay.plate)
