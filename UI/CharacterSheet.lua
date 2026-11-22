@@ -405,10 +405,39 @@ local function MakeBagButton(bag, slot)
     b:SetID(slot)
     b.fwBag = bag
     if b.GetBagID == nil then function b:GetBagID() return self:GetParent():GetID() end end
+    -- Rahmen genau so groß wie der Knopf; Blizzards eigener Platzrahmen (NormalTexture) und Zusatzbilder aus,
+    -- Symbol leicht eingerückt, damit es im Freewood-Rahmen sitzt (0.61.1)
     b.fwBg = b:CreateTexture(nil, "BACKGROUND", nil, -8)
     b.fwBg:SetTexture(MEDIA .. "BagSlot.tga")
-    b.fwBg:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 3)
-    b.fwBg:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 3, -3)
+    b.fwBg:SetAllPoints(b)
+    b.fwFrame = b:CreateTexture(nil, "OVERLAY", nil, -1)
+    b.fwFrame:SetTexture(MEDIA .. "BagSlot.tga")
+    b.fwFrame:SetAllPoints(b)
+    b.fwFrame:SetAlpha(0)
+    local nt = b.GetNormalTexture and b:GetNormalTexture()
+    if nt then nt:SetAlpha(0) end
+    for _, key in ipairs({ "NewItemTexture", "BattlepayItemTexture", "flash", "ExtendedSlot", "ItemContextOverlay" }) do
+        local t = b[key]
+        if type(t) == "table" and t.SetAlpha then t:SetAlpha(0) end
+    end
+    function b:FwFit(size)
+        local inset = math.max(3, math.floor(size * 0.09))
+        local icon = self.icon or self.Icon or (self.GetName and self:GetName() and G[self:GetName() .. "IconTexture"])
+        if type(icon) == "table" and icon.ClearAllPoints then
+            icon:ClearAllPoints()
+            icon:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -inset)
+            icon:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -inset, inset)
+        end
+        if type(self.IconBorder) == "table" and self.IconBorder.ClearAllPoints then
+            self.IconBorder:ClearAllPoints()
+            self.IconBorder:SetPoint("TOPLEFT", self, "TOPLEFT", inset - 1, -(inset - 1))
+            self.IconBorder:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -(inset - 1), inset - 1)
+        end
+        local hl = self.GetHighlightTexture and self:GetHighlightTexture()
+        if hl then hl:ClearAllPoints() hl:SetAllPoints(self) end
+        local pt = self.GetPushedTexture and self:GetPushedTexture()
+        if pt then pt:ClearAllPoints() pt:SetAllPoints(self) end
+    end
     b.fwGlow = Glow(b)
     b:HookScript("OnEnter", function(self) self.fwGlow:SetVertexColor(1, 0.85, 0.4) self.fwGlow:Show() end)
     b:HookScript("OnLeave", function(self) self.fwGlow:Hide() end)
@@ -424,6 +453,18 @@ local function ContainerInfo(bag, slot)
     local C = G.C_Container
     if C and C.GetContainerItemInfo then return Safe(C.GetContainerItemInfo, bag, slot) end
     return nil
+end
+
+-- 64333 -> "6 [Gold]  43 [Silber]  33 [Kupfer]" mit Münzsymbolen (0.61.1; GetCoinTextureString fehlte in Forever)
+function CS.MoneyText(m)
+    m = math.floor(tonumber(m) or 0)
+    local g, sv, c = math.floor(m / 10000), math.floor(m / 100) % 100, m % 100
+    local function Icon(name) return "|TInterface\\MoneyFrame\\UI-" .. name .. "Icon:0:0:2:0|t" end
+    local parts = {}
+    if g > 0 then parts[#parts + 1] = Num(g) .. Icon("Gold") end
+    if g > 0 or sv > 0 then parts[#parts + 1] = sv .. Icon("Silver") end
+    parts[#parts + 1] = c .. Icon("Copper")
+    return table.concat(parts, "   ")
 end
 
 function CS.MatchSearch(info, text)
@@ -446,7 +487,11 @@ local function Build()
     win = f
 
     -- Hintergrund: dunkles Leder, Rahmen in 9 Teilen
-    f.leather = f:CreateTexture(nil, "BACKGROUND")
+    -- dichter Grund: zwischen Rahmenecken und am oberen Rand darf nichts vom Spiel durchscheinen (0.61.1)
+    f.base = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+    f.base:SetAllPoints(f)
+    f.base:SetColorTexture(0.07, 0.05, 0.035, 1)
+    f.leather = f:CreateTexture(nil, "BACKGROUND", nil, -7)
     f.leather:SetTexture(MEDIA .. "Leather.tga")
     f.leather:SetTexCoord(0.02, 0.70, 0.14, 0.72)   -- nur der ruhige Teil (ohne Linie oben und Blatt unten rechts)
     f.frame = CS.NineSlice(f, "Frame", "BORDER")
@@ -520,9 +565,15 @@ local function Build()
     UI.SetFont(f.bagTitleText, "heading", 20)
     f.bagTitleText:SetTextColor(1, 0.85, 0.45)
     f.bagTitleText:SetText(L().CS_BAGS)
-    f.searchBg = f.bags:CreateTexture(nil, "ARTWORK")
-    f.searchBg:SetTexture(MEDIA .. "Search.tga")
-    f.searchBg:SetTexCoord(0, 1, 9 / 64, 56 / 64)
+    -- Suchleiste in drei Teilen: Enden fest, nur die Mitte wird gestreckt (0.61.1)
+    f.searchBg = CreateFrame("Frame", nil, f.bags)
+    f.searchParts = {}
+    for i, tc in ipairs({ { 0, 40 }, { 40, 472 }, { 472, 512 } }) do
+        local t = f.searchBg:CreateTexture(nil, "ARTWORK")
+        t:SetTexture(MEDIA .. "Search.tga")
+        t:SetTexCoord(tc[1] / 512, tc[2] / 512, 9 / 64, 56 / 64)
+        f.searchParts[i] = t
+    end
     local sb = CreateFrame("EditBox", nil, f.bags)
     sb:SetAutoFocus(false)
     UI.SetFont(sb, "body", 14)
@@ -574,11 +625,12 @@ function CS.Layout()
     local k, S, sg = lay.k, lay.S, lay.sg
     f.frame:SetSliceScale(k)
     f.leather:ClearAllPoints()
-    f.leather:SetPoint("TOPLEFT", f, "TOPLEFT", 40 * k, -30 * k)
-    f.leather:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -40 * k, 30 * k)
-    f.close:SetSize(math.max(28, 60 * k), math.max(28, 60 * k))
+    f.leather:SetPoint("TOPLEFT", f, "TOPLEFT", 8 * k, -8 * k)
+    f.leather:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8 * k, 8 * k)
+    -- X genau in die Aussparung des Rahmens (Grafik: x 1856..1916, y 12..76)
+    f.close:SetSize(60 * k, 64 * k)
     f.close:ClearAllPoints()
-    f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -(1932 - 1915) * k - 6 * k, -12 * k)
+    f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -(1932 - 1916) * k, -12 * k)
 
     -- Charakter
     Place(f.plate, lay.plate)
@@ -630,6 +682,12 @@ function CS.Layout()
     f.searchBg:SetPoint("TOPLEFT", f.bags, "TOPLEFT", 20, -62)
     f.searchBg:SetPoint("TOPRIGHT", f.bags, "TOPRIGHT", -20, -62)
     f.searchBg:SetHeight(32)
+    local capW = 40 * 32 / 47
+    local sp = f.searchParts
+    for i = 1, 3 do sp[i]:ClearAllPoints() end
+    sp[1]:SetPoint("TOPLEFT", f.searchBg, "TOPLEFT") sp[1]:SetPoint("BOTTOMLEFT", f.searchBg, "BOTTOMLEFT") sp[1]:SetWidth(capW)
+    sp[3]:SetPoint("TOPRIGHT", f.searchBg, "TOPRIGHT") sp[3]:SetPoint("BOTTOMRIGHT", f.searchBg, "BOTTOMRIGHT") sp[3]:SetWidth(capW)
+    sp[2]:SetPoint("TOPLEFT", sp[1], "TOPRIGHT") sp[2]:SetPoint("BOTTOMRIGHT", sp[3], "BOTTOMLEFT")
     f.search:ClearAllPoints()
     f.search:SetPoint("TOPLEFT", f.searchBg, "TOPLEFT", 14, -2)
     f.search:SetPoint("BOTTOMRIGHT", f.searchBg, "BOTTOMRIGHT", -14, 2)
@@ -655,8 +713,7 @@ function CS.UpdateHeader()
     f.level:SetText(string.format(L().CS_LEVEL, lvl, cls))
     if f.model.SetUnit then pcall(f.model.SetUnit, f.model, "player") end
     if f.model.SetFacing then pcall(f.model.SetFacing, f.model, f.model.rot or 0) end
-    local m = Safe(G.GetMoney) or 0
-    if G.GetCoinTextureString then f.money:SetText(G.GetCoinTextureString(m)) else f.money:SetText(tostring(m)) end
+    f.money:SetText(CS.MoneyText(Safe(G.GetMoney) or 0))
 end
 
 function CS.UpdateSlots()
@@ -684,6 +741,10 @@ function CS.UpdateStats()
             r.div:SetHeight(4)
             r.l = r:CreateFontString(nil, "OVERLAY")
             r.v = r:CreateFontString(nil, "OVERLAY")
+            -- Schrift sofort setzen: SetText auf eine Zeile ohne Schrift bricht mit "Font not set" ab, dann blieben
+            -- alle Werte leer (0.61.1)
+            UI.SetFont(r.l, "body", 14)
+            UI.SetFont(r.v, "body", 14)
             r.l:SetPoint("LEFT", r, "LEFT", 10, 0)
             r.v:SetPoint("RIGHT", r, "RIGHT", -10, 0)
             f.statRows[n] = r
@@ -750,6 +811,7 @@ function CS.UpdateBags()
             b:ClearAllPoints()
             b:SetPoint("TOPLEFT", f.bagsChild, "TOPLEFT", 4 + col * (size + 4), -(4 + row * (size + 4)))
             b:SetSize(size, size)
+            if b.FwFit and b.fwFitted ~= size then b:FwFit(size) b.fwFitted = size end
             local info = ContainerInfo(it.bag, it.slot)
             local tex = info and info.iconFileID
             if G.SetItemButtonTexture then G.SetItemButtonTexture(b, tex) elseif b.icon then b.icon:SetTexture(tex) end

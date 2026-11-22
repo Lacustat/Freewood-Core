@@ -33,7 +33,12 @@ function M.GetText(f) return f.text or "" end
 function M.SetText(f, t) f.text = t end
 function M.GetFrameLevel() return 1 end
 function M.CreateTexture() return setmetatable({}, M) end
-function M.CreateFontString() return setmetatable({}, M) end
+-- wie im Spiel: SetText auf eine Zeile ohne Schrift bricht ab ("Font not set", 0.61.1)
+local FS = setmetatable({}, { __index = M })
+FS.__index = function(t, k) if FS[k] then return FS[k] end return M.__index(t, k) end
+function FS.SetText(f, t) if not f.font then error("FontString:SetText(): Font not set") end f.text = t end
+function FS.SetFormattedText(f, ...) FS.SetText(f, string.format(...)) end
+function M.CreateFontString(_, _, _, template) return setmetatable({ font = template ~= nil }, FS) end
 local created = {}
 _G.CreateFrame = function(kind, name, parent, template)
     local f = setmetatable({ kind = kind, parent = parent, template = template }, M)
@@ -44,7 +49,7 @@ end
 _G.UIParent = setmetatable({ w = 1835, h = 768 }, M)   -- 3440 x 1440 bei Skalierung
 _G.UISpecialFrames = {}
 FW.UI = {
-    SetFont = function() end, Color = function() return 1, 1, 1 end,
+    SetFont = function(fs) fs.font = true end, Color = function() return 1, 1, 1 end,
     CreateCheckbox = function(_, _, g) g() return setmetatable({}, M) end,
     RegisterSettingsSection = function(_, id, def) FW.section = def end,
     CreateSection = function() local f = setmetatable({}, M) return f, { Add = function() end } end,
@@ -112,6 +117,11 @@ assert(last.title == "Widerstände" and last.rows[1][2] == "10", "Widerstände z
 local order = CS.ClassOrder("MAGE")
 assert(order[1] == "spell", "Magier: Zauber zuerst")
 
+-- Gold mit Münzsymbolen
+local mt = CS.MoneyText(64333)
+assert(mt:find("^6|T", 1) and mt:find("43|T", 1, true) and mt:find("33|T", 1, true), mt)
+assert(CS.MoneyText(5):find("^5|T"), "nur Kupfer")
+
 -- Suche
 local info = { hyperlink = "|cff1eff00|Hitem:1|h[Grüner Hut]|h|r" }
 assert(CS.MatchSearch(info, "hut") and not CS.MatchSearch(info, "schwert") and CS.MatchSearch(nil, ""), "Suche")
@@ -129,6 +139,9 @@ for _, f in ipairs(created) do if f.template == "ContainerFrameItemButtonTemplat
 assert(bagButtons == 36, "Blizzards Taschenknöpfe für alle Plätze: " .. bagButtons)
 local p = win.bagButtons["1:3"].parent
 assert(p.id == 1 and win.bagButtons["1:3"].id == 3, "Tasche und Platz über IDs (Blizzards Knopf liest sie selbst)")
+local statRows = 0
+for _, r in ipairs(win.statRows) do if r.shown and r.l.text and r.l.text ~= "" then statRows = statRows + 1 end end
+assert(statRows > 20, "Werte eingetragen: " .. statRows)
 assert(win.name.text == "Pinky" and win.level.text == "Stufe 36 · Jägerin", "Namensschild")
 _G.Freewood_ToggleCharSheet()
 assert(not win.shown, "zweiter Druck schließt")
