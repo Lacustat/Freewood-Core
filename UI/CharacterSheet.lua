@@ -43,6 +43,7 @@ FW:AddLocale("enUS", {
     CS_HIT = "Hit chance", CS_SPELLDMG = "Bonus damage", CS_HEAL = "Bonus healing", CS_SPELLCRIT = "Spell crit",
     CS_REGEN = "Mana regeneration", CS_ARMOR = "Armor", CS_DODGE = "Dodge", CS_PARRY = "Parry", CS_BLOCK = "Block",
     CS_FIRE = "Fire", CS_NATURE = "Nature", CS_FROST = "Frost", CS_SHADOW = "Shadow", CS_ARCANE = "Arcane",
+    CS_STATS_SHORT = "Stats", CS_GEAR_SHORT = "Equipment",
     CS_SET_TITLE = "Character view",
     CS_SET_TAB = "Show the Freewood tab on the character window",
     CS_SET_C = "The character window key (C) opens the Freewood character view",
@@ -69,6 +70,7 @@ FW:AddLocale("deDE", {
     CS_HIT = "Trefferchance", CS_SPELLDMG = "Bonusschaden", CS_HEAL = "Bonusheilung", CS_SPELLCRIT = "Zauberkrit",
     CS_REGEN = "Manaregeneration", CS_ARMOR = "Rüstung", CS_DODGE = "Ausweichen", CS_PARRY = "Parieren", CS_BLOCK = "Blocken",
     CS_FIRE = "Feuer", CS_NATURE = "Natur", CS_FROST = "Frost", CS_SHADOW = "Schatten", CS_ARCANE = "Arkan",
+    CS_STATS_SHORT = "Werte", CS_GEAR_SHORT = "Ausrüstung",
     CS_SET_TITLE = "Charakteransicht",
     CS_SET_TAB = "Freewood-Reiter am Charakterfenster zeigen",
     CS_SET_C = "Die Taste des Charakterfensters (C) öffnet die Freewood-Charakteransicht",
@@ -659,6 +661,25 @@ local function Build()
     UI.SetFont(f.statsTitle, "heading", 20)
     f.statsTitle:SetTextColor(1, 0.85, 0.45)
     f.statsTitle:SetText(L().CS_STATS)
+    -- Umschalter "Werte | Ausrüstung" (0.64.0): die Ausrüstung nach Ereignis teilt sich den Platz mit den Werten
+    local function ViewButton(text, view)
+        local b = CreateFrame("Button", nil, f.stats)
+        b.text = b:CreateFontString(nil, "OVERLAY")
+        UI.SetFont(b.text, "heading", 20)
+        b.text:SetPoint("CENTER", b, "CENTER", 0, 0)
+        b.text:SetText(text)
+        b:SetSize(math.max(60, (b.text:GetStringWidth() or 80) + 12), 28)
+        b:SetScript("OnClick", function() CS.SetView(view) end)
+        return b
+    end
+    f.viewStats = ViewButton(L().CS_STATS_SHORT, "stats")
+    f.viewGear = ViewButton(L().CS_GEAR_SHORT, "gear")
+    f.viewSep = f.stats:CreateFontString(nil, "OVERLAY")
+    UI.SetFont(f.viewSep, "heading", 20)
+    f.viewSep:SetTextColor(0.6, 0.5, 0.35)
+    f.viewSep:SetText("|")
+    f.gearHost = CreateFrame("Frame", nil, f.stats)
+    f.gearHost:Hide()
     local okS, ss = pcall(CreateFrame, "ScrollFrame", "FreewoodCharacterSheetStats", f.stats, "UIPanelScrollFrameTemplate")
     if not okS then ss = CreateFrame("ScrollFrame", nil, f.stats) end
     f.statsScroll = ss
@@ -866,6 +887,17 @@ function CS.Layout()
     f.stats:SetSliceScale(math.max(0.5, k * 0.9))
     f.statsTitle:ClearAllPoints()
     f.statsTitle:SetPoint("TOP", f.stats, "TOP", 0, -24)
+    f.statsTitle:Hide()
+    f.viewSep:ClearAllPoints()
+    f.viewSep:SetPoint("TOP", f.stats, "TOP", 0, -24)
+    f.viewStats:ClearAllPoints()
+    f.viewStats:SetPoint("RIGHT", f.viewSep, "LEFT", -6, 0)
+    f.viewGear:ClearAllPoints()
+    f.viewGear:SetPoint("LEFT", f.viewSep, "RIGHT", 6, 0)
+    f.gearHost:ClearAllPoints()
+    f.gearHost:SetPoint("TOPLEFT", f.stats, "TOPLEFT", 22, -60)
+    f.gearHost:SetPoint("BOTTOMRIGHT", f.stats, "BOTTOMRIGHT", -26, 24)
+    CS.SetView(CS.Opts().view)
     f.statsScroll:ClearAllPoints()
     f.statsScroll:SetPoint("TOPLEFT", f.stats, "TOPLEFT", 22, -60)
     f.statsScroll:SetPoint("BOTTOMRIGHT", f.stats, "BOTTOMRIGHT", -34, 24)
@@ -906,6 +938,21 @@ function CS.Layout()
     f.bagsScroll:SetPoint("TOPLEFT", f.bags, "TOPLEFT", 22, -134)
     f.bagsScroll:SetPoint("BOTTOMRIGHT", f.bags, "BOTTOMRIGHT", -34, 66)
     CS.UpdateBags()
+end
+
+-- Werte oder Ausrüstung nach Ereignis im mittleren Feld
+function CS.SetView(view)
+    local f = win
+    if not f or not f.viewStats then return end
+    if view ~= "gear" or not (FW.GearUI and FW.GearUI.Build) then view = "stats" end
+    CS.Opts().view = view
+    local gear = view == "gear"
+    if gear and not f.gearView then f.gearView = FW.GearUI.Build(f.gearHost) end
+    f.statsScroll:SetShown(not gear)
+    f.gearHost:SetShown(gear)
+    if gear and f.gearView and f.gearView.Refresh then f.gearView.Refresh() end
+    f.viewStats.text:SetTextColor(gear and 0.6 or 1, gear and 0.55 or 0.85, gear and 0.45 or 0.45)
+    f.viewGear.text:SetTextColor(gear and 1 or 0.6, gear and 0.85 or 0.55, 0.45)
 end
 
 function CS.UpdateHeader()

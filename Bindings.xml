@@ -20,4 +20,7 @@
     <Binding name="FREEWOOD_CORE_CHARSHEET" category="BINDING_CATEGORY_FREEWOOD">
         Freewood_ToggleCharSheet()
     </Binding>
+    <Binding name="FREEWOOD_CORE_GEARFISH" category="BINDING_CATEGORY_FREEWOOD">
+        Freewood_GearFishing()
+    </Binding>
 </Bindings>

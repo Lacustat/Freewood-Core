@@ -253,6 +253,17 @@ assert(win.forest.tex:find("Forest.tga", 1, true), "Rassenbild aus: Wald")
 CS.Opts().race = true
 CS.ApplyRace()
 assert(win.forest.tex:find("RaceOrc.tga", 1, true), "Orc")
+-- 0.64.0: Umschalter Werte | Ausrüstung
+assert(win.statsScroll.shown ~= false and not win.gearHost.shown, "Standard: Werte")
+local built = 0
+FW.GearUI = { Build = function(p) built = built + 1 return { parent = p, Refresh = function() end } end }
+win.viewGear.scripts.OnClick()
+assert(CS.Opts().view == "gear" and win.gearHost.shown and win.statsScroll.shown == false and built == 1, "Ausrüstung gezeigt")
+win.viewStats.scripts.OnClick()
+win.viewGear.scripts.OnClick()
+assert(built == 1, "nur einmal gebaut")
+win.viewStats.scripts.OnClick()
+assert(CS.Opts().view == "stats" and win.statsScroll.shown, "zurück zu den Werten")
 CS.Opts().bg = "gibtsnicht"
 assert(CS.Opts().bg == "leatherDark", "unbekannter Wert -> Standard")
 _G.Freewood_ToggleCharSheet()
