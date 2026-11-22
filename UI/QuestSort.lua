@@ -274,7 +274,8 @@ end
 -- bestehen: Blizzards Zwischenspeicher setzt die Bloecke nach der alten Reihenfolge ein, eine neue Sortierung dazwischen
 -- fuehrt zu uebereinanderliegenden Zeilen.
 local SETTLE = 2.5     -- Sekunden nach Abgabe bis zum sauberen Neuaufbau
-local DIST_TICK = 5    -- Sekunden: Entfernungs-Sortierung auf Aenderung pruefen
+local DIST_TICK = 300  -- Sekunden: Questverfolgung nach Naehe neu ordnen (0.60.4: vorher 5 s, das gab Mikroruckler)
+local LOG_TICK = 5     -- Sekunden: offenes Questlog nach Naehe neu ordnen (nur solange die Karte offen ist)
 
 -- Questverfolgung sortieren ohne Blizzards Tracker anzufassen (0.60.3, F-40): Früher wurde
 -- QuestObjectiveTracker.BuildQuestWatchInfos ersetzt. Dann lief jeder Neuaufbau des Trackers als Freewood-Code
@@ -347,13 +348,31 @@ FW:RegisterEvent("QUEST_REMOVED", function() Settle() end)
 
 -- Questverfolgung: Reihenfolge neu berechnen und nur bei Aenderung neu aufbauen lassen (seit 0.53.1 fuer jede
 -- Sortierung, nicht nur Entfernung). Rueckgabe true, wenn neu aufgebaut wird.
+-- Bei Quest-Ereignissen: nach Naehe nur umordnen, wenn sich die Menge der verfolgten Quests geaendert hat
+-- (neue oder entfernte Quest). Die Entfernung selbst prueft nur der 5-Minuten-Takt; sonst sprang die Liste
+-- beim Laufen staendig hin und her (0.60.4).
+local function SetKey(ids)
+    local c = {}
+    for i, v in ipairs(ids) do c[i] = v end
+    table.sort(c)
+    return table.concat(c, ",")
+end
 function QS.CheckTracker()
+    if Opts().tracker == "distance" then
+        local key = SetKey(QS.WatchIds())
+        if key == QS.distSet then return false end
+        local changed = QS.ApplyWatchOrder()
+        QS.distSet = SetKey(QS.WatchIds())
+        return changed
+    end
     return QS.ApplyWatchOrder()
 end
 -- Entfernung aendert sich beim Laufen: regelmaessig pruefen
 function QS.DistanceTick()
     if Opts().tracker ~= "distance" then return false end
-    return QS.CheckTracker()
+    local changed = QS.ApplyWatchOrder()
+    QS.distSet = SetKey(QS.WatchIds())
+    return changed
 end
 
 -- Questlog (Kartenfenster) offen: neu ordnen (jede Sortierung; Entfernung zusaetzlich regelmaessig)
@@ -402,11 +421,10 @@ end
 
 local function StartTicker()
     if QS.ticker or not G.C_Timer or not G.C_Timer.NewTicker then return end
-    QS.ticker = G.C_Timer.NewTicker(DIST_TICK, function()
-        pcall(QS.DistanceTick)
-        pcall(QS.LogDistanceTick)
-    end)
+    QS.ticker = G.C_Timer.NewTicker(DIST_TICK, function() pcall(QS.DistanceTick) end)
+    QS.logTicker = G.C_Timer.NewTicker(LOG_TICK, function() pcall(QS.LogDistanceTick) end)
 end
+QS.DIST_TICK, QS.LOG_TICK = DIST_TICK, LOG_TICK
 
 local function NextMode(cur, step)
     local n = #QS.MODES

@@ -155,7 +155,8 @@ timers[#timers][2]()
 eq(QS.settling, false, "nach 2,5 s frei")
 
 -- Entfernung: Ticker baut nur bei geaenderter Reihenfolge neu auf
-eq(#tickers, 1, "Ticker gestartet")
+eq(#tickers, 2, "Ticker gestartet (Verfolgung und Questlog)")
+eq(QS.DIST_TICK, 300, "0.60.4: Verfolgung nach Naehe nur alle 5 Minuten")
 QS.Opts().tracker = "distance"
 watches = { 1, 2, 3, 4 }
 QS.DistanceTick()
@@ -167,6 +168,14 @@ eq(W(), "1,3,2,4", "neue Entfernung")
 QS.settling = true; data[4].dist = 1
 eq(QS.DistanceTick(), false, "waehrend der Abgabe: nichts")
 QS.settling = false
+-- 0.60.4: Quest-Ereignisse ordnen nach Naehe nicht neu, solange dieselben Quests verfolgt werden
+data[2].dist = 1
+eq(QS.CheckTracker(), false, "Ereignis, gleiche Quests: kein Umordnen (keine Ruckler)")
+watches[#watches + 1] = 5
+data[5] = { level = 5, title = "Echo", progress = 0, dist = 2 }
+eq(QS.CheckTracker(), true, "neue Quest verfolgt: einmal einsortiert")
+eq(QS.CheckTracker(), false, "danach wieder ruhig")
+data[5] = nil
 watches = { 1, 2, 4 }
 -- Entfernung: Freewood-Quest-Schaetzung (Sekunden) geht vor, Spiel-Wert wird in Sekunden umgerechnet
 FW.QuestDistance = function(id) if id == 3 then return 5 end end
