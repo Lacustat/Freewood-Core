@@ -268,6 +268,20 @@ CS.Opts().bg = "gibtsnicht"
 assert(CS.Opts().bg == "leatherDark", "unbekannter Wert -> Standard")
 _G.Freewood_ToggleCharSheet()
 
+-- 0.64.1: zwei Aufträge kurz nacheinander (Taschen, dann Ausrüstung) gehen beide durch
+local timers, ranA, ranB = {}, 0, 0
+local oldTimer = _G.C_Timer
+_G.C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
+local function A() ranA = ranA + 1 end
+local function B() ranB = ranB + 1 end
+CS.Soon(A) CS.Soon(B) CS.Soon(A)
+assert(#timers == 1, "ein Zeitgeber")
+timers[1]()
+assert(ranA == 1 and ranB == 1, "beide ausgeführt, keiner doppelt")
+CS.Soon(B)
+assert(#timers == 2, "danach neuer Zeitgeber")
+_G.C_Timer = oldTimer
+
 -- Einstellungen unter Design
 assert(FW.section and FW.section.category == "design", "Einstellungen > Design")
 FW.section.build(setmetatable({}, M))

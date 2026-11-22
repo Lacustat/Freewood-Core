@@ -1387,13 +1387,22 @@ end
 -- Ereignisse
 ------------------------------------------------------------------------
 
-local pending = false
+-- Aufträge sammeln und gemeinsam ausführen. Bis 0.64.0 ging ein zweiter Auftrag verloren, solange der erste wartete:
+-- Beim Anziehen aus der Tasche kommt BAG_UPDATE vor PLAYER_EQUIPMENT_CHANGED, das neue Symbol am Platz fehlte (0.64.1).
+local jobs = {}
 local function Soon(fn)
-    if pending then return end
-    pending = true
-    local function Run() pending = false pcall(fn) end
+    local first = #jobs == 0
+    for _, f in ipairs(jobs) do if f == fn then return end end
+    jobs[#jobs + 1] = fn
+    if not first then return end
+    local function Run()
+        local list = jobs
+        jobs = {}
+        for _, f in ipairs(list) do pcall(f) end
+    end
     if G.C_Timer and G.C_Timer.After then G.C_Timer.After(0.1, Run) else Run() end
 end
+CS.Soon = Soon
 
 FW:RegisterEvent("PLAYER_LOGIN", function()
     pcall(CS.SetupTab)
