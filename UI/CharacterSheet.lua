@@ -947,7 +947,7 @@ function CS.SetView(view)
     if view ~= "gear" or not (FW.GearUI and FW.GearUI.Build) then view = "stats" end
     CS.Opts().view = view
     local gear = view == "gear"
-    if gear and not f.gearView then f.gearView = FW.GearUI.Build(f.gearHost) end
+    if gear and not f.gearView then f.gearView = FW.GearUI.Build(f.gearHost, "blizzard") end
     f.statsScroll:SetShown(not gear)
     f.gearHost:SetShown(gear)
     if gear and f.gearView and f.gearView.Refresh then f.gearView.Refresh() end

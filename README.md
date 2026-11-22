@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.64.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.65.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -14,6 +14,7 @@
 Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert das Hauptfenster mit den Reitern, die Einstellungen, den Datenspeicher, die Bausteine für die Oberfläche und den Austausch von Daten als Text-Code. Alle anderen Module bauen darauf auf.
 
 ### Funktionen
+- Ab 0.65.0: Ausrüstung nach Ereignis in der Charakteransicht im Blizzard-Stil: rote Blizzard-Knöpfe, Haken, Eingabefelder, Bildlaufleiste und Dropdowns (WowStyle1, sonst das Freewood-Dropdown) mit Blizzard-Schriften. Der Reiter im Freewood-Fenster bleibt im Freewood-Design.
 - Ab 0.64.1: Charakteransicht: Das Symbol am Ausrüstungsplatz aktualisiert sich jetzt sofort, wenn ein Gegenstand aus der Tasche angezogen wird (vorher ging die Aktualisierung verloren, wenn gleichzeitig die Taschen neu gezeichnet wurden).
 - Ab 0.64.0: Ausrüstung nach Ereignis: Regeln „Ereignis -> Freewood-Profil, Blizzard-Set oder einzelner Gegenstand“ (Schwimmen, Reiten, Angeln per Taste oder /fwgear angeln, Dungeon, Schlachtzug, Schlachtfeld, Arena, Kampf, Stadt/Gasthaus, Zone, Gestalt/Haltung, Gruppe, Schlachtzugsgruppe). Endet das Ereignis, gilt die nächste aktive Regel, sonst die Standard-Ausrüstung (fest oder „was ich zuletzt ohne Ereignis trug“). Rangliste: die obere Regel gewinnt je Platz. Im Kampf nur Waffen, Schild/Nebenhand und Fernkampf, der Rest danach. Meldung im Chat abschaltbar. Reiter „Ausrüstung“ und Umschalter „Werte | Ausrüstung“ in der Charakteransicht. Neue Dateien und Taste: einmal kompletter Spielneustart.
 - Ab 0.63.0: Charakteransicht: Hintergrund hinter dem Charakter je nach Rasse (Gnom, Zwerg, Mensch, Elfen, Troll, Tauren, Untote, Orc; sonst Wald, abschaltbar unter Design), oben rechts neben dem X eine Auswahl für den Oberflächen-Hintergrund (dunkles Leder, Pergament, rotes Leder, Leder klassisch). Neue Grafiken: einmal kompletter Spielneustart.
@@ -72,6 +73,7 @@ GPL-3.0, siehe `LICENSE`.
 The base addon of the Freewood family for World of Warcraft: Forever. It provides the main window with its tabs, the settings, data storage, the UI building blocks and the exchange of data as text codes. All other modules build on it.
 
 ### Features
+- Since 0.65.0: Equipment by event in the character view in Blizzard style: red Blizzard buttons, check boxes, input boxes, scroll bar and dropdowns (WowStyle1, otherwise the Freewood dropdown) with Blizzard fonts. The tab in the Freewood window keeps the Freewood design.
 - Since 0.64.1: Character view: the equipment slot icon now updates right away when an item is put on from the bags (the update was lost when the bags redrew at the same time).
 - Since 0.64.0: Equipment by event: rules "event -> Freewood profile, Blizzard set or single item" (swimming, mounted, fishing via key or /fwgear fish, dungeon, raid, battleground, arena, combat, city/inn, zone, form/stance, group, raid group). When the event ends the next active rule applies, otherwise the standard equipment (fixed or "what I last wore without an event"). Ranking: the upper rule wins per slot. In combat only weapons, shield/off-hand and ranged, the rest afterwards. Chat message can be turned off. Tab "Equipment" and a "Stats | Equipment" switch in the character view. New files and key: one full game restart.
 - Since 0.63.0: Character view: background behind the character by race (gnome, dwarf, human, elves, troll, tauren, undead, orc; otherwise the forest, can be turned off under Design), a picker for the window background top right next to the X (dark leather, parchment, red leather, classic leather). New graphics: one full game restart.

@@ -332,5 +332,46 @@ assert(GU.RuleText({ ev = "form", arg = 768, target = "s:Tank" }):find("Katzenge
 root.w = 240
 root.Refresh()
 assert(root.scroll.ch > 200, "schmal angeordnet")
+-- 0.65.0: Blizzard-Stil für die Charakteransicht (Vorlagen statt Kit)
+local templates = {}
+function M.SetChecked(f, v) f.checked = v end
+function M.GetChecked(f) return f.checked end
+local menuGen
+_G.MenuUtil = {}
+_G.CreateFrame = function(kind, name, parent, template)
+    templates[template or kind] = (templates[template or kind] or 0) + 1
+    local f = setmetatable({ kind = kind, parent = parent, template = template }, M)
+    if template == "WowStyle1DropdownTemplate" then
+        function f:SetupMenu(gen) menuGen = menuGen or {} menuGen[#menuGen + 1] = { dd = self, gen = gen } end
+    end
+    return f
+end
+local bparent = setmetatable({ w = 300 }, M)
+local broot = GU.Build(bparent, "blizzard")
+broot.w = 300
+broot.Refresh()
+assert(templates.UIPanelButtonTemplate and templates.UICheckButtonTemplate and templates.InputBoxTemplate
+    and templates.UIPanelScrollFrameTemplate and templates.WowStyle1DropdownTemplate, "Blizzard-Vorlagen benutzt")
+local bc = broot.c
+assert(bc.title.template == nil and bc.on.fwLabel.text == "Automatisch wechseln", "Haken mit Beschriftung")
+bc.on.checked = false
+bc.on.scripts.OnClick(bc.on)
+assert(d.on == false, "Haken schaltet aus")
+bc.on.checked = true
+bc.on.scripts.OnClick(bc.on)
+assert(d.on == true, "und wieder an")
+-- Dropdown: Menüeinträge als Auswahlpunkte, Klick ruft onChange
+local evMenu
+for _, m in ipairs(menuGen) do if m.dd == bc.evDD then evMenu = m end end
+local radios = {}
+evMenu.gen(nil, { CreateRadio = function(_, text, isSel, setSel) radios[#radios + 1] = { text = text, set = setSel, sel = isSel } end })
+assert(#radios == #GS.EVENTS and radios[1].text == "Schwimmen", "Ereignisse im Menü")
+radios[10].set()
+assert(broot.state.form.ev == "zone" and radios[10].sel(), "Auswahl übernommen")
+-- Knopf im Blizzard-Stil
+local n2 = #d.profiles
+bc.newName:SetText("Blizzard")
+bc.saveBtn.scripts.OnClick(bc.saveBtn)
+assert(#d.profiles == n2 + 1 and d.profiles[n2 + 1].name == "Blizzard", "Speichern über Blizzard-Knopf")
 print = nil
 io.write("gear_test: ok\n")
