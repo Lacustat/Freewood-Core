@@ -46,6 +46,9 @@ FW:AddLocale("enUS", {
     CS_SET_TITLE = "Character view",
     CS_SET_TAB = "Show the Freewood tab on the character window",
     CS_SET_C = "The character window key (C) opens the Freewood character view",
+    CS_BG = "Background", CS_BG_TIP = "Background of the character view",
+    CS_BG_leatherDark = "Dark leather", CS_BG_parchment = "Parchment", CS_BG_leatherRed = "Red leather", CS_BG_classic = "Classic leather",
+    CS_SET_RACE = "Race background behind the character (otherwise the Freewood forest)",
     CS_SET_INFO = "Full-screen character view in the Freewood forest design. Opens via the tab with the Freewood logo on Blizzard's character window, via its own key (Key Bindings > Freewood, needs a full game restart once) or optionally via C. Esc closes it.",
 })
 FW:AddLocale("deDE", {
@@ -69,10 +72,61 @@ FW:AddLocale("deDE", {
     CS_SET_TITLE = "Charakteransicht",
     CS_SET_TAB = "Freewood-Reiter am Charakterfenster zeigen",
     CS_SET_C = "Die Taste des Charakterfensters (C) öffnet die Freewood-Charakteransicht",
+    CS_BG = "Hintergrund", CS_BG_TIP = "Hintergrund der Charakteransicht",
+    CS_BG_leatherDark = "Dunkles Leder", CS_BG_parchment = "Pergament", CS_BG_leatherRed = "Rotes Leder", CS_BG_classic = "Leder klassisch",
+    CS_SET_RACE = "Rassen-Hintergrund hinter dem Charakter (sonst der Freewood-Wald)",
     CS_SET_INFO = "Charakteransicht im Vollbild im Freewood-Wald-Design. Öffnen über den Reiter mit dem Freewood-Logo am Blizzard-Charakterfenster, über eine eigene Taste (Tastaturbelegung > Freewood, einmal kompletter Spielneustart nötig) oder auf Wunsch über C. Esc schließt.",
 })
 
 local function L() return FW.L end
+
+------------------------------------------------------------------------
+-- Hintergründe (0.63.0): Oberfläche wählbar, hinter dem Modell je Rasse
+------------------------------------------------------------------------
+
+-- Oberflächen-Hintergründe; classic = altes Leder mit festem Ausschnitt
+CS.BACKGROUNDS = {
+    { id = "leatherDark", file = "BgLeatherDark.tga" },
+    { id = "parchment", file = "BgParchment.tga" },
+    { id = "leatherRed", file = "BgLeatherRed.tga" },
+    { id = "classic", file = "Leather.tga", crop = { 0.02, 0.70, 0.14, 0.72 } },
+}
+CS.BG_BY_ID = {}
+for _, b in ipairs(CS.BACKGROUNDS) do CS.BG_BY_ID[b.id] = b end
+
+-- Rasse (Dateiname aus UnitRace) -> Bild; alle Elfen teilen sich ein Bild, ohne Bild: Wald
+CS.RACE_BG = {
+    Gnome = "RaceGnome", Mechagnome = "RaceGnome",
+    Dwarf = "RaceDwarf", DarkIronDwarf = "RaceDwarf",
+    Human = "RaceHuman", KulTiran = "RaceHuman",
+    NightElf = "RaceElf", BloodElf = "RaceElf", HighElf = "RaceElf", VoidElf = "RaceElf", Nightborne = "RaceElf",
+    Troll = "RaceTroll", ZandalariTroll = "RaceTroll",
+    Tauren = "RaceTauren", HighmountainTauren = "RaceTauren",
+    Scourge = "RaceUndead", Undead = "RaceUndead",
+    Orc = "RaceOrc", MagharOrc = "RaceOrc",
+}
+CS.RACE_ASPECT = 0.5      -- Rassenbilder 512 x 1024
+CS.FOREST_CROP = { 0, 1, 101 / 1024, 923 / 1024 }
+
+-- Datei des Bildes hinter dem Modell (nil = Wald)
+function CS.RaceFile(raceFile)
+    if type(raceFile) ~= "string" then return nil end
+    return CS.RACE_BG[raceFile]
+end
+
+-- Ausschnitt, der ein Rechteck w x h füllt, ohne das Bild zu verzerren.
+-- aspect = Breite/Höhe des Bildes, keepBottom = unten bündig (Boden bleibt sichtbar)
+function CS.CoverCoords(w, h, aspect, keepBottom)
+    if not w or not h or w <= 0 or h <= 0 then return 0, 1, 0, 1 end
+    local ra = w / h
+    if ra >= aspect then
+        local v = aspect / ra                 -- sichtbarer Anteil der Höhe
+        if keepBottom then return 0, 1, 1 - v, 1 end
+        return 0, 1, (1 - v) / 2, (1 + v) / 2
+    end
+    local u = ra / aspect                     -- sichtbarer Anteil der Breite
+    return (1 - u) / 2, (1 + u) / 2, 0, 1
+end
 
 function CS.Opts()
     local s = FW.settings
@@ -83,6 +137,8 @@ function CS.Opts()
     if o.takeC == nil then o.takeC = false end
     if o.grow == nil then o.grow = false end
     if o.categories == nil then o.categories = true end
+    if not CS.BG_BY_ID or not CS.BG_BY_ID[o.bg or ""] then o.bg = "leatherDark" end
+    if o.race == nil then o.race = true end
     o.sort = o.sort or {}
     o.collapsed = o.collapsed or {}
     return o
@@ -547,8 +603,7 @@ local function Build()
     f.base:SetAllPoints(f)
     f.base:SetColorTexture(0.07, 0.05, 0.035, 1)
     f.leather = f:CreateTexture(nil, "BACKGROUND", nil, -7)
-    f.leather:SetTexture(MEDIA .. "Leather.tga")
-    f.leather:SetTexCoord(0.02, 0.70, 0.14, 0.72)   -- nur der ruhige Teil (ohne Linie oben und Blatt unten rechts)
+    -- Grafik und Ausschnitt setzt CS.ApplyBackground (0.63.0)
     f.frame = CS.WoodFrame(f)
     f.frame:SetAllPoints(f)
     f.frame:SetFrameLevel(f:GetFrameLevel() + 20)
@@ -557,6 +612,7 @@ local function Build()
     f.close:SetNormalTexture(MEDIA .. "Close.tga")
     f.close:SetHighlightTexture(MEDIA .. "Glow.tga", "ADD")
     f.close:SetScript("OnClick", function() f:Hide() end)
+    f.bgDrop = CS.CreateBgDropdown(f.frame)
 
     -- Charakter
     f.plate = f:CreateTexture(nil, "ARTWORK")
@@ -570,7 +626,7 @@ local function Build()
     f.level:SetTextColor(0.95, 0.92, 0.85)
     f.forest = f:CreateTexture(nil, "BORDER")
     f.forest:SetTexture(MEDIA .. "Forest.tga")
-    f.forest:SetTexCoord(0, 1, 101 / 1024, 923 / 1024)
+    f.forest:SetTexCoord(unpack(CS.FOREST_CROP))
     local okModel, model = pcall(CreateFrame, "DressUpModel", nil, f)
     if not okModel or not model then model = CreateFrame("PlayerModel", nil, f) end
     f.model = model
@@ -667,6 +723,87 @@ local function Build()
     return f
 end
 
+-- Oberflächen-Hintergrund nach der Einstellung setzen (Ausschnitt ohne Verzerrung)
+function CS.ApplyBackground()
+    local f = win
+    if not f or not f.leather then return end
+    local b = CS.BG_BY_ID[CS.Opts().bg] or CS.BACKGROUNDS[1]
+    f.leather:SetTexture(MEDIA .. b.file)
+    if b.crop then
+        f.leather:SetTexCoord(unpack(b.crop))
+    else
+        local W, H = f:GetWidth() or 0, f:GetHeight() or 0
+        f.leather:SetTexCoord(CS.CoverCoords(W, H, 1, false))
+    end
+    if f.bgDrop and f.bgDrop.FwRefresh then f.bgDrop:FwRefresh() end
+end
+
+-- Bild hinter dem Modell: Rasse des Spielers, sonst Wald
+function CS.ApplyRace()
+    local f = win
+    if not f or not f.forest then return end
+    local file
+    if CS.Opts().race then
+        local raceFile = select(2, Safe(G.UnitRace, "player"))
+        file = CS.RaceFile(raceFile)
+    end
+    f.raceFile = file
+    if file then
+        f.forest:SetTexture(MEDIA .. file .. ".tga")
+        local r = f.lay and f.lay.model
+        f.forest:SetTexCoord(CS.CoverCoords(r and r.w or 1, r and r.h or 2, CS.RACE_ASPECT, true))
+    else
+        f.forest:SetTexture(MEDIA .. "Forest.tga")
+        f.forest:SetTexCoord(unpack(CS.FOREST_CROP))
+    end
+end
+
+function CS.SetBackground(id)
+    if not CS.BG_BY_ID[id] then return end
+    CS.Opts().bg = id
+    CS.ApplyBackground()
+end
+
+-- Auswahl oben rechts neben dem X: Blizzard-Dropdown (WowStyle1), sonst das Kit-Dropdown
+function CS.CreateBgDropdown(parent)
+    local Lx = L()
+    local function Text(id) return Lx["CS_BG_" .. id] or id end
+    local ok, dd = false, nil
+    if G.MenuUtil and G.CreateFrame then
+        ok, dd = pcall(G.CreateFrame, "DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
+    end
+    if ok and dd and dd.SetupMenu then
+        dd.fwBlizzard = true
+        dd:SetWidth(170)
+        local okSetup = pcall(dd.SetupMenu, dd, function(_, root)
+            if root.CreateTitle then root:CreateTitle(Lx.CS_BG) end
+            for _, b in ipairs(CS.BACKGROUNDS) do
+                root:CreateRadio(Text(b.id),
+                    function() return CS.Opts().bg == b.id end,
+                    function() CS.SetBackground(b.id) end)
+            end
+        end)
+        if okSetup then
+            function dd:FwRefresh() if self.GenerateMenu then pcall(self.GenerateMenu, self) end end
+            return dd
+        end
+        dd:Hide()
+    end
+    -- Ersatz: eigenes Dropdown aus dem Kit
+    dd = UI.CreateDropdown(parent, 170, 24, {
+        getOptions = function()
+            local list = {}
+            for _, b in ipairs(CS.BACKGROUNDS) do list[#list + 1] = { value = b.id, text = Text(b.id) } end
+            return list
+        end,
+        textOf = Text,
+        onChange = function(v) CS.SetBackground(v) end,
+    })
+    dd:SetValue(CS.Opts().bg)
+    function dd:FwRefresh() self:SetValue(CS.Opts().bg) end
+    return dd
+end
+
 local function Place(obj, r, parent)
     obj:ClearAllPoints()
     obj:SetPoint("TOPLEFT", parent or win, "TOPLEFT", r.x, -r.y)
@@ -685,11 +822,16 @@ function CS.Layout()
     f.leather:ClearAllPoints()
     f.leather:SetPoint("TOPLEFT", f, "TOPLEFT", 8 * k, -8 * k)
     f.leather:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8 * k, 8 * k)
+    CS.ApplyBackground()
     -- X auf dem Eisenbeschlag oben rechts (0.62.2; der neue Rahmen hat keine Aussparung mehr)
     local xs = math.max(24, 76 * lay.fs)
     f.close:SetSize(xs, xs)
     f.close:ClearAllPoints()
     f.close:SetPoint("CENTER", f, "TOPRIGHT", -62 * lay.fs, -58 * lay.fs)
+    if f.bgDrop then
+        f.bgDrop:ClearAllPoints()
+        f.bgDrop:SetPoint("RIGHT", f.close, "LEFT", -10, 0)
+    end
 
     -- Charakter
     Place(f.plate, lay.plate)
@@ -698,6 +840,7 @@ function CS.Layout()
     f.level:ClearAllPoints()
     f.level:SetPoint("TOP", f.name, "BOTTOM", 0, -2)
     Place(f.forest, lay.model)
+    CS.ApplyRace()
     Place(f.model, lay.model)
     local x0, y0 = lay.char.x, lay.model.y
     local xr = lay.model.x + lay.model.w + sg
@@ -1245,6 +1388,10 @@ if UI.RegisterSettingsSection then
             stack:Add(UI.CreateCheckbox(f, Lx.CS_SET_C, function() return CS.Opts().takeC end, function(v)
                 CS.Opts().takeC = v and true or false
                 CS.ApplyBinding()
+            end), { fit = true, gap = 4 })
+            stack:Add(UI.CreateCheckbox(f, Lx.CS_SET_RACE, function() return CS.Opts().race end, function(v)
+                CS.Opts().race = v and true or false
+                CS.ApplyRace()
             end), { fit = true, gap = 4 })
             return f
         end,

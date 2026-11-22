@@ -32,6 +32,8 @@ function M.GetParent(f) return f.parent end
 function M.GetText(f) return f.text or "" end
 function M.SetText(f, t) f.text = t end
 function M.GetFrameLevel() return 1 end
+function M.SetTexture(f, t) f.tex = t end
+function M.SetTexCoord(f, ...) f.coord = { ... } end
 function M.CreateTexture() return setmetatable({}, M) end
 -- wie im Spiel: SetText auf eine Zeile ohne Schrift bricht ab ("Font not set", 0.61.1)
 local FS = setmetatable({}, { __index = M })
@@ -53,6 +55,12 @@ FW.UI = {
     CreateCheckbox = function(_, _, g) g() return setmetatable({}, M) end,
     RegisterSettingsSection = function(_, id, def) FW.section = def end,
     CreateSection = function() local f = setmetatable({}, M) return f, { Add = function() end } end,
+    CreateDropdown = function(_, _, _, o)
+        local d = setmetatable({ opts = o }, M)
+        function d:SetValue(v) self.value = v self.text = o.textOf(v) end
+        FW.bgDropOpts = o
+        return d
+    end,
 }
 
 -- Spielwerte
@@ -73,6 +81,8 @@ _G.UnitResistance = function(_, i) return 0, i * 5 end
 _G.UnitClass = function() return "Jägerin", "HUNTER" end
 _G.UnitLevel = function() return 36 end
 _G.UnitName = function() return "Pinky" end
+local raceFile = "NightElf"
+_G.UnitRace = function() return "Nachtelfe", raceFile end
 _G.GetMoney = function() return 124783 end
 _G.GetInventorySlotInfo = function(n) if n == "AmmoSlot" then return 0, "ammo" end return #n, "empty-" .. n end
 local bagSlots = { [0] = 16, 10, 10, 0, 0, 4 }
@@ -214,6 +224,38 @@ assert(over.C == "FREEWOOD_CORE_CHARSHEET", "danach C auf die Charakteransicht")
 CS.Opts().takeC = false
 CS.ApplyBinding()
 assert(over.C == nil, "wieder aus")
+
+-- 0.63.0: Hintergründe
+local a, b, c, d = CS.CoverCoords(400, 400, 0.5, true)
+assert(a == 0 and b == 1 and c == 0.5 and d == 1, "breiter als das Bild: oben abschneiden, Boden bleibt")
+a, b, c, d = CS.CoverCoords(100, 400, 0.5, true)
+assert(c == 0 and d == 1 and math.abs(a - 0.25) < 1e-9 and math.abs(b - 0.75) < 1e-9, "schmaler: seitlich mittig")
+a, b, c, d = CS.CoverCoords(2000, 1000, 1, false)
+assert(a == 0 and b == 1 and math.abs(c - 0.25) < 1e-9 and math.abs(d - 0.75) < 1e-9, "Oberfläche: mittig, unverzerrt")
+assert(CS.RaceFile("Scourge") == "RaceUndead" and CS.RaceFile("BloodElf") == "RaceElf" and CS.RaceFile("Goblin") == nil, "Rassen")
+assert(CS.Opts().bg == "leatherDark" and CS.Opts().race == true, "Standard: dunkles Leder, Rassenbild an")
+_G.Freewood_ToggleCharSheet()
+assert(win.forest.tex:find("RaceElf.tga", 1, true), "Nachtelf: Elfenbild " .. tostring(win.forest.tex))
+assert(win.leather.tex:find("BgLeatherDark.tga", 1, true), "dunkles Leder")
+assert(win.bgDrop and FW.bgDropOpts and #FW.bgDropOpts.getOptions() == 4, "Auswahl mit 4 Hintergründen")
+assert(win.bgDrop.text == "Dunkles Leder" or win.bgDrop.text == "CS_BG_leatherDark", tostring(win.bgDrop.text))
+FW.bgDropOpts.onChange("parchment")
+assert(CS.Opts().bg == "parchment" and win.leather.tex:find("BgParchment.tga", 1, true), "Pergament gewählt")
+FW.bgDropOpts.onChange("classic")
+assert(win.leather.tex:find("Leather.tga", 1, true) and win.leather.coord[1] == 0.02, "klassisch mit altem Ausschnitt")
+raceFile = "Goblin"
+CS.ApplyRace()
+assert(win.forest.tex:find("Forest.tga", 1, true) and win.forest.coord[3] == 101 / 1024, "ohne Bild: Wald")
+raceFile = "Orc"
+CS.Opts().race = false
+CS.ApplyRace()
+assert(win.forest.tex:find("Forest.tga", 1, true), "Rassenbild aus: Wald")
+CS.Opts().race = true
+CS.ApplyRace()
+assert(win.forest.tex:find("RaceOrc.tga", 1, true), "Orc")
+CS.Opts().bg = "gibtsnicht"
+assert(CS.Opts().bg == "leatherDark", "unbekannter Wert -> Standard")
+_G.Freewood_ToggleCharSheet()
 
 -- Einstellungen unter Design
 assert(FW.section and FW.section.category == "design", "Einstellungen > Design")
