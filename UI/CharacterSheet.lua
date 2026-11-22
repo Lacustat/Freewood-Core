@@ -1,0 +1,921 @@
+-- Freewood-Core: Charakteransicht im Vollbild (seit 0.61.0)
+--
+-- Vollbild-Fenster im Freewood-Wald-Design (Grafiken von Lacustat in Media/Character, keine Blizzard-Grafiken):
+--   links   Namensschild, 3D-Modell des Charakters vor dem Waldbild (ziehen = drehen, Mausrad = zoomen),
+--           8 Plätze links, 8 rechts, darunter Haupthand, Nebenhand, Fernkampf, Munition
+--   Mitte   Charakterwerte des gespielten Charakters (Allgemein, Primär, dann je nach Klasse Fernkampf / Nahkampf /
+--           Zauber, Verteidigung, Widerstände), scrollbar mit Blizzards Scrollleiste; im Kampf geschützte Werte = "–"
+--   rechts  Taschen (Rucksack, 4 Taschen, Reagenzientasche) mit Blizzards eigenen Taschenknöpfen
+--           (ContainerFrameItemButtonTemplate: benutzen, verschieben, verkaufen ohne Taint), Suche, Gold;
+--           Haken "Raster wächst mit" (sonst scrollt es)
+-- Der Rahmen wird in Ecken und Kanten geschnitten (9 Teile aus einer Grafik) und passt sich jeder Bildschirmgröße an
+-- (16:9, 21:9 ...). Öffnen: Reiter mit Freewood-Logo am Blizzard-Charakterfenster, Taste (Tastaturbelegung >
+-- Freewood > Charakteransicht) oder auf Wunsch die Taste des Charakterfensters (C). Esc schließt.
+-- Einstellungen: Einstellungen > Design > Charakteransicht.
+
+local ADDON, FW = ...
+local G = _G
+local UI = FW.UI
+if not UI then return end
+
+local CS = {}
+FW.CharSheet = CS
+
+local MEDIA = "Interface\\AddOns\\Freewood-Core\\Media\\Character\\"
+CS.MEDIA = MEDIA
+local LOGO = "Interface\\AddOns\\Freewood-Core\\Media\\FreeWood_Logo.tga"
+
+FW:AddLocale("enUS", {
+    CS_TITLE = "Character view", CS_TAB_TIP = "Freewood character view (full screen)",
+    CS_LEVEL = "Level %d · %s", CS_BAGS = "Bags", CS_STATS = "Character stats", CS_SEARCH = "Search",
+    CS_GROW = "Grid grows with the bags (otherwise it scrolls)",
+    CS_GENERAL = "General", CS_PRIMARY = "Primary attributes", CS_MELEE = "Melee", CS_RANGED = "Ranged",
+    CS_SPELL = "Spells", CS_DEFENSE = "Defense", CS_RESIST = "Resistances",
+    CS_HEALTH = "Health", CS_MANA = "Mana", CS_SPEED = "Movement speed",
+    CS_STR = "Strength", CS_AGI = "Agility", CS_STA = "Stamina", CS_INT = "Intellect", CS_SPI = "Spirit",
+    CS_DAMAGE = "Damage", CS_AP = "Attack power", CS_ATKSPEED = "Speed", CS_CRIT = "Critical strike",
+    CS_HIT = "Hit chance", CS_SPELLDMG = "Bonus damage", CS_HEAL = "Bonus healing", CS_SPELLCRIT = "Spell crit",
+    CS_REGEN = "Mana regeneration", CS_ARMOR = "Armor", CS_DODGE = "Dodge", CS_PARRY = "Parry", CS_BLOCK = "Block",
+    CS_FIRE = "Fire", CS_NATURE = "Nature", CS_FROST = "Frost", CS_SHADOW = "Shadow", CS_ARCANE = "Arcane",
+    CS_SET_TITLE = "Character view",
+    CS_SET_TAB = "Show the Freewood tab on the character window",
+    CS_SET_C = "The character window key (C) opens the Freewood character view",
+    CS_SET_INFO = "Full-screen character view in the Freewood forest design. Opens via the tab with the Freewood logo on Blizzard's character window, via its own key (Key Bindings > Freewood, needs a full game restart once) or optionally via C. Esc closes it.",
+})
+FW:AddLocale("deDE", {
+    CS_TITLE = "Charakteransicht", CS_TAB_TIP = "Freewood-Charakteransicht (Vollbild)",
+    CS_LEVEL = "Stufe %d · %s", CS_BAGS = "Taschen", CS_STATS = "Charakterwerte", CS_SEARCH = "Suchen",
+    CS_GROW = "Raster wächst mit den Taschen (sonst scrollt es)",
+    CS_GENERAL = "Allgemein", CS_PRIMARY = "Primäre Eigenschaften", CS_MELEE = "Nahkampf", CS_RANGED = "Fernkampf",
+    CS_SPELL = "Zauber", CS_DEFENSE = "Verteidigung", CS_RESIST = "Widerstände",
+    CS_HEALTH = "Gesundheit", CS_MANA = "Mana", CS_SPEED = "Bewegungstempo",
+    CS_STR = "Stärke", CS_AGI = "Beweglichkeit", CS_STA = "Ausdauer", CS_INT = "Intelligenz", CS_SPI = "Willenskraft",
+    CS_DAMAGE = "Schaden", CS_AP = "Angriffskraft", CS_ATKSPEED = "Tempo", CS_CRIT = "Kritische Trefferchance",
+    CS_HIT = "Trefferchance", CS_SPELLDMG = "Bonusschaden", CS_HEAL = "Bonusheilung", CS_SPELLCRIT = "Zauberkrit",
+    CS_REGEN = "Manaregeneration", CS_ARMOR = "Rüstung", CS_DODGE = "Ausweichen", CS_PARRY = "Parieren", CS_BLOCK = "Blocken",
+    CS_FIRE = "Feuer", CS_NATURE = "Natur", CS_FROST = "Frost", CS_SHADOW = "Schatten", CS_ARCANE = "Arkan",
+    CS_SET_TITLE = "Charakteransicht",
+    CS_SET_TAB = "Freewood-Reiter am Charakterfenster zeigen",
+    CS_SET_C = "Die Taste des Charakterfensters (C) öffnet die Freewood-Charakteransicht",
+    CS_SET_INFO = "Charakteransicht im Vollbild im Freewood-Wald-Design. Öffnen über den Reiter mit dem Freewood-Logo am Blizzard-Charakterfenster, über eine eigene Taste (Tastaturbelegung > Freewood, einmal kompletter Spielneustart nötig) oder auf Wunsch über C. Esc schließt.",
+})
+
+local function L() return FW.L end
+
+function CS.Opts()
+    local s = FW.settings
+    if type(s) ~= "table" then CS.mem = CS.mem or {} s = CS.mem end
+    s.charSheet = s.charSheet or {}
+    local o = s.charSheet
+    if o.tab == nil then o.tab = true end
+    if o.takeC == nil then o.takeC = false end
+    if o.grow == nil then o.grow = false end
+    return o
+end
+
+local function Secret(v) return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) end
+-- Wert sicher holen: pcall, Secret-Werte -> nil
+local function Safe(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    local r = { pcall(fn, ...) }
+    if not r[1] then return nil end
+    for i = 2, #r do if Secret(r[i]) then return nil end end
+    return select(2, unpack(r))
+end
+
+------------------------------------------------------------------------
+-- Rahmen in 9 Teilen aus einer Grafik (Ecken fest, Kanten gestreckt)
+------------------------------------------------------------------------
+
+-- Grafik in Pixeln: Bildgröße W x H, sichtbarer Bereich x0..x3 / y0..y3, Ecken bis x1/x2, y1/y2
+CS.SLICES = {
+    Frame = { W = 2048, H = 1024, x = { 118, 338, 1712, 1932 }, y = { 0, 200, 819, 1020 } },
+    StatsFrame = { W = 512, H = 1024, x = { 2, 48, 465, 511 }, y = { 9, 55, 970, 1016 } },
+    BagFrame = { W = 512, H = 1024, x = { 2, 48, 466, 512 }, y = { 135, 181, 850, 896 } },
+}
+
+-- Ein Rahmen aus 9 Texturen; frame:SetSliceScale(s) setzt die Bildschirmgröße der Ecken (Pixel * s)
+function CS.NineSlice(parent, name, layer)
+    local sl = CS.SLICES[name]
+    local holder = CreateFrame("Frame", nil, parent)
+    holder.parts = {}
+    for row = 1, 3 do
+        for col = 1, 3 do
+            local t = holder:CreateTexture(nil, layer or "BORDER")
+            t:SetTexture(MEDIA .. name .. ".tga")
+            t:SetTexCoord(sl.x[col] / sl.W, sl.x[col + 1] / sl.W, sl.y[row] / sl.H, sl.y[row + 1] / sl.H)
+            holder.parts[(row - 1) * 3 + col] = t
+        end
+    end
+    function holder:SetSliceScale(s)
+        local p = self.parts
+        local cw = (sl.x[2] - sl.x[1]) * s
+        local cwr = (sl.x[4] - sl.x[3]) * s
+        local ch = (sl.y[2] - sl.y[1]) * s
+        local chb = (sl.y[4] - sl.y[3]) * s
+        for i = 1, 9 do p[i]:ClearAllPoints() end
+        p[1]:SetPoint("TOPLEFT", self, "TOPLEFT") p[1]:SetSize(cw, ch)
+        p[3]:SetPoint("TOPRIGHT", self, "TOPRIGHT") p[3]:SetSize(cwr, ch)
+        p[7]:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT") p[7]:SetSize(cw, chb)
+        p[9]:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT") p[9]:SetSize(cwr, chb)
+        p[2]:SetPoint("TOPLEFT", p[1], "TOPRIGHT") p[2]:SetPoint("BOTTOMRIGHT", p[3], "BOTTOMLEFT")
+        p[8]:SetPoint("TOPLEFT", p[7], "TOPRIGHT") p[8]:SetPoint("BOTTOMRIGHT", p[9], "BOTTOMLEFT")
+        p[4]:SetPoint("TOPLEFT", p[1], "BOTTOMLEFT") p[4]:SetPoint("BOTTOMRIGHT", p[7], "TOPRIGHT")
+        p[6]:SetPoint("TOPLEFT", p[3], "BOTTOMLEFT") p[6]:SetPoint("BOTTOMRIGHT", p[9], "TOPRIGHT")
+        p[5]:SetPoint("TOPLEFT", p[1], "BOTTOMRIGHT") p[5]:SetPoint("BOTTOMRIGHT", p[9], "TOPLEFT")
+    end
+    holder:SetSliceScale(1)
+    return holder
+end
+
+------------------------------------------------------------------------
+-- Aufteilung (reine Rechnung, getestet): Bildschirmgröße -> Bereiche
+------------------------------------------------------------------------
+
+-- W, H: Fenstergröße in UI-Einheiten. Rückgabe: Maßstab k der Rahmen-Grafik und die Bereiche (x, y von oben links)
+function CS.ComputeLayout(W, H)
+    local k = H / 1020                        -- Rahmenhöhe 1020 px füllt die Höhe
+    local padX, padTop, padBot = 70 * k, 64 * k, 56 * k
+    local cx, cy = padX, padTop
+    local cw, ch = W - 2 * padX, H - padTop - padBot
+    local gap = math.max(10, 24 * k)
+    -- Platzgröße aus der Höhe (Namensschild + 8 Plätze + Waffenreihe); bei schmalen Bildschirmen (4:3) kleiner,
+    -- bis mindestens 6 Taschenspalten neben Charakter und Werte passen
+    local S = math.floor(math.min(72, ch / 12.2))
+    local sg, plateH, modelW, charW, statsW, bagsW
+    while true do
+        sg = math.max(4, math.floor(S * 0.14))
+        plateH = math.floor(S * 1.35)
+        modelW = math.floor(S * 4.6)
+        charW = S * 2 + sg * 2 + modelW
+        statsW = math.max(280, math.floor(cw * 0.22))
+        bagsW = cw - charW - statsW - 2 * gap
+        local need = 6 * (S + 4) + 40
+        if bagsW < need then
+            statsW = math.max(220, cw - charW - 2 * gap - need)
+            bagsW = cw - charW - statsW - 2 * gap
+        end
+        if bagsW >= need or S <= 30 then break end
+        S = S - 2
+    end
+    return {
+        k = k, S = S, sg = sg,
+        content = { x = cx, y = cy, w = cw, h = ch },
+        char = { x = cx, y = cy, w = charW, h = ch },
+        plate = { x = cx, y = cy, w = charW, h = plateH },
+        model = { x = cx + S + sg, y = cy + plateH + sg, w = modelW, h = 8 * S + 7 * sg },
+        stats = { x = cx + charW + gap, y = cy, w = statsW, h = ch },
+        bags = { x = cx + charW + gap + statsW + gap, y = cy, w = bagsW, h = ch },
+    }
+end
+
+-- Wie viele Spalten passen ins Taschenraster? (grow: Platzgröße so, dass alle Plätze ohne Scrollen passen)
+function CS.BagGrid(w, h, count, S, grow)
+    local pad = 4
+    if not grow then
+        local cols = math.max(1, math.floor((w + pad) / (S + pad)))
+        return cols, S
+    end
+    local size = S
+    while size > 18 do
+        local cols = math.max(1, math.floor((w + pad) / (size + pad)))
+        local rows = math.ceil(count / cols)
+        if rows * (size + pad) - pad <= h then return cols, size end
+        size = size - 2
+    end
+    return math.max(1, math.floor((w + pad) / (size + pad))), size
+end
+
+------------------------------------------------------------------------
+-- Werte (reine Abfrage, getestet)
+------------------------------------------------------------------------
+
+local function Num(v, dec)
+    if v == nil then return "–" end
+    if dec then return string.format("%." .. dec .. "f", v) end
+    v = math.floor(v + 0.5)
+    local s = tostring(v)
+    local out = s:reverse():gsub("(%d%d%d)", "%1."):reverse()
+    return (out:gsub("^%.", ""))
+end
+local function Pct(v) if v == nil then return "–" end return string.format("%.2f %%", v):gsub("%.", ",", 1) end
+CS.Num, CS.Pct = Num, Pct
+
+-- Stat mit Buff-Farbe: grün wenn erhöht, rot wenn gesenkt
+local function StatColored(idx)
+    local base, stat, pos, neg = Safe(G.UnitStat, "player", idx)
+    if stat == nil then return "–" end
+    local txt = Num(stat)
+    if (neg or 0) < 0 then return "|cffff6060" .. txt .. "|r" end
+    if (pos or 0) > 0 then return "|cff40ff40" .. txt .. "|r" end
+    return txt
+end
+
+function CS.ClassOrder(class)
+    if class == "HUNTER" then return { "ranged", "melee", "defense" } end
+    if class == "MAGE" or class == "WARLOCK" or class == "PRIEST" then return { "spell", "defense", "melee" } end
+    if class == "SHAMAN" or class == "DRUID" or class == "PALADIN" then return { "melee", "spell", "defense" } end
+    return { "melee", "defense", "ranged" }
+end
+
+-- Liste der Abschnitte: { { title, rows = { { label, value } } } }
+function CS.Stats()
+    local Lx = L()
+    local out = {}
+    local function Sec(title, rows) out[#out + 1] = { title = title, rows = rows } end
+    local hp = Safe(G.UnitHealthMax, "player")
+    local mana = Safe(G.UnitPowerMax, "player", 0)
+    local _, run = Safe(G.GetUnitSpeed, "player")
+    local gen = { { Lx.CS_HEALTH, Num(hp) } }
+    if mana and mana > 0 then gen[#gen + 1] = { Lx.CS_MANA, Num(mana) } end
+    gen[#gen + 1] = { Lx.CS_SPEED, run and (math.floor(run / 7 * 100 + 0.5) .. "%") or "–" }
+    Sec(Lx.CS_GENERAL, gen)
+    Sec(Lx.CS_PRIMARY, { { Lx.CS_STR, StatColored(1) }, { Lx.CS_AGI, StatColored(2) }, { Lx.CS_STA, StatColored(3) },
+        { Lx.CS_INT, StatColored(4) }, { Lx.CS_SPI, StatColored(5) } })
+    local parts = {}
+    do
+        local lo, hi = Safe(G.UnitDamage, "player")
+        local base, pos, neg = Safe(G.UnitAttackPower, "player")
+        local sp = Safe(G.UnitAttackSpeed, "player")
+        parts.melee = { Lx.CS_MELEE, {
+            { Lx.CS_DAMAGE, lo and (Num(lo) .. "-" .. Num(hi)) or "–" },
+            { Lx.CS_AP, base and Num(base + (pos or 0) + (neg or 0)) or "–" },
+            { Lx.CS_ATKSPEED, sp and Num(sp, 2) or "–" },
+            { Lx.CS_CRIT, Pct(Safe(G.GetCritChance)) },
+            { Lx.CS_HIT, Pct(Safe(G.GetHitModifier) or Safe(G.GetCombatRatingBonus, 6)) },
+        } }
+    end
+    do
+        local _, lo, hi = Safe(G.UnitRangedDamage, "player")
+        local base, pos, neg = Safe(G.UnitRangedAttackPower, "player")
+        parts.ranged = { Lx.CS_RANGED, {
+            { Lx.CS_DAMAGE, lo and (Num(lo) .. "-" .. Num(hi)) or "–" },
+            { Lx.CS_AP, base and Num(base + (pos or 0) + (neg or 0)) or "–" },
+            { Lx.CS_CRIT, Pct(Safe(G.GetRangedCritChance)) },
+            { Lx.CS_HIT, Pct(Safe(G.GetHitModifier) or Safe(G.GetCombatRatingBonus, 7)) },
+        } }
+    end
+    do
+        local best
+        for school = 2, 7 do
+            local v = Safe(G.GetSpellBonusDamage, school)
+            if v and (not best or v > best) then best = v end
+        end
+        local base, casting = Safe(G.GetManaRegen)
+        parts.spell = { Lx.CS_SPELL, {
+            { Lx.CS_SPELLDMG, Num(best) },
+            { Lx.CS_HEAL, Num(Safe(G.GetSpellBonusHealing)) },
+            { Lx.CS_SPELLCRIT, Pct(Safe(G.GetSpellCritChance, 2)) },
+            { Lx.CS_REGEN, base and Num(base * 5) or "–" },
+        } }
+    end
+    do
+        local _, eff = Safe(G.UnitArmor, "player")
+        parts.defense = { Lx.CS_DEFENSE, {
+            { Lx.CS_ARMOR, Num(eff) },
+            { Lx.CS_DODGE, Pct(Safe(G.GetDodgeChance)) },
+            { Lx.CS_PARRY, Pct(Safe(G.GetParryChance)) },
+            { Lx.CS_BLOCK, Pct(Safe(G.GetBlockChance)) },
+        } }
+    end
+    local class = select(2, Safe(G.UnitClass, "player"))
+    local used = {}
+    for _, key in ipairs(CS.ClassOrder(class)) do
+        if parts[key] then Sec(parts[key][1], parts[key][2]) used[key] = true end
+    end
+    for _, key in ipairs({ "melee", "ranged", "spell", "defense" }) do
+        if parts[key] and not used[key] then Sec(parts[key][1], parts[key][2]) end
+    end
+    local res = {}
+    for i, k in ipairs({ { 2, Lx.CS_FIRE }, { 3, Lx.CS_NATURE }, { 4, Lx.CS_FROST }, { 5, Lx.CS_SHADOW }, { 6, Lx.CS_ARCANE } }) do
+        local _, total = Safe(G.UnitResistance, "player", k[1])
+        res[i] = { k[2], Num(total) }
+    end
+    Sec(Lx.CS_RESIST, res)
+    return out
+end
+
+------------------------------------------------------------------------
+-- Ausrüstung
+------------------------------------------------------------------------
+
+CS.LEFT = { "HeadSlot", "NeckSlot", "ShoulderSlot", "BackSlot", "ChestSlot", "ShirtSlot", "TabardSlot", "WristSlot" }
+CS.RIGHT = { "HandsSlot", "WaistSlot", "LegsSlot", "FeetSlot", "Finger0Slot", "Finger1Slot", "Trinket0Slot", "Trinket1Slot" }
+CS.BOTTOM = { "MainHandSlot", "SecondaryHandSlot", "RangedSlot", "AmmoSlot" }
+CS.BAGS = { 0, 1, 2, 3, 4, 5 }   -- Rucksack, 4 Taschen, Reagenzientasche (F-31)
+
+local function SlotInfo(name)
+    local id, empty = Safe(G.GetInventorySlotInfo, name)
+    return id, empty
+end
+
+------------------------------------------------------------------------
+-- Fenster
+------------------------------------------------------------------------
+
+local win
+
+local function Glow(btn)
+    local g = btn:CreateTexture(nil, "OVERLAY")
+    g:SetTexture(MEDIA .. "Glow.tga")
+    g:SetPoint("TOPLEFT", btn, "TOPLEFT", -3, 3)
+    g:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 3, -3)
+    g:SetBlendMode("ADD")
+    g:Hide()
+    return g
+end
+
+local function QualityColor(q)
+    local c = q and G.ITEM_QUALITY_COLORS and G.ITEM_QUALITY_COLORS[q]
+    if c then return c.r, c.g, c.b end
+    return nil
+end
+
+local function MakeSlot(parent, slotName, bg)
+    local id, emptyTex = SlotInfo(slotName)
+    if not id then return nil end
+    local b = CreateFrame("Button", nil, parent)
+    b.slot = id
+    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.bg:SetAllPoints(b)
+    b.bg:SetTexture(MEDIA .. bg .. ".tga")
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetPoint("TOPLEFT", b, "TOPLEFT", 6, -6)
+    b.icon:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -6, 6)
+    b.empty = emptyTex
+    b.quality = b:CreateTexture(nil, "OVERLAY")
+    b.quality:SetTexture(MEDIA .. "Glow.tga")
+    b.quality:SetAllPoints(b)
+    b.quality:Hide()
+    b.hover = Glow(b)
+    b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+    b.count:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -6, 5)
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    b:RegisterForDrag("LeftButton")
+    b:SetScript("OnEnter", function(self)
+        self.hover:SetVertexColor(1, 0.85, 0.4)
+        self.hover:Show()
+        if G.GameTooltip then
+            G.GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            local has = G.GameTooltip:SetInventoryItem("player", self.slot)
+            if not has then G.GameTooltip:SetText(G[slotName:upper()] or slotName) end
+            G.GameTooltip:Show()
+        end
+    end)
+    b:SetScript("OnLeave", function(self) self.hover:Hide() if G.GameTooltip then G.GameTooltip:Hide() end end)
+    b:SetScript("OnClick", function(self, button)
+        local link = G.GetInventoryItemLink and G.GetInventoryItemLink("player", self.slot)
+        if link and G.IsModifiedClick and G.IsModifiedClick() and G.HandleModifiedItemClick then
+            G.HandleModifiedItemClick(link)
+            return
+        end
+        if button == "LeftButton" and G.PickupInventoryItem then G.PickupInventoryItem(self.slot) end
+    end)
+    b:SetScript("OnDragStart", function(self) if G.PickupInventoryItem then G.PickupInventoryItem(self.slot) end end)
+    b:SetScript("OnReceiveDrag", function(self) if G.PickupInventoryItem then G.PickupInventoryItem(self.slot) end end)
+    function b:Update()
+        local tex = G.GetInventoryItemTexture and G.GetInventoryItemTexture("player", self.slot)
+        self.icon:SetTexture(tex or self.empty)
+        self.icon:SetAlpha(tex and 1 or 0.35)
+        local q = tex and G.GetInventoryItemQuality and G.GetInventoryItemQuality("player", self.slot)
+        local r, g2, bb = QualityColor(q)
+        if r and q and q >= 2 then self.quality:SetVertexColor(r, g2, bb) self.quality:Show() else self.quality:Hide() end
+        local n = tex and slotName == "AmmoSlot" and G.GetInventoryItemCount and G.GetInventoryItemCount("player", self.slot)
+        self.count:SetText(n and n > 1 and n or "")
+    end
+    return b
+end
+
+-- Taschenknopf: Blizzards eigene Vorlage (benutzen, verschieben, verkaufen, Tooltip) ohne Taint
+local bagParents = {}
+local function BagParent(bag)
+    if bagParents[bag] then return bagParents[bag] end
+    local p = CreateFrame("Frame", nil, win.bagsChild)
+    p:SetID(bag)
+    p:SetAllPoints(win.bagsChild)
+    bagParents[bag] = p
+    return p
+end
+
+local function MakeBagButton(bag, slot)
+    local p = BagParent(bag)
+    local ok, b = pcall(CreateFrame, "ItemButton", nil, p, "ContainerFrameItemButtonTemplate")
+    if not ok or not b then ok, b = pcall(CreateFrame, "Button", nil, p, "ContainerFrameItemButtonTemplate") end
+    if not ok or not b then return nil end
+    b:SetID(slot)
+    b.fwBag = bag
+    if b.GetBagID == nil then function b:GetBagID() return self:GetParent():GetID() end end
+    b.fwBg = b:CreateTexture(nil, "BACKGROUND", nil, -8)
+    b.fwBg:SetTexture(MEDIA .. "BagSlot.tga")
+    b.fwBg:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 3)
+    b.fwBg:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 3, -3)
+    b.fwGlow = Glow(b)
+    b:HookScript("OnEnter", function(self) self.fwGlow:SetVertexColor(1, 0.85, 0.4) self.fwGlow:Show() end)
+    b:HookScript("OnLeave", function(self) self.fwGlow:Hide() end)
+    return b
+end
+
+local function ContainerSlots(bag)
+    local C = G.C_Container
+    if C and C.GetContainerNumSlots then return Safe(C.GetContainerNumSlots, bag) or 0 end
+    return Safe(G.GetContainerNumSlots, bag) or 0
+end
+local function ContainerInfo(bag, slot)
+    local C = G.C_Container
+    if C and C.GetContainerItemInfo then return Safe(C.GetContainerItemInfo, bag, slot) end
+    return nil
+end
+
+function CS.MatchSearch(info, text)
+    if not text or text == "" then return true end
+    if not info or not info.hyperlink then return false end
+    local name = info.hyperlink:match("%[(.-)%]") or ""
+    local lower = (FW.AutoReply and FW.AutoReply.Lower) or string.lower
+    return lower(name):find(lower(text), 1, true) ~= nil
+end
+
+local function Build()
+    if win then return win end
+    local f = CreateFrame("Frame", "FreewoodCharacterSheet", G.UIParent)
+    f:SetAllPoints(G.UIParent)
+    f:SetFrameStrata("HIGH")
+    f:SetToplevel(true)
+    f:EnableMouse(true)
+    f:Hide()
+    if G.UISpecialFrames then table.insert(G.UISpecialFrames, "FreewoodCharacterSheet") end
+    win = f
+
+    -- Hintergrund: dunkles Leder, Rahmen in 9 Teilen
+    f.leather = f:CreateTexture(nil, "BACKGROUND")
+    f.leather:SetTexture(MEDIA .. "Leather.tga")
+    f.leather:SetTexCoord(0.02, 0.70, 0.14, 0.72)   -- nur der ruhige Teil (ohne Linie oben und Blatt unten rechts)
+    f.frame = CS.NineSlice(f, "Frame", "BORDER")
+    f.frame:SetAllPoints(f)
+    f.frame:SetFrameLevel(f:GetFrameLevel() + 20)
+
+    f.close = CreateFrame("Button", nil, f.frame)
+    f.close:SetNormalTexture(MEDIA .. "Close.tga")
+    f.close:SetHighlightTexture(MEDIA .. "Glow.tga", "ADD")
+    f.close:SetScript("OnClick", function() f:Hide() end)
+
+    -- Charakter
+    f.plate = f:CreateTexture(nil, "ARTWORK")
+    f.plate:SetTexture(MEDIA .. "NamePlate.tga")
+    f.plate:SetTexCoord(0, 1, 18 / 256, 232 / 256)
+    f.name = f:CreateFontString(nil, "OVERLAY")
+    UI.SetFont(f.name, "heading", 26)
+    f.name:SetTextColor(1, 0.85, 0.45)
+    f.level = f:CreateFontString(nil, "OVERLAY")
+    UI.SetFont(f.level, "body", 16)
+    f.level:SetTextColor(0.95, 0.92, 0.85)
+    f.forest = f:CreateTexture(nil, "BORDER")
+    f.forest:SetTexture(MEDIA .. "Forest.tga")
+    f.forest:SetTexCoord(0, 1, 101 / 1024, 923 / 1024)
+    local okModel, model = pcall(CreateFrame, "DressUpModel", nil, f)
+    if not okModel or not model then model = CreateFrame("PlayerModel", nil, f) end
+    f.model = model
+    model:EnableMouse(true)
+    model:EnableMouseWheel(true)
+    model.rot = 0
+    model.zoom = 1
+    model:SetScript("OnMouseDown", function(self, btn) if btn == "LeftButton" then self.dragX = G.GetCursorPosition() end end)
+    model:SetScript("OnMouseUp", function(self) self.dragX = nil end)
+    model:SetScript("OnUpdate", function(self)
+        if not self.dragX then return end
+        local x = G.GetCursorPosition()
+        self.rot = self.rot + (x - self.dragX) * 0.01
+        self.dragX = x
+        if self.SetFacing then self:SetFacing(self.rot) end
+    end)
+    model:SetScript("OnMouseWheel", function(self, delta)
+        self.zoom = math.max(0.4, math.min(1.6, self.zoom - delta * 0.1))
+        if self.SetCamDistanceScale then pcall(self.SetCamDistanceScale, self, self.zoom) end
+    end)
+
+    f.slots = {}
+    for _, n in ipairs(CS.LEFT) do f.slots[#f.slots + 1] = MakeSlot(f, n, "Slot") or false end
+    for _, n in ipairs(CS.RIGHT) do f.slots[#f.slots + 1] = MakeSlot(f, n, "Slot") or false end
+    for _, n in ipairs(CS.BOTTOM) do f.slots[#f.slots + 1] = MakeSlot(f, n, "WeaponSlot") or false end
+
+    -- Werte
+    f.stats = CS.NineSlice(f, "StatsFrame", "BORDER")
+    f.statsTitle = f.stats:CreateFontString(nil, "OVERLAY")
+    UI.SetFont(f.statsTitle, "heading", 20)
+    f.statsTitle:SetTextColor(1, 0.85, 0.45)
+    f.statsTitle:SetText(L().CS_STATS)
+    local okS, ss = pcall(CreateFrame, "ScrollFrame", "FreewoodCharacterSheetStats", f.stats, "UIPanelScrollFrameTemplate")
+    if not okS then ss = CreateFrame("ScrollFrame", nil, f.stats) end
+    f.statsScroll = ss
+    f.statsChild = CreateFrame("Frame", nil, ss)
+    f.statsChild:SetSize(1, 1)
+    ss:SetScrollChild(f.statsChild)
+    f.statRows = {}
+
+    -- Taschen
+    f.bags = CS.NineSlice(f, "BagFrame", "BORDER")
+    f.bagTitle = f.bags:CreateTexture(nil, "ARTWORK")
+    f.bagTitle:SetTexture(MEDIA .. "BagTitle.tga")
+    f.bagTitle:SetTexCoord(0, 1, 20 / 128, 109 / 128)
+    f.bagTitleText = f.bags:CreateFontString(nil, "OVERLAY")
+    UI.SetFont(f.bagTitleText, "heading", 20)
+    f.bagTitleText:SetTextColor(1, 0.85, 0.45)
+    f.bagTitleText:SetText(L().CS_BAGS)
+    f.searchBg = f.bags:CreateTexture(nil, "ARTWORK")
+    f.searchBg:SetTexture(MEDIA .. "Search.tga")
+    f.searchBg:SetTexCoord(0, 1, 9 / 64, 56 / 64)
+    local sb = CreateFrame("EditBox", nil, f.bags)
+    sb:SetAutoFocus(false)
+    UI.SetFont(sb, "body", 14)
+    sb:SetTextColor(0.95, 0.92, 0.85)
+    sb:SetScript("OnEscapePressed", function(self) self:SetText("") self:ClearFocus() end)
+    sb:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    sb:SetScript("OnTextChanged", function(self) f.searchHint:SetShown(self:GetText() == "") CS.UpdateBags() end)
+    f.search = sb
+    f.searchHint = sb:CreateFontString(nil, "OVERLAY")
+    UI.SetFont(f.searchHint, "body", 14)
+    f.searchHint:SetTextColor(0.6, 0.55, 0.48)
+    f.searchHint:SetPoint("LEFT", sb, "LEFT", 22, 0)
+    f.searchHint:SetText(L().CS_SEARCH)
+    f.grow = UI.CreateCheckbox(f.bags, L().CS_GROW, function() return CS.Opts().grow end,
+        function(v) CS.Opts().grow = v and true or false CS.Layout() end)
+    local okB, bs = pcall(CreateFrame, "ScrollFrame", "FreewoodCharacterSheetBags", f.bags, "UIPanelScrollFrameTemplate")
+    if not okB then bs = CreateFrame("ScrollFrame", nil, f.bags) end
+    f.bagsScroll = bs
+    f.bagsChild = CreateFrame("Frame", nil, bs)
+    f.bagsChild:SetSize(1, 1)
+    bs:SetScrollChild(f.bagsChild)
+    f.bagButtons = {}
+    f.moneyBg = f.bags:CreateTexture(nil, "ARTWORK")
+    f.moneyBg:SetTexture(MEDIA .. "Money.tga")
+    f.moneyBg:SetTexCoord(0, 1, 27 / 128, 104 / 128)
+    f.money = f.bags:CreateFontString(nil, "OVERLAY")
+    UI.SetFont(f.money, "body", 16)
+    f.money:SetTextColor(0.95, 0.92, 0.85)
+
+    f:SetScript("OnShow", function() CS.Layout() CS.UpdateAll() end)
+    f:SetScript("OnSizeChanged", function() if f:IsShown() then CS.Layout() end end)
+    f:SetScript("OnHide", function() if f.search then f.search:ClearFocus() end end)
+    return f
+end
+
+local function Place(obj, r, parent)
+    obj:ClearAllPoints()
+    obj:SetPoint("TOPLEFT", parent or win, "TOPLEFT", r.x, -r.y)
+    obj:SetSize(r.w, r.h)
+end
+
+function CS.Layout()
+    local f = win
+    if not f then return end
+    local W, H = f:GetWidth(), f:GetHeight()
+    if not W or W <= 0 then return end
+    local lay = CS.ComputeLayout(W, H)
+    f.lay = lay
+    local k, S, sg = lay.k, lay.S, lay.sg
+    f.frame:SetSliceScale(k)
+    f.leather:ClearAllPoints()
+    f.leather:SetPoint("TOPLEFT", f, "TOPLEFT", 40 * k, -30 * k)
+    f.leather:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -40 * k, 30 * k)
+    f.close:SetSize(math.max(28, 60 * k), math.max(28, 60 * k))
+    f.close:ClearAllPoints()
+    f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -(1932 - 1915) * k - 6 * k, -12 * k)
+
+    -- Charakter
+    Place(f.plate, lay.plate)
+    f.name:ClearAllPoints()
+    f.name:SetPoint("CENTER", f.plate, "CENTER", 0, lay.plate.h * 0.14)
+    f.level:ClearAllPoints()
+    f.level:SetPoint("TOP", f.name, "BOTTOM", 0, -2)
+    Place(f.forest, lay.model)
+    Place(f.model, lay.model)
+    local x0, y0 = lay.char.x, lay.model.y
+    local xr = lay.model.x + lay.model.w + sg
+    for i, b in ipairs(f.slots) do
+        if b then
+            b:SetSize(S, S)
+            b:ClearAllPoints()
+            if i <= 8 then
+                b:SetPoint("TOPLEFT", f, "TOPLEFT", x0, -(y0 + (i - 1) * (S + sg)))
+            elseif i <= 16 then
+                b:SetPoint("TOPLEFT", f, "TOPLEFT", xr, -(y0 + (i - 9) * (S + sg)))
+            else
+                local n = i - 16
+                local rowW = 4 * S + 3 * sg
+                local bx = lay.model.x + (lay.model.w - rowW) / 2 + (n - 1) * (S + sg)
+                b:SetPoint("TOPLEFT", f, "TOPLEFT", bx, -(lay.model.y + lay.model.h + sg * 2))
+            end
+        end
+    end
+
+    -- Werte
+    Place(f.stats, lay.stats)
+    f.stats:SetSliceScale(math.max(0.5, k * 0.9))
+    f.statsTitle:ClearAllPoints()
+    f.statsTitle:SetPoint("TOP", f.stats, "TOP", 0, -24)
+    f.statsScroll:ClearAllPoints()
+    f.statsScroll:SetPoint("TOPLEFT", f.stats, "TOPLEFT", 22, -60)
+    f.statsScroll:SetPoint("BOTTOMRIGHT", f.stats, "BOTTOMRIGHT", -34, 24)
+    f.statsChild:SetWidth(lay.stats.w - 60)
+
+    -- Taschen
+    Place(f.bags, lay.bags)
+    f.bags:SetSliceScale(math.max(0.5, k * 0.9))
+    local bw = lay.bags.w
+    f.bagTitle:ClearAllPoints()
+    f.bagTitle:SetPoint("TOP", f.bags, "TOP", 0, 8)
+    f.bagTitle:SetSize(math.min(bw * 0.6, 420), 56)
+    f.bagTitleText:ClearAllPoints()
+    f.bagTitleText:SetPoint("CENTER", f.bagTitle, "CENTER", 0, 0)
+    f.searchBg:ClearAllPoints()
+    f.searchBg:SetPoint("TOPLEFT", f.bags, "TOPLEFT", 20, -62)
+    f.searchBg:SetPoint("TOPRIGHT", f.bags, "TOPRIGHT", -20, -62)
+    f.searchBg:SetHeight(32)
+    f.search:ClearAllPoints()
+    f.search:SetPoint("TOPLEFT", f.searchBg, "TOPLEFT", 14, -2)
+    f.search:SetPoint("BOTTOMRIGHT", f.searchBg, "BOTTOMRIGHT", -14, 2)
+    f.grow:ClearAllPoints()
+    f.grow:SetPoint("TOPLEFT", f.bags, "TOPLEFT", 22, -102)
+    f.moneyBg:ClearAllPoints()
+    f.moneyBg:SetPoint("BOTTOM", f.bags, "BOTTOM", 0, 14)
+    f.moneyBg:SetSize(math.min(bw * 0.7, 380), 44)
+    f.money:ClearAllPoints()
+    f.money:SetPoint("CENTER", f.moneyBg, "CENTER", 0, 0)
+    f.bagsScroll:ClearAllPoints()
+    f.bagsScroll:SetPoint("TOPLEFT", f.bags, "TOPLEFT", 22, -134)
+    f.bagsScroll:SetPoint("BOTTOMRIGHT", f.bags, "BOTTOMRIGHT", -34, 66)
+    CS.UpdateBags()
+end
+
+function CS.UpdateHeader()
+    local f = win
+    local name = (FW.Whisper and FW.Whisper.SelfName and FW.Whisper.SelfName()) or (G.UnitName and G.UnitName("player")) or ""
+    f.name:SetText(name)
+    local lvl = Safe(G.UnitLevel, "player") or 0
+    local cls = Safe(G.UnitClass, "player") or ""
+    f.level:SetText(string.format(L().CS_LEVEL, lvl, cls))
+    if f.model.SetUnit then pcall(f.model.SetUnit, f.model, "player") end
+    if f.model.SetFacing then pcall(f.model.SetFacing, f.model, f.model.rot or 0) end
+    local m = Safe(G.GetMoney) or 0
+    if G.GetCoinTextureString then f.money:SetText(G.GetCoinTextureString(m)) else f.money:SetText(tostring(m)) end
+end
+
+function CS.UpdateSlots()
+    for _, b in ipairs(win.slots) do if b then b:Update() end end
+end
+
+function CS.UpdateStats()
+    local f = win
+    local y = 0
+    local n = 0
+    local w = f.statsChild:GetWidth()
+    local function Row(kind)
+        n = n + 1
+        local r = f.statRows[n]
+        if not r then
+            r = CreateFrame("Frame", nil, f.statsChild)
+            r.bar = r:CreateTexture(nil, "BACKGROUND")
+            r.bar:SetTexture(MEDIA .. "StatsHeader.tga")
+            r.bar:SetTexCoord(0, 1, 4 / 64, 59 / 64)
+            r.bar:SetAllPoints(r)
+            r.div = r:CreateTexture(nil, "BACKGROUND")
+            r.div:SetTexture(MEDIA .. "StatsDivider.tga")
+            r.div:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT")
+            r.div:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT")
+            r.div:SetHeight(4)
+            r.l = r:CreateFontString(nil, "OVERLAY")
+            r.v = r:CreateFontString(nil, "OVERLAY")
+            r.l:SetPoint("LEFT", r, "LEFT", 10, 0)
+            r.v:SetPoint("RIGHT", r, "RIGHT", -10, 0)
+            f.statRows[n] = r
+        end
+        r.kind = kind
+        r:Show()
+        return r
+    end
+    for _, sec in ipairs(CS.Stats()) do
+        local h = Row("head")
+        h:ClearAllPoints()
+        h:SetPoint("TOPLEFT", f.statsChild, "TOPLEFT", 0, -y)
+        h:SetSize(w, 30)
+        h.bar:Show() h.div:Hide()
+        UI.SetFont(h.l, "heading", 16)
+        h.l:SetTextColor(1, 0.85, 0.45)
+        h.l:SetText(sec.title)
+        h.v:SetText("")
+        y = y + 36
+        for _, row in ipairs(sec.rows) do
+            local r = Row("row")
+            r:ClearAllPoints()
+            r:SetPoint("TOPLEFT", f.statsChild, "TOPLEFT", 0, -y)
+            r:SetSize(w, 24)
+            r.bar:Hide() r.div:Show()
+            UI.SetFont(r.l, "body", 14)
+            UI.SetFont(r.v, "body", 14)
+            r.l:SetTextColor(0.95, 0.92, 0.85)
+            r.v:SetTextColor(0.95, 0.92, 0.85)
+            r.l:SetText(row[1] .. ":")
+            r.v:SetText(row[2])
+            y = y + 26
+        end
+        y = y + 8
+    end
+    for i = n + 1, #f.statRows do f.statRows[i]:Hide() end
+    f.statsChild:SetHeight(math.max(1, y))
+end
+
+function CS.UpdateBags()
+    local f = win
+    if not f or not f.lay then return end
+    local list = {}
+    for _, bag in ipairs(CS.BAGS) do
+        for slot = 1, ContainerSlots(bag) do list[#list + 1] = { bag = bag, slot = slot } end
+    end
+    local areaW = f.bagsScroll:GetWidth()
+    local areaH = f.bagsScroll:GetHeight()
+    if not areaW or areaW <= 0 then areaW = f.lay.bags.w - 56 areaH = f.lay.bags.h - 200 end
+    local grow = CS.Opts().grow
+    local cols, size = CS.BagGrid(areaW, areaH, #list, f.lay.S, grow)
+    local text = f.search:GetText()
+    f.bagButtons = f.bagButtons or {}
+    for i, it in ipairs(list) do
+        local key = it.bag .. ":" .. it.slot
+        local b = f.bagButtons[key]
+        if not b then
+            b = MakeBagButton(it.bag, it.slot)
+            f.bagButtons[key] = b or false
+        end
+        if b then
+            local col = (i - 1) % cols
+            local row = math.floor((i - 1) / cols)
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", f.bagsChild, "TOPLEFT", 4 + col * (size + 4), -(4 + row * (size + 4)))
+            b:SetSize(size, size)
+            local info = ContainerInfo(it.bag, it.slot)
+            local tex = info and info.iconFileID
+            if G.SetItemButtonTexture then G.SetItemButtonTexture(b, tex) elseif b.icon then b.icon:SetTexture(tex) end
+            if G.SetItemButtonCount then G.SetItemButtonCount(b, info and info.stackCount or 0) end
+            if G.SetItemButtonDesaturated then G.SetItemButtonDesaturated(b, info and info.isLocked) end
+            if type(b.IconBorder) == "table" then
+                local r, g2, bb = QualityColor(info and info.quality)
+                if r and info.quality >= 2 then b.IconBorder:SetVertexColor(r, g2, bb) b.IconBorder:Show() else b.IconBorder:Hide() end
+            end
+            b:SetAlpha(CS.MatchSearch(info, text) and 1 or 0.25)
+            b:Show()
+        end
+    end
+    -- Plätze, die es nicht mehr gibt (Tasche getauscht), verstecken
+    for key, b in pairs(f.bagButtons) do
+        local bag, slot = key:match("^(%-?%d+):(%d+)$")
+        if b and tonumber(slot) > ContainerSlots(tonumber(bag)) then b:Hide() end
+    end
+    local rows = math.ceil(#list / cols)
+    f.bagsChild:SetSize(math.max(1, areaW), math.max(1, rows * (size + 4) + 8))
+end
+
+function CS.UpdateAll()
+    if not win or not win:IsShown() then return end
+    CS.UpdateHeader()
+    CS.UpdateSlots()
+    CS.UpdateStats()
+    CS.UpdateBags()
+end
+
+------------------------------------------------------------------------
+-- Öffnen, Taste, Reiter am Charakterfenster
+------------------------------------------------------------------------
+
+function CS.Toggle()
+    local f = Build()
+    if f:IsShown() then f:Hide() return end
+    -- Blizzards Fenster schließen (nicht im Kampf: dort nur darüberlegen, kein Eingriff in die Fenster-Verwaltung)
+    local cf = G.CharacterFrame
+    if cf and cf:IsShown() and not (G.InCombatLockdown and G.InCombatLockdown()) and G.HideUIPanel then pcall(G.HideUIPanel, cf) end
+    f:Show()
+end
+function Freewood_ToggleCharSheet() CS.Toggle() end
+
+-- Taste "C" (Charakterfenster) wahlweise auf unser Fenster legen (Override-Belegung, nie im Kampf)
+local bindOwner
+function CS.ApplyBinding()
+    if not G.SetOverrideBinding or not G.ClearOverrideBindings then return end
+    if G.InCombatLockdown and G.InCombatLockdown() then CS.bindPending = true return end
+    bindOwner = bindOwner or CreateFrame("Frame")
+    G.ClearOverrideBindings(bindOwner)
+    if not CS.Opts().takeC then return end
+    local keys = { G.GetBindingKey and G.GetBindingKey("TOGGLECHARACTER0") }
+    for _, key in ipairs(keys) do
+        if key then G.SetOverrideBinding(bindOwner, false, key, "FREEWOOD_CORE_CHARSHEET") end
+    end
+end
+
+-- Reiter mit Freewood-Logo unter Blizzards Seitenreitern (Forever) am Charakterfenster
+local sideTab
+local function FindLowestSideTab(cf)
+    local right = cf:GetRight()
+    if not right then return nil end
+    local best, bestBottom
+    for _, child in ipairs({ cf:GetChildren() }) do
+        if child ~= sideTab and child.IsShown and child:IsShown() and child.GetLeft and child:GetLeft() then
+            local l, b, w, h = child:GetLeft(), child:GetBottom(), child:GetWidth(), child:GetHeight()
+            if l and l >= right - 12 and w and w >= 28 and w <= 80 and h and h >= 28 and h <= 80 then
+                if not bestBottom or b < bestBottom then best, bestBottom = child, b end
+            end
+        end
+    end
+    return best
+end
+
+function CS.SetupTab()
+    local cf = G.CharacterFrame
+    if not cf or sideTab then return end
+    sideTab = CreateFrame("Button", nil, cf)
+    sideTab:SetSize(48, 48)
+    sideTab.bg = sideTab:CreateTexture(nil, "BACKGROUND")
+    sideTab.bg:SetTexture(MEDIA .. "Slot.tga")
+    sideTab.bg:SetAllPoints(sideTab)
+    sideTab.icon = sideTab:CreateTexture(nil, "ARTWORK")
+    sideTab.icon:SetTexture(LOGO)
+    sideTab.icon:SetPoint("TOPLEFT", sideTab, "TOPLEFT", 6, -6)
+    sideTab.icon:SetPoint("BOTTOMRIGHT", sideTab, "BOTTOMRIGHT", -6, 6)
+    sideTab.glow = Glow(sideTab)
+    sideTab:SetScript("OnEnter", function(self)
+        self.glow:SetVertexColor(1, 0.85, 0.4) self.glow:Show()
+        if G.GameTooltip then G.GameTooltip:SetOwner(self, "ANCHOR_RIGHT") G.GameTooltip:SetText(L().CS_TAB_TIP) G.GameTooltip:Show() end
+    end)
+    sideTab:SetScript("OnLeave", function(self) self.glow:Hide() if G.GameTooltip then G.GameTooltip:Hide() end end)
+    sideTab:SetScript("OnClick", function() CS.Toggle() end)
+    local function Anchor()
+        sideTab:ClearAllPoints()
+        local low = FindLowestSideTab(cf)
+        if low then
+            sideTab:SetSize(low:GetWidth(), low:GetHeight())
+            sideTab:SetPoint("TOP", low, "BOTTOM", 0, -4)
+        else
+            sideTab:SetPoint("TOPLEFT", cf, "TOPRIGHT", 0, -40 - 6 * 54)
+        end
+        sideTab:SetShown(CS.Opts().tab and true or false)
+    end
+    cf:HookScript("OnShow", function() if G.C_Timer then G.C_Timer.After(0, Anchor) else Anchor() end end)
+    if cf:IsShown() then Anchor() end
+    CS.tab = sideTab
+end
+
+------------------------------------------------------------------------
+-- Ereignisse
+------------------------------------------------------------------------
+
+local pending = false
+local function Soon(fn)
+    if pending then return end
+    pending = true
+    local function Run() pending = false pcall(fn) end
+    if G.C_Timer and G.C_Timer.After then G.C_Timer.After(0.1, Run) else Run() end
+end
+
+FW:RegisterEvent("PLAYER_LOGIN", function()
+    pcall(CS.SetupTab)
+    pcall(CS.ApplyBinding)
+end)
+FW:RegisterEvent("ADDON_LOADED", function(name) if name == "Blizzard_CharacterFrame" or name == "Blizzard_UIPanels_Game" then pcall(CS.SetupTab) end end)
+FW:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+    if CS.bindPending then CS.bindPending = false pcall(CS.ApplyBinding) end
+    if win and win:IsShown() then Soon(CS.UpdateStats) end
+end)
+FW:RegisterEvent("UPDATE_BINDINGS", function() if not CS.applying then CS.applying = true pcall(CS.ApplyBinding) CS.applying = false end end)
+for _, ev in ipairs({ "BAG_UPDATE_DELAYED", "ITEM_LOCK_CHANGED", "BAG_UPDATE_COOLDOWN", "PLAYER_MONEY" }) do
+    FW:RegisterEvent(ev, function() if win and win:IsShown() then Soon(function() CS.UpdateBags() CS.UpdateHeader() end) end end)
+end
+for _, ev in ipairs({ "PLAYER_EQUIPMENT_CHANGED", "UNIT_INVENTORY_CHANGED", "UNIT_STATS", "UNIT_AURA", "PLAYER_LEVEL_UP",
+    "UNIT_ATTACK_POWER", "UNIT_RANGED_ATTACK_POWER", "UNIT_RESISTANCES", "UNIT_MAXHEALTH" }) do
+    FW:RegisterEvent(ev, function(unit)
+        if unit and unit ~= "player" and ev ~= "PLAYER_EQUIPMENT_CHANGED" and ev ~= "PLAYER_LEVEL_UP" then return end
+        if win and win:IsShown() then Soon(function() CS.UpdateSlots() CS.UpdateStats() CS.UpdateHeader() end) end
+    end)
+end
+
+------------------------------------------------------------------------
+-- Einstellungen > Design > Charakteransicht
+------------------------------------------------------------------------
+
+if UI.RegisterSettingsSection then
+    UI:RegisterSettingsSection("charsheet", {
+        category = "design",
+        order = 40,
+        build = function(parent)
+            local Lx = L()
+            local f, stack = UI.CreateSection(parent, Lx.CS_SET_TITLE)
+            if f.AddInfo then f:AddInfo(Lx.CS_SET_INFO) end
+            stack:Add(UI.CreateCheckbox(f, Lx.CS_SET_TAB, function() return CS.Opts().tab end, function(v)
+                CS.Opts().tab = v and true or false
+                if CS.tab then CS.tab:SetShown(CS.Opts().tab) end
+            end), { fit = true, gap = 4 })
+            stack:Add(UI.CreateCheckbox(f, Lx.CS_SET_C, function() return CS.Opts().takeC end, function(v)
+                CS.Opts().takeC = v and true or false
+                CS.ApplyBinding()
+            end), { fit = true, gap = 4 })
+            return f
+        end,
+    })
+end
+
+CS.Build = Build

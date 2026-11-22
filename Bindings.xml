@@ -17,4 +17,7 @@
     <Binding name="FREEWOOD_CORE_NOTES" category="BINDING_CATEGORY_FREEWOOD">
         Freewood_ToggleNotes()
     </Binding>
+    <Binding name="FREEWOOD_CORE_CHARSHEET" category="BINDING_CATEGORY_FREEWOOD">
+        Freewood_ToggleCharSheet()
+    </Binding>
 </Bindings>
