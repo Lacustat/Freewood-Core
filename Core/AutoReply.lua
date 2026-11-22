@@ -953,50 +953,94 @@ function AR.BlizzardReport(who, extra)
 end
 
 ------------------------------------------------------------------------
+-- Schlachtfelder und Arenen (0.62.1, F-41)
+------------------------------------------------------------------------
+-- Auf Schlachtfeldern feuern Gruppen-, Chat- und Stufenereignisse ununterbrochen (40 Spieler kommen und gehen),
+-- viele Werte sind dort geschützt. Die Auto-Antwort lief dabei heiß und verdarb Blizzards Code ("attempted to
+-- iterate a table that cannot be accessed while tainted", tausendfach). Darum: dort standardmäßig ganz aus.
+
+function AR.ZoneType()
+    if not G.IsInInstance then return "none" end
+    local ok, inside, kind = pcall(G.IsInInstance)
+    if not ok or not inside then return "none" end
+    return kind or "none"
+end
+
+function AR.UpdateZone()
+    local kind = AR.ZoneType()
+    local wasPvP = AR.inPvP
+    AR.inPvP = (kind == "pvp" or kind == "arena")
+    if AR.inPvP ~= wasPvP then
+        -- beim Wechsel neu anfangen: keine Begrüßungsflut für alle aus der Schlachtfeld-Gruppe danach
+        AR.members = nil
+        AR.levels = {}
+        AR.knownAuras = nil
+        AR.loginAt = AR.Now()
+    end
+end
+
+function AR.Paused()
+    local d = AR.DB()
+    if d.pvpOff == false then return false end
+    return AR.inPvP == true
+end
+
+------------------------------------------------------------------------
 -- Ereignisse
 ------------------------------------------------------------------------
 
 function AR.Setup()
     if AR.setup or not FW.RegisterEvent then return end
     AR.setup = true
+    -- Alle Auslöser laufen über Reg: in Schlachtfeldern und Arenen tut die Auto-Antwort gar nichts (0.62.1, F-41)
+    local function Reg(ev, fn)
+        FW:RegisterEvent(ev, function(...)
+            if AR.Paused() then return end
+            return fn(...)
+        end)
+    end
+    for _, ev in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA" }) do
+        FW:RegisterEvent(ev, function() AR.UpdateZone() end)
+    end
     for ev in pairs(AR.EVENTS) do
-        FW:RegisterEvent(ev, function(text, sender, _, _, _, flags, _, _, _, _, lineID, guid, bnID)
+        Reg(ev, function(text, sender, _, _, _, flags, _, _, _, _, lineID, guid, bnID)
             AR.OnChat(ev, text, sender, flags, lineID, guid, bnID)
         end)
     end
     for ev, src in pairs(AR.BUFFER_ONLY) do
-        FW:RegisterEvent(ev, function(text, who, _, _, _, _, _, _, _, _, lineID, guid)
+        Reg(ev, function(text, who, _, _, _, _, _, _, _, _, lineID, guid)
             text, who = Str(text), Str(who)
             if text and who then AR.Remember(src, who, text, lineID, guid) end
         end)
     end
-    FW:RegisterEvent("UNIT_AURA", OnAura)
+    Reg("UNIT_AURA", OnAura)
     -- nach dem Kampf neuen Ausgangsstand nehmen (Buffs aus dem Kampf nicht nachträglich melden)
-    FW:RegisterEvent("PLAYER_REGEN_ENABLED", function() if HasBuffRule() then pcall(AR.ScanBuffs, false) end end)
-    FW:RegisterEvent("CHAT_MSG_SYSTEM", function(msg) AR.OnSystem(msg) end)
-    FW:RegisterEvent("BN_FRIEND_ACCOUNT_ONLINE", function(id)
+    Reg("PLAYER_REGEN_ENABLED", function() if HasBuffRule() then pcall(AR.ScanBuffs, false) end end)
+    Reg("CHAT_MSG_SYSTEM", function(msg) AR.OnSystem(msg) end)
+    Reg("BN_FRIEND_ACCOUNT_ONLINE", function(id)
         if AR.Now() - (AR.loginAt or 0) >= AR.LOGIN_QUIET then AR.OnBNOnline(id) end
     end)
-    FW:RegisterEvent("CHAT_MSG_LOOT", function(msg) AR.OnLoot(msg) end)
-    FW:RegisterEvent("PLAYER_LEVEL_UP", function(level) AR.OnLevelUp(level) end)
-    FW:RegisterEvent("GUILD_ROSTER_UPDATE", function() AR.OnGuildRoster() end)
-    FW:RegisterEvent("UNIT_LEVEL", function(unit) AR.OnUnitLevel(unit) end)
-    FW:RegisterEvent("NAME_PLATE_UNIT_ADDED", function(unit) AR.OnUnitLevel(unit) end)
-    FW:RegisterEvent("PLAYER_TARGET_CHANGED", function() AR.OnUnitLevel("target") end)
-    FW:RegisterEvent("GROUP_ROSTER_UPDATE", function()
+    Reg("CHAT_MSG_LOOT", function(msg) AR.OnLoot(msg) end)
+    Reg("PLAYER_LEVEL_UP", function(level) AR.OnLevelUp(level) end)
+    Reg("GUILD_ROSTER_UPDATE", function() AR.OnGuildRoster() end)
+    Reg("UNIT_LEVEL", function(unit) AR.OnUnitLevel(unit) end)
+    Reg("NAME_PLATE_UNIT_ADDED", function(unit) AR.OnUnitLevel(unit) end)
+    Reg("PLAYER_TARGET_CHANGED", function() AR.OnUnitLevel("target") end)
+    Reg("GROUP_ROSTER_UPDATE", function()
         AR.OnRoster()
         for _, u in ipairs(AR.GroupUnits()) do if G.UnitExists and G.UnitExists(u) then AR.OnUnitLevel(u) end end
     end)
-    FW:RegisterEvent("PARTY_INVITE_REQUEST", function(name) AR.Trigger("invite", { who = Str(name) }) end)
-    FW:RegisterEvent("DUEL_REQUESTED", function(name) AR.Trigger("duel", { who = Str(name) }) end)
-    FW:RegisterEvent("RESURRECT_REQUEST", function(name) AR.Trigger("rez", { who = Str(name) }) end)
-    FW:RegisterEvent("TRADE_SHOW", function() AR.Trigger("trade", { who = AR.UnitFull("npc") }) end)
-    FW:RegisterEvent("ENCOUNTER_END", function(_, name, _, _, success) if success == 1 then AR.OnBoss(name) end end)
-    FW:RegisterEvent("BOSS_KILL", function(_, name) AR.OnBoss(name) end)
-    FW:RegisterEvent("PLAYER_LOGIN", function() AR.loginAt = AR.Now() end)
+    Reg("PARTY_INVITE_REQUEST", function(name) AR.Trigger("invite", { who = Str(name) }) end)
+    Reg("DUEL_REQUESTED", function(name) AR.Trigger("duel", { who = Str(name) }) end)
+    Reg("RESURRECT_REQUEST", function(name) AR.Trigger("rez", { who = Str(name) }) end)
+    Reg("TRADE_SHOW", function() AR.Trigger("trade", { who = AR.UnitFull("npc") }) end)
+    Reg("ENCOUNTER_END", function(_, name, _, _, success) if success == 1 then AR.OnBoss(name) end end)
+    Reg("BOSS_KILL", function(_, name) AR.OnBoss(name) end)
+    FW:RegisterEvent("PLAYER_LOGIN", function() AR.loginAt = AR.Now() AR.UpdateZone() end)
     -- Gildenliste regelmäßig anfordern, solange es eine Regel "Level-up in der Gilde" gibt
     if G.C_Timer and G.C_Timer.NewTicker then
         G.C_Timer.NewTicker(60, function()
+            if AR.Paused() then return end
             for _, r in ipairs(AR.DB().rules) do
                 if r.on and r.kind == "guildlevel" then
                     local gi = G.C_GuildInfo

@@ -316,6 +316,31 @@ before = #sent
 events.CHAT_MSG_WHISPER("port und gold", "Max Mustermann") Flush()
 assert(#sent == before, "Hauptschalter aus")
 AR.DB().on = true
+-- 0.62.1: Schlachtfelder und Arenen: gar nichts tun (F-41)
+local pvpRule = AR.NewRule("chat", { src = { WHISPER = true, RAID = true }, replies = "hi", cdPlayer = 0 })
+local pj2 = AR.NewRule("groupjoin", { replies = "Hallo {name}!", dest = "group", cdPlayer = 0 })
+now = now + 400
+_G.IsInInstance = function() return true, "pvp" end
+events.PLAYER_ENTERING_WORLD()
+assert(AR.Paused(), "auf dem Schlachtfeld pausiert")
+local before2 = #sent
+inRaid = true
+for i = 1, 30 do
+    events.CHAT_MSG_WHISPER("hi", "Pvp " .. i) events.CHAT_MSG_RAID("los", "Pvp " .. i)
+    events.GROUP_ROSTER_UPDATE() events.UNIT_LEVEL("raid" .. i)
+end
+Flush()
+assert(#sent == before2, "auf dem Schlachtfeld keine einzige Antwort")
+AR.DB().pvpOff = false
+assert(not AR.Paused(), "abschaltbar")
+AR.DB().pvpOff = nil
+-- Rückkehr: neuer Ausgangsstand, keine Begrüßung für alle aus dem Schlachtfeld
+_G.IsInInstance = function() return false, "none" end
+events.ZONE_CHANGED_NEW_AREA()
+assert(not AR.Paused() and AR.members == nil, "danach wieder an, Gruppe neu gezählt")
+inRaid = false
+AR.Delete(pvpRule.id) AR.Delete(pj2.id)
+
 print("autoreply logic: ok")
 
 -- Reiter bauen (Attrappen; Kästchen fragen ihren Wert sofort ab wie im Spiel)

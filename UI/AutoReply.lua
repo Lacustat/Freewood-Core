@@ -236,7 +236,7 @@ end
 ------------------------------------------------------------------------
 
 FW:AddLocale("enUS", {
-    AR_TRIGGER = "Trigger",
+    AR_TRIGGER = "Trigger", AR_PVP_OFF = "Off in battlegrounds and arenas",
     AR_TRIGGER_INFO = "Level-up in the guild: the game has no event for it, the guild list is compared every minute (up to ~1 min later). Level-up nearby: the game only reports levels of group members, your target and players with a visible nameplate. Online, joins and guild level-ups stay silent for 60 s after you log in.",
     AR_K_chat = "Chat message", AR_K_buff = "Buff from a player", AR_K_friendon = "Friend comes online",
     AR_K_guildon = "Guild member comes online", AR_K_rollwon = "Item won (roll)", AR_K_levelup = "My level-up",
@@ -274,7 +274,7 @@ FW:AddLocale("enUS", {
     AR_T_FRIEND = "Greet friends", AR_T_FRIEND_R = "Hi {name}!",
 })
 FW:AddLocale("deDE", {
-    AR_TRIGGER = "Auslöser",
+    AR_TRIGGER = "Auslöser", AR_PVP_OFF = "Auf Schlachtfeldern und in Arenen aus",
     AR_TRIGGER_INFO = "Level-up in der Gilde: Dafür gibt es kein Ereignis, die Gildenliste wird jede Minute verglichen (bis zu ~1 min später). Level-up in der Umgebung: Das Spiel meldet Stufen nur von Gruppenmitgliedern, deinem Ziel und Spielern mit sichtbarer Namensplakette. Online, Beitritte und Gilden-Level-ups bleiben 60 s nach dem Einloggen still.",
     AR_K_chat = "Chatnachricht", AR_K_buff = "Buff von einem Spieler", AR_K_friendon = "Freund kommt online",
     AR_K_guildon = "Gildenmitglied kommt online", AR_K_rollwon = "Item gewonnen (Würfeln)", AR_K_levelup = "Mein Level-up",
@@ -385,6 +385,10 @@ local function BuildTab(content)
     local master = UI.CreateCheckbox(root, Lx.AR_ON, function() return AR.DB().on end, function(v) AR.DB().on = v and true or false end)
     master:SetPoint("TOPLEFT", root, "TOPLEFT", 0, 0)
     Info(root, Lx.TAB_AUTOREPLY, Lx.AR_ON_INFO):SetPoint("LEFT", master.label, "RIGHT", 6, 0)
+    -- 0.62.1: auf Schlachtfeldern und in Arenen aus (Standard an)
+    local pvpCb = UI.CreateCheckbox(root, Lx.AR_PVP_OFF, function() return AR.DB().pvpOff ~= false end,
+        function(v) AR.DB().pvpOff = v and true or false end)
+    pvpCb:SetPoint("LEFT", master, "RIGHT", 280, 0)
     local bLog = UI.CreateButton(root, Lx.AR_LOG, 110, 24)
     bLog:SetPoint("TOPRIGHT", root, "TOPRIGHT", 0, 0)
     local bRules = UI.CreateButton(root, Lx.AR_RULES, 110, 24)
