@@ -271,7 +271,16 @@ local pieces = CS.EdgePieces(250, 100)
 assert(#pieces == 3 and pieces[3].a == 200 and math.abs(pieces[3].frac - 0.5) < 1e-9, "Stücke: zwei ganze, ein halbes")
 assert(#CS.EdgePieces(0, 100) == 0, "keine Länge, keine Stücke")
 assert(CS.RaceFrame("Scourge") == nil and CS.RaceFrame("MagharOrc") == "Orc" and CS.RaceFrame("X", "Skyborne") == "Skyborne", "Rassenrahmen")
-assert(CS.ClassFrame("HUNTER") == "Hunter" and CS.ClassFrame("WARRIOR") == nil, "Klassenrahmen")
+assert(CS.ClassFrame("HUNTER") == "Hunter" and CS.ClassFrame("WARRIOR") == "Warrior" and CS.ClassFrame("PALADIN") == nil, "Klassenrahmen")
+for cls, name in pairs(CS.FRAME_CLASS) do
+    for _, part in ipairs({ "Corner", "Side" }) do
+        local fh = io.open("Media/Character/Frames/" .. name .. part .. ".tga", "rb")
+        assert(fh, "Grafik fehlt: " .. name .. part) fh:close()
+    end
+end
+for _, name in pairs(CS.FRAME_RACE) do
+    local fh = io.open("Media/Character/Frames/" .. name .. "Corner.tga", "rb") assert(fh, "Grafik fehlt: " .. name) fh:close()
+end
 raceFile = "Orc"
 local ch = CS.FrameChoices()
 assert(#ch == 3 and ch[1].id == "race" and ch[1].file == "Orc" and ch[2].file == "Hunter" and ch[3].file == "Pinky", "Orc-Jäger: Orc, Jäger, Pinky")
@@ -284,10 +293,13 @@ FW.frameDropOpts.onChange("class")
 assert(win.frame.style == "Hunter" and CS.Opts().frame == "class", "Klasse gewählt")
 FW.frameDropOpts.onChange("pinky")
 assert(win.frame.style == "Pinky", "Pinky gewählt")
-classFile, raceFile = "WARRIOR", "Scourge"
+classFile, raceFile = "PALADIN", "Scourge"
 CS.Opts().frame = "class"
 CS.ApplyFrame()
-assert(#CS.FrameChoices() == 1 and win.frame.style == "Pinky", "Untoter Krieger: nur Pinky")
+assert(#CS.FrameChoices() == 1 and win.frame.style == "Pinky", "ohne Rassen- und Klassenrahmen: nur Pinky")
+classFile = "WARRIOR"
+CS.ApplyFrame()
+assert(#CS.FrameChoices() == 2 and win.frame.style == "Warrior", "Untoter Krieger: Krieger, Pinky")
 classFile, raceFile = "HUNTER", "NightElf"
 CS.Opts().frame = nil
 CS.ApplyFrame()

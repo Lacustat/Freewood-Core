@@ -219,7 +219,10 @@ CS.FRAME_RACE = {
     Gnome = "Gnome", Mechagnome = "Gnome", Human = "Human", KulTiran = "Human",
     NightElf = "NightElf", Skyborne = "Skyborne",
 }
-CS.FRAME_CLASS = { HUNTER = "Hunter" }
+CS.FRAME_CLASS = {
+    HUNTER = "Hunter", MAGE = "Mage", WARLOCK = "Warlock", ROGUE = "Rogue", WARRIOR = "Warrior",
+    DRUID = "Druid", SHAMAN = "Shaman", PRIEST = "Priest",          -- Paladin folgt
+}
 CS.FRAME_PINKY = "Pinky"
 
 function CS.RaceFrame(raceFile, raceName)
