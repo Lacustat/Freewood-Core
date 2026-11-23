@@ -47,6 +47,7 @@ FW:AddLocale("enUS", {
     CS_SET_TITLE = "Character view",
     CS_SET_TAB = "Show the Freewood tab on the character window",
     CS_SET_C = "The character window key (C) opens the Freewood character view",
+    CS_FRAME = "Frame", CS_FRAME_Pinky = "Pinky",
     CS_BG = "Background", CS_BG_TIP = "Background of the character view",
     CS_BG_leatherDark = "Dark leather", CS_BG_parchment = "Parchment", CS_BG_leatherRed = "Red leather", CS_BG_classic = "Classic leather",
     CS_SET_RACE = "Race background behind the character (otherwise the Freewood forest)",
@@ -74,6 +75,7 @@ FW:AddLocale("deDE", {
     CS_SET_TITLE = "Charakteransicht",
     CS_SET_TAB = "Freewood-Reiter am Charakterfenster zeigen",
     CS_SET_C = "Die Taste des Charakterfensters (C) öffnet die Freewood-Charakteransicht",
+    CS_FRAME = "Rahmen", CS_FRAME_Pinky = "Pinky",
     CS_BG = "Hintergrund", CS_BG_TIP = "Hintergrund der Charakteransicht",
     CS_BG_leatherDark = "Dunkles Leder", CS_BG_parchment = "Pergament", CS_BG_leatherRed = "Rotes Leder", CS_BG_classic = "Leder klassisch",
     CS_SET_RACE = "Rassen-Hintergrund hinter dem Charakter (sonst der Freewood-Wald)",
@@ -201,41 +203,136 @@ function CS.NineSlice(parent, name, layer)
 end
 
 ------------------------------------------------------------------------
--- Außenrahmen aus eigenen Teilen (0.62.2): Ecken 256 x 256 fest, Leisten gestreckt.
--- Die Leisten liegen in ihren Bildern ein paar Pixel anders als in den Ecken; der Versatz wird ausgeglichen
--- (gemessen: Holz in den Ecken links 4..82, oben 4..88, rechts 173..252, unten 172..252 von 256;
---  in den Leisten links 9..87, rechts 166..245, oben 7..91, unten 168..248).
+-- Außenrahmen aus Kacheln (0.66.0): je Rahmen eine Ecke (oben rechts) und ein senkrechtes Seitenteil,
+-- das nahtlos an sich selbst passt. Ecken links gespiegelt, unten wie oben (Motive bleiben aufrecht);
+-- die Seiten werden über Texturkoordinaten gedreht und aus Stücken zusammengesetzt, das letzte abgeschnitten.
+-- Grafiken von Lacustat: Media/Character/Frames/<Name>Corner.tga (256 x 256) und <Name>Side.tga (256 x 512,
+-- aus 376 x 512 waagerecht gestaucht, beim Zeichnen wieder im Verhältnis 376 : 512).
 ------------------------------------------------------------------------
 
-CS.WOOD = { corner = 256, inner = 90, shift = { left = -5, right = 7, top = -3, bottom = 4 } }
+CS.FRAME = { size = 166, aspect = 512 / 376 }     -- Dicke bei fs = 1; Länge eines Seitenstücks je Dicke
 
-function CS.WoodFrame(parent)
+-- Rahmen: Rasse (Dateiname aus UnitRace), Klasse (Dateiname aus UnitClass), Pinky für alle
+CS.FRAME_RACE = {
+    Orc = "Orc", MagharOrc = "Orc", Tauren = "Tauren", HighmountainTauren = "Tauren",
+    Troll = "Troll", ZandalariTroll = "Troll", Dwarf = "Dwarf", DarkIronDwarf = "Dwarf",
+    Gnome = "Gnome", Mechagnome = "Gnome", Human = "Human", KulTiran = "Human",
+    NightElf = "NightElf", Skyborne = "Skyborne",
+}
+CS.FRAME_CLASS = { HUNTER = "Hunter" }
+CS.FRAME_PINKY = "Pinky"
+
+function CS.RaceFrame(raceFile, raceName)
+    if type(raceFile) == "string" and CS.FRAME_RACE[raceFile] then return CS.FRAME_RACE[raceFile] end
+    for _, v in ipairs({ raceFile, raceName }) do
+        if type(v) == "string" and v:lower():find("skyborne", 1, true) then return "Skyborne" end
+    end
+end
+
+function CS.ClassFrame(classFile)
+    return type(classFile) == "string" and CS.FRAME_CLASS[classFile] or nil
+end
+
+-- Texturkoordinaten eines Seitenstücks: Rand (top, bottom, left, right), sichtbarer Anteil frac (0..1].
+-- Rückgabe in der Reihenfolge von SetTexCoord mit 8 Werten (UL, LL, UR, LR); u quer, r längs zum Seitenteil.
+function CS.EdgeCoords(edge, frac)
+    local function F(x, y)
+        if edge == "right" then return x, y * frac
+        elseif edge == "left" then return 1 - x, (1 - y) * frac
+        elseif edge == "top" then return 1 - y, x * frac
+        else return y, (1 - x) * frac end           -- bottom
+    end
+    local a, b = F(0, 0)
+    local c, d = F(0, 1)
+    local e, g = F(1, 0)
+    local h, i = F(1, 1)
+    return a, b, c, d, e, g, h, i
+end
+
+-- Stücke eines Randes der Länge len: { a = Anfang, b = Ende, frac } ab der Startecke
+function CS.EdgePieces(len, seg)
+    local list = {}
+    if not len or len <= 0 or not seg or seg <= 0 then return list end
+    local a = 0
+    while a < len - 0.01 do
+        local b = math.min(len, a + seg)
+        list[#list + 1] = { a = a, b = b, frac = (b - a) / seg }
+        a = b
+    end
+    return list
+end
+
+function CS.TileFrame(parent)
     local holder = CreateFrame("Frame", nil, parent)
-    local t = {}
-    for _, n in ipairs({ "TL", "TR", "BL", "BR", "Top", "Bottom", "Left", "Right" }) do
-        local tex = holder:CreateTexture(nil, "BORDER", nil, (#n == 2) and 2 or 1)
-        tex:SetTexture(MEDIA .. "Wood" .. n .. ".tga")
-        t[n] = tex
+    local corners = {}
+    for _, n in ipairs({ "TL", "TR", "BL", "BR" }) do corners[n] = holder:CreateTexture(nil, "BORDER", nil, 2) end
+    local pools = { top = {}, bottom = {}, left = {}, right = {} }
+    holder.corners, holder.pools = corners, pools
+    holder.fs = 0.4
+
+    function holder:SetStyle(name)
+        self.style = name
+        local base = MEDIA .. "Frames\\" .. name
+        for _, tex in pairs(corners) do tex:SetTexture(base .. "Corner.tga") end
+        for _, pool in pairs(pools) do for _, tex in ipairs(pool) do tex:SetTexture(base .. "Side.tga") end end
+        self:Build()
     end
-    holder.parts = t
+
     function holder:SetSliceScale(fs)
-        local c = CS.WOOD.corner * fs
-        local sh = CS.WOOD.shift
-        for _, tex in pairs(t) do tex:ClearAllPoints() end
-        t.TL:SetPoint("TOPLEFT", self, "TOPLEFT") t.TL:SetSize(c, c)
-        t.TR:SetPoint("TOPRIGHT", self, "TOPRIGHT") t.TR:SetSize(c, c)
-        t.BL:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT") t.BL:SetSize(c, c)
-        t.BR:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT") t.BR:SetSize(c, c)
-        t.Top:SetPoint("TOPLEFT", t.TL, "TOPRIGHT", 0, -sh.top * fs) t.Top:SetPoint("TOPRIGHT", t.TR, "TOPLEFT", 0, -sh.top * fs)
-        t.Top:SetHeight(c)
-        t.Bottom:SetPoint("BOTTOMLEFT", t.BL, "BOTTOMRIGHT", 0, -sh.bottom * fs) t.Bottom:SetPoint("BOTTOMRIGHT", t.BR, "BOTTOMLEFT", 0, -sh.bottom * fs)
-        t.Bottom:SetHeight(c)
-        t.Left:SetPoint("TOPLEFT", t.TL, "BOTTOMLEFT", sh.left * fs, 0) t.Left:SetPoint("BOTTOMLEFT", t.BL, "TOPLEFT", sh.left * fs, 0)
-        t.Left:SetWidth(c)
-        t.Right:SetPoint("TOPRIGHT", t.TR, "BOTTOMRIGHT", sh.right * fs, 0) t.Right:SetPoint("BOTTOMRIGHT", t.BR, "TOPRIGHT", sh.right * fs, 0)
-        t.Right:SetWidth(c)
+        self.fs = fs
+        self:Build()
     end
-    holder:SetSliceScale(0.4)
+
+    local function Piece(edge, k)
+        local pool = pools[edge]
+        local tex = pool[k]
+        if not tex then
+            tex = holder:CreateTexture(nil, "BORDER", nil, 1)
+            if holder.style then tex:SetTexture(MEDIA .. "Frames\\" .. holder.style .. "Side.tga") end
+            pool[k] = tex
+        end
+        return tex
+    end
+
+    function holder:Build()
+        local W, H = self:GetWidth() or 0, self:GetHeight() or 0
+        if W <= 0 or H <= 0 then return end
+        local t = CS.FRAME.size * (self.fs or 0.4)
+        local seg = t * CS.FRAME.aspect
+        self.thick = t
+        for n, tex in pairs(corners) do
+            tex:ClearAllPoints()
+            tex:SetSize(t, t)
+            if n == "TL" or n == "BL" then tex:SetTexCoord(1, 0, 0, 1) else tex:SetTexCoord(0, 1, 0, 1) end
+        end
+        corners.TL:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0)
+        corners.TR:SetPoint("TOPRIGHT", self, "TOPRIGHT", 0, 0)
+        corners.BL:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 0, 0)
+        corners.BR:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", 0, 0)
+        local lenX, lenY = W - 2 * t, H - 2 * t
+        for edge, pool in pairs(pools) do
+            local len = (edge == "top" or edge == "bottom") and lenX or lenY
+            local pieces = CS.EdgePieces(len, seg)
+            for k, p in ipairs(pieces) do
+                local tex = Piece(edge, k)
+                tex:ClearAllPoints()
+                local size = p.b - p.a
+                if edge == "right" then
+                    tex:SetPoint("TOPLEFT", self, "TOPLEFT", W - t, -(t + p.a)) tex:SetSize(t, size)
+                elseif edge == "left" then
+                    tex:SetPoint("TOPLEFT", self, "TOPLEFT", 0, -(t + len - p.b)) tex:SetSize(t, size)
+                elseif edge == "top" then
+                    tex:SetPoint("TOPLEFT", self, "TOPLEFT", t + p.a, 0) tex:SetSize(size, t)
+                else
+                    tex:SetPoint("TOPLEFT", self, "TOPLEFT", t + len - p.b, -(H - t)) tex:SetSize(size, t)
+                end
+                tex:SetTexCoord(CS.EdgeCoords(edge, p.frac))
+                tex:Show()
+            end
+            for k = #pieces + 1, #pool do pool[k]:Hide() end
+        end
+    end
+    holder:SetScript("OnSizeChanged", function(self) self:Build() end)
     return holder
 end
 
@@ -247,7 +344,7 @@ end
 function CS.ComputeLayout(W, H)
     local k = H / 1020                        -- Maßstab für Abstände (wie bisher)
     local fs = math.max(0.28, math.min(0.6, H / 2000))   -- Maßstab des Holzrahmens (Ecke 256 px -> ~13 % der Höhe)
-    local inner = CS.WOOD.inner * fs + 16                -- Innenkante der Leisten plus Luft
+    local inner = CS.FRAME.size * fs + 6                 -- Innenkante des Rahmens plus etwas Luft (0.66.0)
     local padX, padTop, padBot = inner, inner, inner
     local cx, cy = padX, padTop
     local cw, ch = W - 2 * padX, H - padTop - padBot
@@ -606,7 +703,7 @@ local function Build()
     f.base:SetColorTexture(0.07, 0.05, 0.035, 1)
     f.leather = f:CreateTexture(nil, "BACKGROUND", nil, -7)
     -- Grafik und Ausschnitt setzt CS.ApplyBackground (0.63.0)
-    f.frame = CS.WoodFrame(f)
+    f.frame = CS.TileFrame(f)
     f.frame:SetAllPoints(f)
     f.frame:SetFrameLevel(f:GetFrameLevel() + 20)
 
@@ -615,6 +712,8 @@ local function Build()
     f.close:SetHighlightTexture(MEDIA .. "Glow.tga", "ADD")
     f.close:SetScript("OnClick", function() f:Hide() end)
     f.bgDrop = CS.CreateBgDropdown(f.frame)
+    f.frameDrop = CS.CreateFrameDropdown(f.frame)
+    CS.ApplyFrame()
 
     -- Charakter
     f.plate = f:CreateTexture(nil, "ARTWORK")
@@ -785,23 +884,20 @@ function CS.SetBackground(id)
     CS.ApplyBackground()
 end
 
--- Auswahl oben rechts neben dem X: Blizzard-Dropdown (WowStyle1), sonst das Kit-Dropdown
-function CS.CreateBgDropdown(parent)
-    local Lx = L()
-    local function Text(id) return Lx["CS_BG_" .. id] or id end
+-- Auswahl oben rechts neben dem X: Blizzard-Dropdown (WowStyle1), sonst das Kit-Dropdown.
+-- def = { title, width, list() -> { { id, text } }, get() -> id, set(id) }
+function CS.CreateChoice(parent, def)
     local ok, dd = false, nil
     if G.MenuUtil and G.CreateFrame then
         ok, dd = pcall(G.CreateFrame, "DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
     end
     if ok and dd and dd.SetupMenu then
         dd.fwBlizzard = true
-        dd:SetWidth(170)
+        dd:SetWidth(def.width or 170)
         local okSetup = pcall(dd.SetupMenu, dd, function(_, root)
-            if root.CreateTitle then root:CreateTitle(Lx.CS_BG) end
-            for _, b in ipairs(CS.BACKGROUNDS) do
-                root:CreateRadio(Text(b.id),
-                    function() return CS.Opts().bg == b.id end,
-                    function() CS.SetBackground(b.id) end)
+            if root.CreateTitle then root:CreateTitle(def.title) end
+            for _, o in ipairs(def.list()) do
+                root:CreateRadio(o.text, function() return def.get() == o.id end, function() def.set(o.id) end)
             end
         end)
         if okSetup then
@@ -810,19 +906,80 @@ function CS.CreateBgDropdown(parent)
         end
         dd:Hide()
     end
-    -- Ersatz: eigenes Dropdown aus dem Kit
-    dd = UI.CreateDropdown(parent, 170, 24, {
+    local function Text(id)
+        for _, o in ipairs(def.list()) do if o.id == id then return o.text end end
+        return tostring(id or "")
+    end
+    dd = UI.CreateDropdown(parent, def.width or 170, 24, {
         getOptions = function()
             local list = {}
-            for _, b in ipairs(CS.BACKGROUNDS) do list[#list + 1] = { value = b.id, text = Text(b.id) } end
+            for _, o in ipairs(def.list()) do list[#list + 1] = { value = o.id, text = o.text } end
             return list
         end,
         textOf = Text,
-        onChange = function(v) CS.SetBackground(v) end,
+        onChange = function(v) def.set(v) end,
     })
-    dd:SetValue(CS.Opts().bg)
-    function dd:FwRefresh() self:SetValue(CS.Opts().bg) end
+    dd:SetValue(def.get())
+    function dd:FwRefresh() self:SetValue(def.get()) end
     return dd
+end
+
+function CS.CreateBgDropdown(parent)
+    local Lx = L()
+    return CS.CreateChoice(parent, {
+        title = Lx.CS_BG, width = 170,
+        list = function()
+            local list = {}
+            for _, b in ipairs(CS.BACKGROUNDS) do list[#list + 1] = { id = b.id, text = Lx["CS_BG_" .. b.id] or b.id } end
+            return list
+        end,
+        get = function() return CS.Opts().bg end,
+        set = function(id) CS.SetBackground(id) end,
+    })
+end
+
+-- Rahmen zur Auswahl für diesen Charakter: seine Rasse, seine Klasse, Pinky
+function CS.FrameChoices()
+    local Lx = L()
+    local list = {}
+    local raceName, raceFile = Safe(G.UnitRace, "player")
+    local race = CS.RaceFrame(raceFile, raceName)
+    if race then list[#list + 1] = { id = "race", file = race, text = raceName or Lx["CS_FRAME_" .. race] or race } end
+    local className, classFile = Safe(G.UnitClass, "player")
+    local cls = CS.ClassFrame(classFile)
+    if cls then list[#list + 1] = { id = "class", file = cls, text = className or Lx["CS_FRAME_" .. cls] or cls } end
+    list[#list + 1] = { id = "pinky", file = CS.FRAME_PINKY, text = Lx.CS_FRAME_Pinky }
+    return list
+end
+
+-- gewählter Rahmen; ohne Wahl oder wenn es ihn für diesen Charakter nicht gibt: Rasse, sonst Pinky
+function CS.FrameChoice()
+    local list = CS.FrameChoices()
+    local want = CS.Opts().frame
+    for _, o in ipairs(list) do if o.id == want then return o end end
+    return list[1]
+end
+
+function CS.ApplyFrame()
+    local f = win
+    if not f or not f.frame then return end
+    local o = CS.FrameChoice()
+    if f.frame.style ~= o.file then f.frame:SetStyle(o.file) end
+    if f.frameDrop and f.frameDrop.FwRefresh then f.frameDrop:FwRefresh() end
+end
+
+function CS.SetFrame(id)
+    CS.Opts().frame = id
+    CS.ApplyFrame()
+end
+
+function CS.CreateFrameDropdown(parent)
+    return CS.CreateChoice(parent, {
+        title = L().CS_FRAME, width = 150,
+        list = CS.FrameChoices,
+        get = function() return CS.FrameChoice().id end,
+        set = function(id) CS.SetFrame(id) end,
+    })
 end
 
 local function Place(obj, r, parent)
@@ -844,14 +1001,19 @@ function CS.Layout()
     f.leather:SetPoint("TOPLEFT", f, "TOPLEFT", 8 * k, -8 * k)
     f.leather:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8 * k, 8 * k)
     CS.ApplyBackground()
-    -- X auf dem Eisenbeschlag oben rechts (0.62.2; der neue Rahmen hat keine Aussparung mehr)
-    local xs = math.max(24, 76 * lay.fs)
+    -- X auf der oberen Leiste links neben der Ecke (0.66.0: das Motiv der Ecke bleibt frei), daneben die Auswahlen
+    local t = CS.FRAME.size * lay.fs
+    local xs = math.max(24, 0.42 * t)
     f.close:SetSize(xs, xs)
     f.close:ClearAllPoints()
-    f.close:SetPoint("CENTER", f, "TOPRIGHT", -62 * lay.fs, -58 * lay.fs)
+    f.close:SetPoint("CENTER", f, "TOPRIGHT", -(t + xs / 2 + 8), -t / 2)
+    if f.frameDrop then
+        f.frameDrop:ClearAllPoints()
+        f.frameDrop:SetPoint("RIGHT", f.close, "LEFT", -10, 0)
+    end
     if f.bgDrop then
         f.bgDrop:ClearAllPoints()
-        f.bgDrop:SetPoint("RIGHT", f.close, "LEFT", -10, 0)
+        f.bgDrop:SetPoint("RIGHT", f.frameDrop or f.close, "LEFT", -10, 0)
     end
 
     -- Charakter

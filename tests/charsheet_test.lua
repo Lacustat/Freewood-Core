@@ -58,7 +58,10 @@ FW.UI = {
     CreateDropdown = function(_, _, _, o)
         local d = setmetatable({ opts = o }, M)
         function d:SetValue(v) self.value = v self.text = o.textOf(v) end
-        FW.bgDropOpts = o
+        FW.dropOpts = FW.dropOpts or {}
+        FW.dropOpts[#FW.dropOpts + 1] = o
+        FW.bgDropOpts = FW.dropOpts[1]
+        FW.frameDropOpts = FW.dropOpts[2]
         return d
     end,
 }
@@ -83,6 +86,8 @@ _G.UnitLevel = function() return 36 end
 _G.UnitName = function() return "Pinky" end
 local raceFile = "NightElf"
 _G.UnitRace = function() return "Nachtelfe", raceFile end
+local classFile = "HUNTER"
+_G.UnitClass = function() return "Jägerin", classFile end
 _G.GetMoney = function() return 124783 end
 _G.GetInventorySlotInfo = function(n) if n == "AmmoSlot" then return 0, "ammo" end return #n, "empty-" .. n end
 local bagSlots = { [0] = 16, 10, 10, 0, 0, 4 }
@@ -253,6 +258,49 @@ assert(win.forest.tex:find("Forest.tga", 1, true), "Rassenbild aus: Wald")
 CS.Opts().race = true
 CS.ApplyRace()
 assert(win.forest.tex:find("RaceOrc.tga", 1, true), "Orc")
+-- 0.66.0: Rahmen aus Kacheln, Auswahl Rasse | Klasse | Pinky
+local a1, b1, c1, d1, e1, f1, g1, h1 = CS.EdgeCoords("right", 0.5)
+assert(a1 == 0 and b1 == 0 and c1 == 0 and d1 == 0.5 and e1 == 1 and f1 == 0 and g1 == 1 and h1 == 0.5, "rechts: senkrecht, halbes Stück")
+a1, b1, c1, d1, e1, f1, g1, h1 = CS.EdgeCoords("top", 1)
+assert(a1 == 1 and b1 == 0 and c1 == 0 and d1 == 0 and e1 == 1 and f1 == 1 and g1 == 0 and h1 == 1, "oben: gedreht")
+a1, b1, c1, d1, e1, f1, g1, h1 = CS.EdgeCoords("left", 1)
+assert(a1 == 1 and b1 == 1 and g1 == 0 and h1 == 0, "links: 180 Grad")
+a1, b1, c1, d1, e1, f1, g1, h1 = CS.EdgeCoords("bottom", 1)
+assert(a1 == 0 and b1 == 1 and g1 == 1 and h1 == 0, "unten: im Uhrzeigersinn")
+local pieces = CS.EdgePieces(250, 100)
+assert(#pieces == 3 and pieces[3].a == 200 and math.abs(pieces[3].frac - 0.5) < 1e-9, "Stücke: zwei ganze, ein halbes")
+assert(#CS.EdgePieces(0, 100) == 0, "keine Länge, keine Stücke")
+assert(CS.RaceFrame("Scourge") == nil and CS.RaceFrame("MagharOrc") == "Orc" and CS.RaceFrame("X", "Skyborne") == "Skyborne", "Rassenrahmen")
+assert(CS.ClassFrame("HUNTER") == "Hunter" and CS.ClassFrame("WARRIOR") == nil, "Klassenrahmen")
+raceFile = "Orc"
+local ch = CS.FrameChoices()
+assert(#ch == 3 and ch[1].id == "race" and ch[1].file == "Orc" and ch[2].file == "Hunter" and ch[3].file == "Pinky", "Orc-Jäger: Orc, Jäger, Pinky")
+CS.Opts().frame = nil
+CS.ApplyFrame()
+assert(win.frame.style == "Orc", "Standard: Rasse")
+assert(win.frame.corners.TR.tex:find("Frames\\OrcCorner.tga", 1, true), "Ecke gesetzt")
+assert(FW.frameDropOpts and #FW.frameDropOpts.getOptions() == 3, "Rahmen-Auswahl mit 3 Einträgen")
+FW.frameDropOpts.onChange("class")
+assert(win.frame.style == "Hunter" and CS.Opts().frame == "class", "Klasse gewählt")
+FW.frameDropOpts.onChange("pinky")
+assert(win.frame.style == "Pinky", "Pinky gewählt")
+classFile, raceFile = "WARRIOR", "Scourge"
+CS.Opts().frame = "class"
+CS.ApplyFrame()
+assert(#CS.FrameChoices() == 1 and win.frame.style == "Pinky", "Untoter Krieger: nur Pinky")
+classFile, raceFile = "HUNTER", "NightElf"
+CS.Opts().frame = nil
+CS.ApplyFrame()
+assert(win.frame.style == "NightElf", "Nachtelf")
+-- Ecken: links gespiegelt, unten aufrecht
+win.frame.w, win.frame.h = 2000, 1000
+win.frame:SetSliceScale(0.5)
+local tl = win.frame.corners.TL.coord
+assert(tl and tl[1] == 1 and tl[2] == 0 and tl[3] == 0 and tl[4] == 1, "links gespiegelt")
+local br = win.frame.corners.BR.coord
+assert(br[1] == 0 and br[2] == 1 and br[3] == 0 and br[4] == 1, "unten rechts wie oben rechts")
+assert(#win.frame.pools.top > 0 and #win.frame.pools.left > 0, "Seiten aus Stücken")
+
 -- 0.64.0: Umschalter Werte | Ausrüstung
 assert(win.statsScroll.shown ~= false and not win.gearHost.shown, "Standard: Werte")
 local built = 0
