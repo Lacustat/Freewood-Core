@@ -270,8 +270,8 @@ assert(a1 == 0 and b1 == 1 and g1 == 1 and h1 == 0, "unten: im Uhrzeigersinn")
 local pieces = CS.EdgePieces(250, 100)
 assert(#pieces == 3 and pieces[3].a == 200 and math.abs(pieces[3].frac - 0.5) < 1e-9, "Stücke: zwei ganze, ein halbes")
 assert(#CS.EdgePieces(0, 100) == 0, "keine Länge, keine Stücke")
-assert(CS.RaceFrame("Scourge") == nil and CS.RaceFrame("MagharOrc") == "Orc" and CS.RaceFrame("X", "Skyborne") == "Skyborne", "Rassenrahmen")
-assert(CS.ClassFrame("HUNTER") == "Hunter" and CS.ClassFrame("WARRIOR") == "Warrior" and CS.ClassFrame("PALADIN") == nil, "Klassenrahmen")
+assert(CS.RaceFrame("Scourge") == "Undead" and CS.RaceFrame("Goblin") == nil and CS.RaceFrame("MagharOrc") == "Orc" and CS.RaceFrame("X", "Skyborne") == "Skyborne", "Rassenrahmen")
+assert(CS.ClassFrame("HUNTER") == "Hunter" and CS.ClassFrame("WARRIOR") == "Warrior" and CS.ClassFrame("PALADIN") == "Paladin" and CS.ClassFrame("DEATHKNIGHT") == nil, "Klassenrahmen")
 for cls, name in pairs(CS.FRAME_CLASS) do
     for _, part in ipairs({ "Corner", "Side" }) do
         local fh = io.open("Media/Character/Frames/" .. name .. part .. ".tga", "rb")
@@ -293,13 +293,17 @@ FW.frameDropOpts.onChange("class")
 assert(win.frame.style == "Hunter" and CS.Opts().frame == "class", "Klasse gewählt")
 FW.frameDropOpts.onChange("pinky")
 assert(win.frame.style == "Pinky", "Pinky gewählt")
-classFile, raceFile = "PALADIN", "Scourge"
+classFile, raceFile = "DEATHKNIGHT", "Goblin"
 CS.Opts().frame = "class"
 CS.ApplyFrame()
 assert(#CS.FrameChoices() == 1 and win.frame.style == "Pinky", "ohne Rassen- und Klassenrahmen: nur Pinky")
 classFile = "WARRIOR"
 CS.ApplyFrame()
-assert(#CS.FrameChoices() == 2 and win.frame.style == "Warrior", "Untoter Krieger: Krieger, Pinky")
+assert(#CS.FrameChoices() == 2 and win.frame.style == "Warrior", "Goblin-Krieger: Krieger, Pinky")
+raceFile = "Scourge"
+CS.Opts().frame = nil
+CS.ApplyFrame()
+assert(#CS.FrameChoices() == 3 and win.frame.style == "Undead", "Untoter: eigener Rahmen")
 classFile, raceFile = "HUNTER", "NightElf"
 CS.Opts().frame = nil
 CS.ApplyFrame()

@@ -217,11 +217,11 @@ CS.FRAME_RACE = {
     Orc = "Orc", MagharOrc = "Orc", Tauren = "Tauren", HighmountainTauren = "Tauren",
     Troll = "Troll", ZandalariTroll = "Troll", Dwarf = "Dwarf", DarkIronDwarf = "Dwarf",
     Gnome = "Gnome", Mechagnome = "Gnome", Human = "Human", KulTiran = "Human",
-    NightElf = "NightElf", Skyborne = "Skyborne",
+    NightElf = "NightElf", Skyborne = "Skyborne", Scourge = "Undead", Undead = "Undead",
 }
 CS.FRAME_CLASS = {
     HUNTER = "Hunter", MAGE = "Mage", WARLOCK = "Warlock", ROGUE = "Rogue", WARRIOR = "Warrior",
-    DRUID = "Druid", SHAMAN = "Shaman", PRIEST = "Priest",          -- Paladin folgt
+    DRUID = "Druid", SHAMAN = "Shaman", PRIEST = "Priest", PALADIN = "Paladin",
 }
 CS.FRAME_PINKY = "Pinky"
 
