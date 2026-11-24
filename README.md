@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.67.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.67.1 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -14,6 +14,7 @@
 Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert das Hauptfenster mit den Reitern, die Einstellungen, den Datenspeicher, die Bausteine für die Oberfläche und den Austausch von Daten als Text-Code. Alle anderen Module bauen darauf auf.
 
 ### Funktionen
+- Ab 0.67.1: Charakteransicht: neues Goldfeld unter den Taschen (Grafik von Lacustat, `Media/Character/Money.tga` ersetzt, im richtigen Seitenverhältnis). Geänderte Grafik: **Spiel komplett neu starten**.
 - Ab 0.67.0: Charakteransicht: Werte/Ausrüstung und Taschen haben einen **schmalen braunen Rahmen** von Lacustat (`Media/Character/ThinBrownCorner.tga`/`ThinBrownSide.tga`, 32 x 32) statt der Holzkanten; Ecken gespiegelt, Seiten gedreht und gekachelt. Der große Rahmen nutzt denselben Baustein (`CS.TileFrame` mit Optionen). Neue Grafiken: **Spiel komplett neu starten**.
 - Ab 0.66.2: Rahmen für den Paladin (damit haben alle neun Klassen einen) und für die Untoten. Neue Grafiken: **Spiel komplett neu starten**.
 - Ab 0.66.1: Klassen-Rahmen von Lacustat für Magier, Hexenmeister, Schurke, Krieger, Druide, Schamane und Priester (dazu wie bisher Jäger). Paladin folgt. Neue Grafiken: **Spiel komplett neu starten**.
@@ -77,6 +78,7 @@ GPL-3.0, siehe `LICENSE`.
 The base addon of the Freewood family for World of Warcraft: Forever. It provides the main window with its tabs, the settings, data storage, the UI building blocks and the exchange of data as text codes. All other modules build on it.
 
 ### Features
+- Since 0.67.1: Character view: new gold field below the bags (graphic by Lacustat, `Media/Character/Money.tga` replaced, correct aspect ratio). Changed graphic: **restart the game completely**.
 - Since 0.67.0: Character view: stats/equipment and bags have a **thin brown frame** by Lacustat (`Media/Character/ThinBrownCorner.tga`/`ThinBrownSide.tga`, 32 x 32) instead of the wooden edges; corners mirrored, sides rotated and tiled. The large frame uses the same building block (`CS.TileFrame` with options). New graphics: **restart the game completely**.
 - Since 0.66.2: Frames for the paladin (all nine classes now have one) and for the undead. New graphics: **restart the game completely**.
 - Since 0.66.1: Class frames by Lacustat for mage, warlock, rogue, warrior, druid, shaman and priest (plus hunter as before). Paladin follows. New graphics: **restart the game completely**.

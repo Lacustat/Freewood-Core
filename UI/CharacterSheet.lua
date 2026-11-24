@@ -171,6 +171,7 @@ CS.SLICES = {
 -- Schmaler Rahmen um Werte und Taschen (0.67.0, Grafiken von Lacustat: Thin<Stil>Corner/Side.tga, 32 x 32):
 -- Ecke oben rechts, alle Ecken gespiegelt, Seiten gedreht und gekachelt. Der Rahmen der Grafik bleibt nur als Füllung.
 CS.THIN = { size = 32, style = "Brown" }
+CS.MONEY_ASPECT = 2108 / 261         -- Seitenverhältnis des Goldfelds (Money.tga)
 function CS.ThinFrame(holder)
     local thin = CS.TileFrame(holder, {
         size = CS.THIN.size, aspect = 1, flipBottom = true, layer = "ARTWORK",
@@ -870,7 +871,7 @@ local function Build()
     f.bagButtons = {}
     f.moneyBg = f.bags:CreateTexture(nil, "ARTWORK")
     f.moneyBg:SetTexture(MEDIA .. "Money.tga")
-    f.moneyBg:SetTexCoord(0, 1, 27 / 128, 104 / 128)
+    f.moneyBg:SetTexCoord(0, 1, 0, 1)      -- 0.67.1: neues Goldfeld von Lacustat, ohne Rand zugeschnitten (2108 x 261)
     f.money = f.bags:CreateFontString(nil, "OVERLAY")
     UI.SetFont(f.money, "body", 16)
     f.money:SetTextColor(0.95, 0.92, 0.85)
@@ -1131,7 +1132,8 @@ function CS.Layout()
     f.cats:SetPoint("TOPLEFT", f.bags, "TOPLEFT", math.max(420, bw * 0.5), -102)
     f.moneyBg:ClearAllPoints()
     f.moneyBg:SetPoint("BOTTOM", f.bags, "BOTTOM", 0, 14)
-    f.moneyBg:SetSize(math.min(bw * 0.7, 380), 44)
+    local mw = math.min(bw * 0.7, 380)
+    f.moneyBg:SetSize(mw, mw / CS.MONEY_ASPECT)
     f.money:ClearAllPoints()
     f.money:SetPoint("CENTER", f.moneyBg, "CENTER", 0, 0)
     f.bagsScroll:ClearAllPoints()
