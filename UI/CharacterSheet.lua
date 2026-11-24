@@ -172,6 +172,7 @@ CS.SLICES = {
 -- Ecke oben rechts, alle Ecken gespiegelt, Seiten gedreht und gekachelt. Der Rahmen der Grafik bleibt nur als Füllung.
 CS.THIN = { size = 32, style = "Brown" }
 CS.MONEY_ASPECT = 2108 / 261         -- Seitenverhältnis des Goldfelds (Money.tga)
+CS.TITLE_ASPECT = 2130 / 315         -- Seitenverhältnis der Titelleiste (BagTitle.tga)
 function CS.ThinFrame(holder)
     local thin = CS.TileFrame(holder, {
         size = CS.THIN.size, aspect = 1, flipBottom = true, layer = "ARTWORK",
@@ -830,7 +831,7 @@ local function Build()
     CS.ThinFrame(f.bags)
     f.bagTitle = f.bags:CreateTexture(nil, "ARTWORK")
     f.bagTitle:SetTexture(MEDIA .. "BagTitle.tga")
-    f.bagTitle:SetTexCoord(0, 1, 20 / 128, 109 / 128)
+    f.bagTitle:SetTexCoord(0, 1, 0, 1)     -- 0.67.2: neue Titelleiste von Lacustat, ohne Rand zugeschnitten (2130 x 315)
     f.bagTitleText = f.bags:CreateFontString(nil, "OVERLAY")
     UI.SetFont(f.bagTitleText, "heading", 20)
     f.bagTitleText:SetTextColor(1, 0.85, 0.45)
@@ -1110,7 +1111,8 @@ function CS.Layout()
     local bw = lay.bags.w
     f.bagTitle:ClearAllPoints()
     f.bagTitle:SetPoint("TOP", f.bags, "TOP", 0, 8)
-    f.bagTitle:SetSize(math.min(bw * 0.6, 420), 56)
+    local tw = math.min(bw * 0.6, 420)
+    f.bagTitle:SetSize(tw, tw / CS.TITLE_ASPECT)
     f.bagTitleText:ClearAllPoints()
     f.bagTitleText:SetPoint("CENTER", f.bagTitle, "CENTER", 0, 0)
     f.searchBg:ClearAllPoints()
