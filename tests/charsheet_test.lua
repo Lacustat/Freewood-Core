@@ -317,6 +317,23 @@ local br = win.frame.corners.BR.coord
 assert(br[1] == 0 and br[2] == 1 and br[3] == 0 and br[4] == 1, "unten rechts wie oben rechts")
 assert(#win.frame.pools.top > 0 and #win.frame.pools.left > 0, "Seiten aus Stücken")
 
+-- 0.67.0: schmale Rahmen um Werte und Taschen
+for _, panel in ipairs({ win.stats, win.bags }) do
+    assert(panel.thin and panel.thin.style == "Brown", "schmaler Rahmen da")
+    assert(panel.thin.corners.TR.tex:find("ThinBrownCorner.tga", 1, true), "Ecke braun")
+    panel.thin.w, panel.thin.h = 400, 300
+    panel:SetSliceScale(0.9)
+    assert(panel.parts[1].shown == false and panel.parts[2].shown == false and panel.parts[5].shown ~= false, "alte Kanten aus, Füllung bleibt")
+    local br = panel.thin.corners.BR.coord
+    assert(br[1] == 0 and br[2] == 1 and br[3] == 1 and br[4] == 0, "unten senkrecht gespiegelt")
+    local bl = panel.thin.corners.BL.coord
+    assert(bl[1] == 1 and bl[2] == 0 and bl[3] == 1 and bl[4] == 0, "unten links in beide Richtungen")
+    assert(#panel.thin.pools.top == math.ceil((400 - 64) / 32), "Kacheln oben: " .. #panel.thin.pools.top)
+end
+for _, part in ipairs({ "Corner", "Side" }) do
+    local fh = io.open("Media/Character/ThinBrown" .. part .. ".tga", "rb") assert(fh, "Grafik " .. part) fh:close()
+end
+
 -- 0.64.0: Umschalter Werte | Ausrüstung
 assert(win.statsScroll.shown ~= false and not win.gearHost.shown, "Standard: Werte")
 local built = 0

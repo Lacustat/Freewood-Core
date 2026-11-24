@@ -168,6 +168,20 @@ CS.SLICES = {
     BagFrame = { W = 512, H = 1024, x = { 2, 48, 466, 512 }, y = { 135, 181, 850, 896 } },
 }
 
+-- Schmaler Rahmen um Werte und Taschen (0.67.0, Grafiken von Lacustat: Thin<Stil>Corner/Side.tga, 32 x 32):
+-- Ecke oben rechts, alle Ecken gespiegelt, Seiten gedreht und gekachelt. Der Rahmen der Grafik bleibt nur als Füllung.
+CS.THIN = { size = 32, style = "Brown" }
+function CS.ThinFrame(holder)
+    local thin = CS.TileFrame(holder, {
+        size = CS.THIN.size, aspect = 1, flipBottom = true, layer = "ARTWORK",
+        path = function(style, part) return MEDIA .. "Thin" .. style .. part .. ".tga" end,
+    })
+    thin:SetAllPoints(holder)
+    thin:SetStyle(CS.THIN.style)
+    holder.thin = thin
+    return thin
+end
+
 -- Ein Rahmen aus 9 Texturen; frame:SetSliceScale(s) setzt die Bildschirmgröße der Ecken (Pixel * s)
 function CS.NineSlice(parent, name, layer)
     local sl = CS.SLICES[name]
@@ -183,6 +197,16 @@ function CS.NineSlice(parent, name, layer)
     end
     function holder:SetSliceScale(s)
         local p = self.parts
+        if self.thin then
+            -- nur die Füllung der Grafik (Mitte), dicht unter dem schmalen Rahmen; Ecken und Kanten aus
+            local inset = CS.THIN.size * s * 0.5
+            for i = 1, 9 do if i ~= 5 then p[i]:Hide() end end
+            p[5]:ClearAllPoints()
+            p[5]:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -inset)
+            p[5]:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -inset, inset)
+            self.thin:SetSliceScale(s / 0.9)
+            return
+        end
         local cw = (sl.x[2] - sl.x[1]) * s
         local cwr = (sl.x[4] - sl.x[3]) * s
         local ch = (sl.y[2] - sl.y[1]) * s
@@ -265,19 +289,25 @@ function CS.EdgePieces(len, seg)
     return list
 end
 
-function CS.TileFrame(parent)
+-- opts (0.67.0): size, aspect (Länge eines Seitenstücks je Dicke), path(style, "Corner"|"Side"), flipBottom
+-- (untere Ecken senkrecht gespiegelt statt aufrecht), layer. Ohne opts: der große Außenrahmen.
+local function FramePath(style, part) return MEDIA .. "Frames\\" .. style .. part .. ".tga" end
+function CS.TileFrame(parent, opts)
+    opts = opts or {}
+    local SIZE, ASPECT = opts.size or CS.FRAME.size, opts.aspect or CS.FRAME.aspect
+    local Path = opts.path or FramePath
+    local LAYER = opts.layer or "BORDER"
     local holder = CreateFrame("Frame", nil, parent)
     local corners = {}
-    for _, n in ipairs({ "TL", "TR", "BL", "BR" }) do corners[n] = holder:CreateTexture(nil, "BORDER", nil, 2) end
+    for _, n in ipairs({ "TL", "TR", "BL", "BR" }) do corners[n] = holder:CreateTexture(nil, LAYER, nil, 2) end
     local pools = { top = {}, bottom = {}, left = {}, right = {} }
     holder.corners, holder.pools = corners, pools
     holder.fs = 0.4
 
     function holder:SetStyle(name)
         self.style = name
-        local base = MEDIA .. "Frames\\" .. name
-        for _, tex in pairs(corners) do tex:SetTexture(base .. "Corner.tga") end
-        for _, pool in pairs(pools) do for _, tex in ipairs(pool) do tex:SetTexture(base .. "Side.tga") end end
+        for _, tex in pairs(corners) do tex:SetTexture(Path(name, "Corner")) end
+        for _, pool in pairs(pools) do for _, tex in ipairs(pool) do tex:SetTexture(Path(name, "Side")) end end
         self:Build()
     end
 
@@ -290,8 +320,8 @@ function CS.TileFrame(parent)
         local pool = pools[edge]
         local tex = pool[k]
         if not tex then
-            tex = holder:CreateTexture(nil, "BORDER", nil, 1)
-            if holder.style then tex:SetTexture(MEDIA .. "Frames\\" .. holder.style .. "Side.tga") end
+            tex = holder:CreateTexture(nil, LAYER, nil, 1)
+            if holder.style then tex:SetTexture(Path(holder.style, "Side")) end
             pool[k] = tex
         end
         return tex
@@ -300,13 +330,16 @@ function CS.TileFrame(parent)
     function holder:Build()
         local W, H = self:GetWidth() or 0, self:GetHeight() or 0
         if W <= 0 or H <= 0 then return end
-        local t = CS.FRAME.size * (self.fs or 0.4)
-        local seg = t * CS.FRAME.aspect
+        local t = SIZE * (self.fs or 0.4)
+        local seg = t * ASPECT
         self.thick = t
         for n, tex in pairs(corners) do
             tex:ClearAllPoints()
             tex:SetSize(t, t)
-            if n == "TL" or n == "BL" then tex:SetTexCoord(1, 0, 0, 1) else tex:SetTexCoord(0, 1, 0, 1) end
+            local l, r, tp, b = 0, 1, 0, 1
+            if n == "TL" or n == "BL" then l, r = 1, 0 end
+            if opts.flipBottom and (n == "BL" or n == "BR") then tp, b = 1, 0 end
+            tex:SetTexCoord(l, r, tp, b)
         end
         corners.TL:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0)
         corners.TR:SetPoint("TOPRIGHT", self, "TOPRIGHT", 0, 0)
@@ -759,6 +792,7 @@ local function Build()
 
     -- Werte
     f.stats = CS.NineSlice(f, "StatsFrame", "BORDER")
+    CS.ThinFrame(f.stats)
     f.statsTitle = f.stats:CreateFontString(nil, "OVERLAY")
     UI.SetFont(f.statsTitle, "heading", 20)
     f.statsTitle:SetTextColor(1, 0.85, 0.45)
@@ -792,6 +826,7 @@ local function Build()
 
     -- Taschen
     f.bags = CS.NineSlice(f, "BagFrame", "BORDER")
+    CS.ThinFrame(f.bags)
     f.bagTitle = f.bags:CreateTexture(nil, "ARTWORK")
     f.bagTitle:SetTexture(MEDIA .. "BagTitle.tga")
     f.bagTitle:SetTexCoord(0, 1, 20 / 128, 109 / 128)

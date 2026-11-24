@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.66.2 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.67.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -14,6 +14,7 @@
 Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert das Hauptfenster mit den Reitern, die Einstellungen, den Datenspeicher, die Bausteine für die Oberfläche und den Austausch von Daten als Text-Code. Alle anderen Module bauen darauf auf.
 
 ### Funktionen
+- Ab 0.67.0: Charakteransicht: Werte/Ausrüstung und Taschen haben einen **schmalen braunen Rahmen** von Lacustat (`Media/Character/ThinBrownCorner.tga`/`ThinBrownSide.tga`, 32 x 32) statt der Holzkanten; Ecken gespiegelt, Seiten gedreht und gekachelt. Der große Rahmen nutzt denselben Baustein (`CS.TileFrame` mit Optionen). Neue Grafiken: **Spiel komplett neu starten**.
 - Ab 0.66.2: Rahmen für den Paladin (damit haben alle neun Klassen einen) und für die Untoten. Neue Grafiken: **Spiel komplett neu starten**.
 - Ab 0.66.1: Klassen-Rahmen von Lacustat für Magier, Hexenmeister, Schurke, Krieger, Druide, Schamane und Priester (dazu wie bisher Jäger). Paladin folgt. Neue Grafiken: **Spiel komplett neu starten**.
 - Ab 0.66.0: Charakteransicht mit **wählbarem Rahmen** von Lacustat (`Media/Character/Frames/<Name>Corner.tga` und `<Name>Side.tga`): Ecke oben rechts, links gespiegelt, unten aufrecht; das Seitenteil wird gedreht und aus Stücken zusammengesetzt, das letzte abgeschnitten (passt zu jeder Bildschirmgröße). Rahmen für Orc, Tauren, Troll, Skyborne, Zwerg, Gnom, Mensch, Nachtelf, die Klasse Jäger und Pinky. Standard ist der Rahmen der eigenen Rasse (ohne eigenen Rahmen: Pinky). Die Auswahl „Rahmen“ oben rechts zeigt nur die eigene Rasse, die eigene Klasse und Pinky. Das X sitzt jetzt auf der oberen Leiste links neben der Ecke, damit das Motiv frei bleibt. Der bisherige Holzrahmen (`Wood*.tga`) ist entfernt. Neue Grafiken: **Spiel komplett neu starten**. Skyborne wird über den Rassennamen erkannt (im Spiel ungeprüft).
@@ -76,6 +77,7 @@ GPL-3.0, siehe `LICENSE`.
 The base addon of the Freewood family for World of Warcraft: Forever. It provides the main window with its tabs, the settings, data storage, the UI building blocks and the exchange of data as text codes. All other modules build on it.
 
 ### Features
+- Since 0.67.0: Character view: stats/equipment and bags have a **thin brown frame** by Lacustat (`Media/Character/ThinBrownCorner.tga`/`ThinBrownSide.tga`, 32 x 32) instead of the wooden edges; corners mirrored, sides rotated and tiled. The large frame uses the same building block (`CS.TileFrame` with options). New graphics: **restart the game completely**.
 - Since 0.66.2: Frames for the paladin (all nine classes now have one) and for the undead. New graphics: **restart the game completely**.
 - Since 0.66.1: Class frames by Lacustat for mage, warlock, rogue, warrior, druid, shaman and priest (plus hunter as before). Paladin follows. New graphics: **restart the game completely**.
 - Since 0.66.0: Character view with a **selectable frame** by Lacustat (`Media/Character/Frames/<Name>Corner.tga` and `<Name>Side.tga`): corner top right, mirrored on the left, upright at the bottom; the side piece is rotated and built from pieces, the last one cut (fits any screen size). Frames for orc, tauren, troll, skyborne, dwarf, gnome, human, night elf, the hunter class and Pinky. Default is the frame of your race (no own frame: Pinky). The "Frame" picker top right only shows your race, your class and Pinky. The X now sits on the top bar left of the corner so the motif stays visible. The old wooden frame (`Wood*.tga`) is removed. New graphics: **restart the game completely**. Skyborne is detected by the race name (not verified in game).
