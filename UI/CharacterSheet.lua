@@ -173,6 +173,7 @@ CS.SLICES = {
 CS.THIN = { size = 32, style = "Brown" }
 CS.MONEY_ASPECT = 2108 / 261         -- Seitenverhältnis des Goldfelds (Money.tga)
 CS.TITLE_ASPECT = 2130 / 315         -- Seitenverhältnis der Titelleiste (BagTitle.tga)
+CS.PLATE_ASPECT = 2144 / 415         -- Seitenverhältnis der Namensplakette (NamePlate.tga)
 function CS.ThinFrame(holder)
     local thin = CS.TileFrame(holder, {
         size = CS.THIN.size, aspect = 1, flipBottom = true, layer = "ARTWORK",
@@ -756,7 +757,7 @@ local function Build()
     -- Charakter
     f.plate = f:CreateTexture(nil, "ARTWORK")
     f.plate:SetTexture(MEDIA .. "NamePlate.tga")
-    f.plate:SetTexCoord(0, 1, 18 / 256, 232 / 256)
+    f.plate:SetTexCoord(0, 1, 0, 1)        -- 0.67.3: neue Plakette von Lacustat, ohne Rand zugeschnitten (2144 x 415)
     f.name = f:CreateFontString(nil, "OVERLAY")
     UI.SetFont(f.name, "heading", 26)
     f.name:SetTextColor(1, 0.85, 0.45)
@@ -1057,7 +1058,13 @@ function CS.Layout()
     end
 
     -- Charakter
-    Place(f.plate, lay.plate)
+    -- Plakette im eigenen Seitenverhältnis, mittig im Platz der Plakette (0.67.3)
+    do
+        local r = lay.plate
+        local w = math.min(r.w, r.h * CS.PLATE_ASPECT)
+        local h = w / CS.PLATE_ASPECT
+        Place(f.plate, { x = r.x + (r.w - w) / 2, y = r.y + (r.h - h) / 2, w = w, h = h })
+    end
     f.name:ClearAllPoints()
     f.name:SetPoint("CENTER", f.plate, "CENTER", 0, lay.plate.h * 0.14)
     f.level:ClearAllPoints()
