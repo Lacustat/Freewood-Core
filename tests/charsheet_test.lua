@@ -330,6 +330,7 @@ for _, panel in ipairs({ win.stats, win.bags }) do
     assert(bl[1] == 1 and bl[2] == 0 and bl[3] == 1 and bl[4] == 0, "unten links in beide Richtungen")
     assert(#panel.thin.pools.top == math.ceil((400 - 64) / 32), "Kacheln oben: " .. #panel.thin.pools.top)
 end
+assert(win.bagsTop and win.bagTitle and win.money, "Schilder auf eigener Ebene über dem Rahmen")
 for _, part in ipairs({ "Corner", "Side" }) do
     local fh = io.open("Media/Character/ThinBrown" .. part .. ".tga", "rb") assert(fh, "Grafik " .. part) fh:close()
 end
