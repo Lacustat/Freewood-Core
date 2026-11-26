@@ -36,6 +36,10 @@ function M.SetSize(f, w, h) f.w, f.h = w, h end
 function M.SetWidth(f, w) f.w = w end
 function M.SetHeight(f, h) f.h = h end
 function M.IsShown(f) return f.shown end
+function M.SetFont(f, path, size, flags) f.font = { path, size, flags } end
+function M.GetFont() return "Fonts\\FRIZQT__.TTF", 10 end
+function M.GetStringWidth(f) return #(f.text or "") * ((f.font and f.font[2]) or 10) * 0.5 end
+function M.SetShown(f, v) f.shown = v and true or false end
 local sliders = {}
 FW.UI = { RegisterSettingsSection = function(_, id, def) FW.section = { id = id, def = def } end,
     CreateLabel = function(_, t) return setmetatable({ text = t }, M) end,
@@ -49,7 +53,7 @@ FW.UI = { RegisterSettingsSection = function(_, id, def) FW.section = { id = id,
 assert(loadfile("UI/PetXP.lua"))("Freewood-Core", FW)
 local PX = FW.PetXP
 assert(PX.Num(1234567) == "1.234.567" and PX.Num(12) == "12", "Tausenderpunkt")
-assert(PX.Text(PX.Data()) == "Krallenfuss  ·  Stufe 23  ·  1.234 / 5.000 (24 %)", PX.Text(PX.Data()))
+assert(PX.Text(PX.Data()) == "Krallenfuss  ·  Stufe 23  ·  1.234 / 5.000  ·  24 %", PX.Text(PX.Data()))
 events.UNIT_PET("player")
 local f = PX.frame
 assert(f and f.shown and f.bar.value == 1234 and f.bar.max == 5000, "Balken gezeigt")
@@ -127,6 +131,42 @@ panel.combat.set(true)
 assert(PX.Opts().combat == true, "Haken Kampf")
 PX.Opts().w = 9999
 assert(PX.Opts().w == 600, "Breite begrenzt")
+-- 0.68.2: Textteile wählbar, Schrift skaliert mit dem Balken
+local o = PX.Opts()
+o.w, o.h = 400, 20
+o.tName, o.tLevel, o.tXP, o.tPct = false, false, false, true
+pet.cur, pet.max, pet.level = 2500, 5000, 20
+PX.Update()
+assert(f.text.text == "50 %", "nur Prozent: " .. tostring(f.text.text))
+assert(f.text.font[2] == 14 and f.text.font[3] == "OUTLINE", "Schrift 70 % der Höhe")
+o.h = 40 PX.Update()
+assert(f.text.font[2] == 28, "größer mit dem Balken")
+o.h = 10 PX.Update()
+assert(f.text.font[2] == 7, "kleiner mit dem Balken")
+o.tName, o.tLevel, o.tXP, o.tPct = true, false, false, false
+PX.Update()
+assert(f.text.text == "Krallenfuss", "nur Name")
+o.tName, o.tLevel = false, true
+PX.Update()
+assert(f.text.text == "Stufe 20", "nur Stufe")
+o.tLevel, o.tXP = false, true
+PX.Update()
+assert(f.text.text == "2.500 / 5.000", "nur Zahlen")
+o.tXP = false
+PX.Update()
+assert(f.text.text == "" and f.text.shown == false and f.shown, "ohne Text: nur der Balken")
+-- langer Text in schmalem Balken: Schrift wird kleiner
+o.tName, o.tLevel, o.tXP, o.tPct = true, true, true, true
+o.w, o.h = 120, 30
+PX.Update()
+assert(f.text.font[2] < 21, "passt in die Breite: " .. f.text.font[2])
+assert(PX.FontSize(20) == 14 and PX.FontSize(100) == 28 and PX.FontSize(2) == 6, "Grenzen")
+assert(#panel.parts == 4, "vier Haken für den Text")
+panel.parts[4].set(false)
+assert(PX.Opts().tPct == false, "Haken Prozent")
+o.w, o.h = 260, 18
+o.tName, o.tLevel, o.tXP, o.tPct = true, true, true, true
+
 -- ohne Class-Modul: Abschnitt unter Oberfläche
 _G.C_AddOns = { IsAddOnLoaded = function(n) return n == "Freewood-Class" end }
 events.PLAYER_LOGIN()

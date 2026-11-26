@@ -18,8 +18,9 @@ FW:AddLocale("enUS", {
     PETXP_ON = "Show a small experience bar for my pet",
     PETXP_RESET = "Back to the centre",
     PETXP_INFO = "Shows level and experience of your active hunter pet. Move it with Shift + left mouse button (drag). The position is saved per character; /fwpetxp reset puts it back to the centre of the screen.",
-    PETXP_TEXT = "%s  ·  Level %d  ·  %s / %s (%d %%)",
-    PETXP_MAX = "%s  ·  Level %d",
+    PETXP_LEVEL = "Level %d",
+    PETXP_SHOW = "Text on the bar:", PETXP_T_NAME = "Name", PETXP_T_LEVEL = "Level",
+    PETXP_T_XP = "Experience (numbers)", PETXP_T_PCT = "Percent",
     PETXP_TIP = "Shift + drag: move",
     PETXP_COMBAT = "Visible in combat",
     PETXP_WIDTH = "Width: %d", PETXP_HEIGHT = "Height: %d",
@@ -29,8 +30,9 @@ FW:AddLocale("deDE", {
     PETXP_ON = "Kleinen Erfahrungsbalken für meinen Begleiter zeigen",
     PETXP_RESET = "Zurück in die Mitte",
     PETXP_INFO = "Zeigt Stufe und Erfahrung deines aktiven Jäger-Begleiters. Verschieben mit Shift + linker Maustaste (ziehen). Die Position wird je Charakter gespeichert; /fwpetxp reset setzt ihn zurück in die Bildschirmmitte.",
-    PETXP_TEXT = "%s  ·  Stufe %d  ·  %s / %s (%d %%)",
-    PETXP_MAX = "%s  ·  Stufe %d",
+    PETXP_LEVEL = "Stufe %d",
+    PETXP_SHOW = "Text auf dem Balken:", PETXP_T_NAME = "Name", PETXP_T_LEVEL = "Stufe",
+    PETXP_T_XP = "Erfahrung (Zahlen)", PETXP_T_PCT = "Prozent",
     PETXP_TIP = "Shift + ziehen: verschieben",
     PETXP_COMBAT = "Im Kampf sichtbar",
     PETXP_WIDTH = "Breite: %d", PETXP_HEIGHT = "Höhe: %d",
@@ -55,6 +57,8 @@ function PX.Opts()
     local o = c.petxp
     if o.on == nil then o.on = true end
     if o.combat == nil then o.combat = true end
+    -- 0.68.2: Teile des Textes (alle aus = nur der Balken)
+    for _, k in ipairs({ "tName", "tLevel", "tXP", "tPct" }) do if o[k] == nil then o[k] = true end end
     o.w = math.max(PX.W_MIN, math.min(PX.W_MAX, tonumber(o.w) or W))
     o.h = math.max(PX.H_MIN, math.min(PX.H_MAX, tonumber(o.h) or H))
     return o
@@ -89,11 +93,41 @@ function PX.Data()
     return { cur = cur, max = max, level = level, name = name }
 end
 
+-- Text aus den gewählten Teilen (Name, Stufe, Zahlen, Prozent); auf Höchststufe ohne Zahlen und Prozent
 function PX.Text(d)
     if not d then return "" end
-    if d.max <= 0 then return string.format(L().PETXP_MAX, d.name, d.level) end
-    local pct = math.floor(d.cur / d.max * 100)
-    return string.format(L().PETXP_TEXT, d.name, d.level, PX.Num(d.cur), PX.Num(d.max), pct)
+    local o = PX.Opts()
+    local parts = {}
+    if o.tName then parts[#parts + 1] = d.name end
+    if o.tLevel then parts[#parts + 1] = string.format(L().PETXP_LEVEL, d.level) end
+    if d.max > 0 then
+        if o.tXP then parts[#parts + 1] = PX.Num(d.cur) .. " / " .. PX.Num(d.max) end
+        if o.tPct then parts[#parts + 1] = math.floor(d.cur / d.max * 100) .. " %" end
+    end
+    return table.concat(parts, "  ·  ")
+end
+
+-- Schriftgröße passend zum Balken: 70 % der Höhe (6 bis 28), schmaler, wenn der Text nicht in die Breite passt
+function PX.FontSize(h, textWidth, barWidth, current)
+    local size = math.max(6, math.min(28, math.floor(h * 0.7 + 0.5)))
+    if textWidth and current and current > 0 and barWidth and barWidth > 8 then
+        local need = textWidth * size / current
+        if need > barWidth - 8 then size = math.max(6, math.floor(size * (barWidth - 8) / need)) end
+    end
+    return size
+end
+
+function PX.ApplyFont(f)
+    f = f or frame
+    if not (f and f.text) then return end
+    local font = f.fontPath or "Fonts\\FRIZQT__.TTF"
+    local o = PX.Opts()
+    local size = PX.FontSize(o.h)
+    f.text:SetFont(font, size, "OUTLINE")
+    local tw = f.text.GetStringWidth and f.text:GetStringWidth() or nil
+    local fit = PX.FontSize(o.h, tw, o.w, size)
+    if fit ~= size then f.text:SetFont(font, fit, "OUTLINE") end
+    f.fontSize = fit
 end
 
 local frame
@@ -145,6 +179,7 @@ local function Build()
     f.border = border
     f.text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.text:SetPoint("CENTER", bar, "CENTER", 0, 0)
+    if f.text.GetFont then f.fontPath = f.text:GetFont() end
     f:SetScript("OnDragStart", function(self)
         if G.IsShiftKeyDown and G.IsShiftKeyDown() then self.moving = true self:StartMoving() end
     end)
@@ -201,7 +236,10 @@ function PX.Update()
     local max = d.max > 0 and d.max or 1
     f.bar:SetMinMaxValues(0, max)
     f.bar:SetValue(d.max > 0 and d.cur or max)
-    f.text:SetText(PX.Text(d))
+    local t = PX.Text(d)
+    f.text:SetText(t)
+    f.text:SetShown(t ~= "")
+    PX.ApplyFont(f)
     f:Show()
 end
 
@@ -247,6 +285,19 @@ function PX.BuildPanel(parent, width)
         PX.Update()
     end)
     Put(f.combat, 22, 10)
+    f.showLabel = UI.CreateLabel(f, Lx.PETXP_SHOW, { size = 12, color = "gold" })
+    Put(f.showLabel, 14, 4)
+    f.parts = {}
+    for _, k in ipairs({ { "tName", "PETXP_T_NAME" }, { "tLevel", "PETXP_T_LEVEL" }, { "tXP", "PETXP_T_XP" }, { "tPct", "PETXP_T_PCT" } }) do
+        local key = k[1]
+        local cb = UI.CreateCheckbox(f, Lx[k[2]], function() return PX.Opts()[key] end, function(v)
+            PX.Opts()[key] = v and true or false
+            PX.Update()
+        end)
+        Put(cb, 22, 2)
+        f.parts[#f.parts + 1] = cb
+    end
+    y = y + 8
     local function SizeSlider(key, textKey, lo, hi, step)
         local label = UI.CreateLabel(f, "", { size = 12 })
         Put(label, 14, 4)
@@ -258,7 +309,12 @@ function PX.BuildPanel(parent, width)
         sl.onText = function(v)
             label:SetText(string.format(Lx[textKey], v))
             if frame and frame:IsShown() then
+                local o = PX.Opts()
+                local keep = o[key]
+                o[key] = v
                 if key == "w" then frame:SetWidth(v) else frame:SetHeight(v) end
+                PX.ApplyFont(frame)
+                o[key] = keep
             end
         end
         Put(sl, 20, 10)
@@ -276,6 +332,7 @@ function PX.BuildPanel(parent, width)
     f:SetHeight(y)
     function f:Refresh()
         for _, w in ipairs({ self.on, self.combat, self.width, self.height }) do if w.Refresh then w:Refresh() end end
+        for _, w in ipairs(self.parts) do if w.Refresh then w:Refresh() end end
     end
     f:Refresh()
     return f
@@ -293,7 +350,7 @@ function PX.RegisterFallback()
     UI:RegisterSettingsSection("petxp", {
         category = "interface",
         order = 30,
-        height = 300,
+        height = 420,
         build = function(parent)
             local f, stack = UI.CreateSection(parent, L().PETXP_TITLE)
             local panel = PX.BuildPanel(f, 340)

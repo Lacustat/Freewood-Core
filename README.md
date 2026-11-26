@@ -1,6 +1,6 @@
 # Freewood Core
 
-**English · Deutsch** — Author: Lacustat · Version 0.68.1 · Interface 16001 (World of Warcraft: Forever)
+**English · Deutsch** — Author: Lacustat · Version 0.68.2 · Interface 16001 (World of Warcraft: Forever)
 
 ## Contents · Inhalt
 - [English](#english)
