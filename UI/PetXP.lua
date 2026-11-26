@@ -1,6 +1,8 @@
 -- Freewood-Core: kleiner Erfahrungsbalken für den Jäger-Begleiter (0.68.0)
 -- Zeigt Stufe und Erfahrung des aktiven Begleiters (GetPetExperience), ohne das Begleiterfenster zu öffnen.
 -- Standardplatz: Bildschirmmitte. Verschieben mit Shift + linker Maustaste (ziehen), Position je Charakter.
+-- Ab 0.68.1: nur für Jäger, unsichtbar wenn der Begleiter so hoch ist wie du, Breite/Höhe einstellbar, im Kampf wählbar.
+-- Die Einstellungen liegen im Reiter Klassen > Jäger > Pet-Regler (Freewood-Class), ohne Class-Modul unter Einstellungen > Oberfläche.
 -- Nur Lesen, keine geschützten Funktionen; Werte werden auf Secret geprüft.
 -- Copyright (C) 2026 Lacustat. GPL-3.0-or-later.
 
@@ -19,6 +21,8 @@ FW:AddLocale("enUS", {
     PETXP_TEXT = "%s  ·  Level %d  ·  %s / %s (%d %%)",
     PETXP_MAX = "%s  ·  Level %d",
     PETXP_TIP = "Shift + drag: move",
+    PETXP_COMBAT = "Visible in combat",
+    PETXP_WIDTH = "Width: %d", PETXP_HEIGHT = "Height: %d",
 })
 FW:AddLocale("deDE", {
     PETXP_TITLE = "Begleiter-Erfahrungsbalken",
@@ -28,9 +32,12 @@ FW:AddLocale("deDE", {
     PETXP_TEXT = "%s  ·  Stufe %d  ·  %s / %s (%d %%)",
     PETXP_MAX = "%s  ·  Stufe %d",
     PETXP_TIP = "Shift + ziehen: verschieben",
+    PETXP_COMBAT = "Im Kampf sichtbar",
+    PETXP_WIDTH = "Breite: %d", PETXP_HEIGHT = "Höhe: %d",
 })
 
 local W, H = 260, 18
+PX.W_MIN, PX.W_MAX, PX.H_MIN, PX.H_MAX = 120, 600, 10, 40
 
 local function L() return FW.L end
 local function Secret(v) return FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(v) end
@@ -47,6 +54,9 @@ function PX.Opts()
     c.petxp = c.petxp or {}
     local o = c.petxp
     if o.on == nil then o.on = true end
+    if o.combat == nil then o.combat = true end
+    o.w = math.max(PX.W_MIN, math.min(PX.W_MAX, tonumber(o.w) or W))
+    o.h = math.max(PX.H_MIN, math.min(PX.H_MAX, tonumber(o.h) or H))
     return o
 end
 
@@ -64,7 +74,13 @@ function PX.Num(n)
 end
 
 -- Daten des Begleiters: nil, wenn kein Begleiter mit Erfahrung da ist
+function PX.IsHunter()
+    local _, token = Call(G.UnitClass, "player")
+    return token == "HUNTER"
+end
+
 function PX.Data()
+    if not PX.IsHunter() then return nil end
     if not Call(G.UnitExists, "pet") then return nil end
     local cur, max = Call(G.GetPetExperience)
     if type(cur) ~= "number" or type(max) ~= "number" then return nil end
@@ -103,7 +119,7 @@ end
 local function Build()
     if frame then return frame end
     local f = CreateFrame("Frame", "FreewoodPetXPBar", G.UIParent)
-    f:SetSize(W, H)
+    f:SetSize(PX.Opts().w, PX.Opts().h)
     f:SetFrameStrata("MEDIUM")
     f:SetClampedToScreen(true)
     f:SetMovable(true)
@@ -156,17 +172,32 @@ local function Build()
     return f
 end
 
-function PX.Update()
-    if not PX.Opts().on then
-        if frame then frame:Hide() end
-        return
-    end
+-- Soll der Balken jetzt zu sehen sein? (Daten oder nil, Grund)
+function PX.Visible()
+    local o = PX.Opts()
+    if not o.on then return nil, "off" end
     local d = PX.Data()
+    if not d then return nil, "nopet" end
+    local me = Call(G.UnitLevel, "player")
+    if type(me) == "number" and d.level >= me then return nil, "level" end
+    if not o.combat and (PX.inCombat or Call(G.InCombatLockdown)) then return nil, "combat" end
+    return d
+end
+
+function PX.ApplySize()
+    if not frame then return end
+    local o = PX.Opts()
+    frame:SetSize(o.w, o.h)
+end
+
+function PX.Update()
+    local d = PX.Visible()
     if not d then
         if frame then frame:Hide() end
         return
     end
     local f = Build()
+    PX.ApplySize()
     local max = d.max > 0 and d.max or 1
     f.bar:SetMinMaxValues(0, max)
     f.bar:SetValue(d.max > 0 and d.cur or max)
@@ -174,9 +205,11 @@ function PX.Update()
     f:Show()
 end
 
-for _, ev in ipairs({ "PLAYER_ENTERING_WORLD", "UNIT_PET", "UNIT_PET_EXPERIENCE", "PET_UI_UPDATE", "UNIT_LEVEL", "UNIT_NAME_UPDATE" }) do
+FW:RegisterEvent("PLAYER_REGEN_DISABLED", function() PX.inCombat = true PX.Update() end)
+FW:RegisterEvent("PLAYER_REGEN_ENABLED", function() PX.inCombat = false PX.Update() end)
+for _, ev in ipairs({ "PLAYER_ENTERING_WORLD", "UNIT_PET", "UNIT_PET_EXPERIENCE", "PET_UI_UPDATE", "UNIT_LEVEL", "UNIT_NAME_UPDATE", "PLAYER_LEVEL_UP" }) do
     FW:RegisterEvent(ev, function(unit)
-        if (ev == "UNIT_LEVEL" or ev == "UNIT_NAME_UPDATE") and unit ~= "pet" then return end
+        if (ev == "UNIT_LEVEL" or ev == "UNIT_NAME_UPDATE") and unit ~= "pet" and unit ~= "player" then return end
         PX.Update()
     end)
 end
@@ -190,23 +223,86 @@ G.SlashCmdList.FREEWOODPETXP = function(msg)
     PX.Update()
 end
 
-if UI and UI.RegisterSettingsSection then
+-- Einstellungsfeld, das andere Module einbauen (Klassen > Jäger > Pet-Regler). Rückgabe: Frame mit :Refresh(), .fwHeight
+function PX.BuildPanel(parent, width)
+    local Lx = L()
+    local f = CreateFrame("Frame", nil, parent)
+    width = width or 360
+    f:SetSize(width, 10)
+    local y = 0
+    local function Put(w, h, gap)
+        w:ClearAllPoints()
+        w:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -y)
+        y = y + (h or 24) + (gap or 6)
+    end
+    f.title = UI.CreateLabel(f, Lx.PETXP_TITLE, { font = "heading", size = 13, color = "goldLight" })
+    Put(f.title, 18, 6)
+    f.on = UI.CreateCheckbox(f, Lx.PETXP_ON, function() return PX.Opts().on end, function(v)
+        PX.Opts().on = v and true or false
+        PX.Update()
+    end)
+    Put(f.on, 22, 4)
+    f.combat = UI.CreateCheckbox(f, Lx.PETXP_COMBAT, function() return PX.Opts().combat end, function(v)
+        PX.Opts().combat = v and true or false
+        PX.Update()
+    end)
+    Put(f.combat, 22, 10)
+    local function SizeSlider(key, textKey, lo, hi, step)
+        local label = UI.CreateLabel(f, "", { size = 12 })
+        Put(label, 14, 4)
+        local sl = UI.CreateSlider(f, math.min(width, 320), {
+            min = lo, max = hi, step = step,
+            get = function() return PX.Opts()[key] end,
+            set = function(v) PX.Opts()[key] = v PX.ApplySize() PX.Update() end,
+        })
+        sl.onText = function(v)
+            label:SetText(string.format(Lx[textKey], v))
+            if frame and frame:IsShown() then
+                if key == "w" then frame:SetWidth(v) else frame:SetHeight(v) end
+            end
+        end
+        Put(sl, 20, 10)
+        return sl
+    end
+    f.width = SizeSlider("w", "PETXP_WIDTH", PX.W_MIN, PX.W_MAX, 10)
+    f.height = SizeSlider("h", "PETXP_HEIGHT", PX.H_MIN, PX.H_MAX, 1)
+    f.reset = UI.CreateButton(f, Lx.PETXP_RESET, 180, 24, function() PX.ResetPos() end, "default")
+    Put(f.reset, 24, 8)
+    f.info = UI.CreateLabel(f, Lx.PETXP_INFO, { size = 11, color = "textDim", justifyV = "TOP" })
+    f.info:SetWordWrap(true)
+    f.info:SetWidth(width)
+    Put(f.info, 42, 0)
+    f.fwHeight = y
+    f:SetHeight(y)
+    function f:Refresh()
+        for _, w in ipairs({ self.on, self.combat, self.width, self.height }) do if w.Refresh then w:Refresh() end end
+    end
+    f:Refresh()
+    return f
+end
+
+-- Ohne Class-Modul: Abschnitt unter Einstellungen > Oberfläche
+local function ClassLoaded()
+    local fn = (G.C_AddOns and G.C_AddOns.IsAddOnLoaded) or G.IsAddOnLoaded
+    return fn and Call(fn, "Freewood-Class") and true or false
+end
+
+function PX.RegisterFallback()
+    if PX.fallback or ClassLoaded() or not (UI and UI.RegisterSettingsSection) then return end
+    PX.fallback = true
     UI:RegisterSettingsSection("petxp", {
         category = "interface",
         order = 30,
-        height = 120,
+        height = 300,
         build = function(parent)
-            local Lx = L()
-            local f, stack = UI.CreateSection(parent, Lx.PETXP_TITLE)
-            f.on = UI.CreateCheckbox(f, Lx.PETXP_ON, function() return PX.Opts().on end, function(v)
-                PX.Opts().on = v and true or false
-                PX.Update()
-            end)
-            stack:Add(f.on, { fit = true })
-            stack:Add(UI.CreateButton(f, Lx.PETXP_RESET, 180, 24, function() PX.ResetPos() end, "default"), { height = 24, gap = 6 })
-            if f.AddInfo then f:AddInfo(Lx.PETXP_INFO) end
+            local f, stack = UI.CreateSection(parent, L().PETXP_TITLE)
+            local panel = PX.BuildPanel(f, 340)
+            panel.title:Hide()
+            stack:Add(panel, { height = panel.fwHeight })
+            f.panel = panel
             return f
         end,
-        refresh = function(frame) if frame and frame.on and frame.on.Refresh then frame.on:Refresh() end end,
+        refresh = function(frame) if frame and frame.panel then frame.panel:Refresh() end end,
     })
 end
+FW:RegisterEvent("PLAYER_LOGIN", function() PX.RegisterFallback() end)

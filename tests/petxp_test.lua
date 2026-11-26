@@ -25,11 +25,27 @@ _G.GetLocale = function() return "deDE" end
 local pet = { exists = true, cur = 1234, max = 5000, level = 23, name = "Krallenfuss" }
 _G.UnitExists = function(u) return u == "pet" and pet.exists end
 _G.GetPetExperience = function() return pet.cur, pet.max end
-_G.UnitLevel = function() return pet.level end
+local me = { level = 30, class = "HUNTER", combat = false }
+_G.UnitLevel = function(u) if u == "player" then return me.level end return pet.level end
+_G.UnitClass = function() return "Jäger", me.class end
+_G.InCombatLockdown = function() return me.combat end
 _G.UnitName = function() return pet.name end
 local shift = false
 _G.IsShiftKeyDown = function() return shift end
-FW.UI = { RegisterSettingsSection = function(_, id, def) FW.section = { id = id, def = def } end }
+function M.SetSize(f, w, h) f.w, f.h = w, h end
+function M.SetWidth(f, w) f.w = w end
+function M.SetHeight(f, h) f.h = h end
+function M.IsShown(f) return f.shown end
+local sliders = {}
+FW.UI = { RegisterSettingsSection = function(_, id, def) FW.section = { id = id, def = def } end,
+    CreateLabel = function(_, t) return setmetatable({ text = t }, M) end,
+    CreateCheckbox = function(_, label, get, set) local c = setmetatable({ label = label, get = get, set = set }, M) return c end,
+    CreateButton = function(_, t, w, h, fn) return setmetatable({ text = t, click = fn }, M) end,
+    CreateSlider = function(_, w, o) local sl = setmetatable({ opts = o }, M)
+        function sl:Refresh() if self.onText then self.onText(o.get()) end end
+        sliders[#sliders + 1] = sl return sl end,
+    CreateSection = function() return setmetatable({}, M), { Add = function() end } end,
+}
 assert(loadfile("UI/PetXP.lua"))("Freewood-Core", FW)
 local PX = FW.PetXP
 assert(PX.Num(1234567) == "1.234.567" and PX.Num(12) == "12", "Tausenderpunkt")
@@ -78,5 +94,44 @@ _G.SlashCmdList.FREEWOODPETXP("")
 assert(PX.Opts().on == false and not f.shown, "abgeschaltet")
 _G.SlashCmdList.FREEWOODPETXP("")
 assert(f.shown, "wieder an")
-assert(FW.section and FW.section.def.category == "interface", "Einstellungen unter Oberfläche")
+-- 0.68.1: nur Jäger, nicht bei gleicher Stufe, im Kampf wählbar, Größe
+assert(f.w == 260 and f.h == 18, "Standardgröße")
+pet.level = 30
+PX.Update()
+assert(not f.shown, "Begleiter so hoch wie ich: unsichtbar")
+pet.level = 29
+PX.Update()
+assert(f.shown, "eine Stufe darunter: sichtbar")
+me.class = "WARRIOR"
+PX.Update()
+assert(not f.shown, "kein Jäger: unsichtbar")
+me.class = "HUNTER"
+PX.Update()
+me.combat = true
+events.PLAYER_REGEN_DISABLED()
+assert(f.shown, "im Kampf sichtbar (Standard)")
+PX.Opts().combat = false
+PX.Update()
+assert(not f.shown, "im Kampf aus")
+me.combat = false
+events.PLAYER_REGEN_ENABLED()
+assert(f.shown, "nach dem Kampf wieder da")
+-- Einstellungsfeld
+local panel = PX.BuildPanel(setmetatable({}, M), 360)
+assert(panel.fwHeight > 150 and #sliders == 2, "Feld mit zwei Reglern")
+assert(sliders[1].opts.min == 120 and sliders[2].opts.max == 40, "Grenzen")
+sliders[1].opts.set(400)
+sliders[2].opts.set(24)
+assert(PX.Opts().w == 400 and f.w == 400 and f.h == 24, "Größe übernommen")
+panel.combat.set(true)
+assert(PX.Opts().combat == true, "Haken Kampf")
+PX.Opts().w = 9999
+assert(PX.Opts().w == 600, "Breite begrenzt")
+-- ohne Class-Modul: Abschnitt unter Oberfläche
+_G.C_AddOns = { IsAddOnLoaded = function(n) return n == "Freewood-Class" end }
+events.PLAYER_LOGIN()
+assert(FW.section == nil, "mit Class-Modul kein Abschnitt im Core")
+_G.C_AddOns = { IsAddOnLoaded = function() return false end }
+PX.RegisterFallback()
+assert(FW.section and FW.section.def.category == "interface", "ohne Class-Modul unter Oberfläche")
 io.write("petxp_test: ok\n")
