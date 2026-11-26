@@ -1,6 +1,6 @@
 # Freewood-Core
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.67.4 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.68.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -14,6 +14,7 @@
 Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert das Hauptfenster mit den Reitern, die Einstellungen, den Datenspeicher, die Bausteine für die Oberfläche und den Austausch von Daten als Text-Code. Alle anderen Module bauen darauf auf.
 
 ### Funktionen
+- Ab 0.68.0: Kleiner **Erfahrungsbalken für den Jäger-Begleiter** (`UI/PetXP.lua`): Name, Stufe, Erfahrung und Prozent, ohne das Begleiterfenster zu öffnen. Standardplatz Bildschirmmitte, verschieben mit **Shift + linker Maustaste** (ziehen), Position je Charakter. Ein/Aus und „Zurück in die Mitte“ unter Einstellungen > Oberfläche, `/fwpetxp` schaltet um, `/fwpetxp reset` setzt zurück. Ohne Begleiter unsichtbar. Neue Datei: **Spiel komplett neu starten**. Im Spiel ungeprüft.
 - Ab 0.67.4: Charakteransicht: Titelleiste „Taschen“ und Goldfeld liegen jetzt über dem schmalen Rahmen statt dahinter.
 - Ab 0.67.3: Charakteransicht: neue Namensplakette (Grafik von Lacustat, `Media/Character/NamePlate.tga` ersetzt), jetzt im eigenen Seitenverhältnis mittig über dem Charakter statt gestreckt. Geänderte Grafik: **Spiel komplett neu starten**.
 - Ab 0.67.2: Charakteransicht: neue Titelleiste „Taschen“ (Grafik von Lacustat, `Media/Character/BagTitle.tga` ersetzt, im richtigen Seitenverhältnis). Geänderte Grafik: **Spiel komplett neu starten**.
@@ -81,6 +82,7 @@ GPL-3.0, siehe `LICENSE`.
 The base addon of the Freewood family for World of Warcraft: Forever. It provides the main window with its tabs, the settings, data storage, the UI building blocks and the exchange of data as text codes. All other modules build on it.
 
 ### Features
+- Since 0.68.0: Small **experience bar for the hunter pet** (`UI/PetXP.lua`): name, level, experience and percent without opening the pet window. Default position centre of the screen, move with **Shift + left mouse button** (drag), position per character. On/off and "Back to the centre" under Settings > Interface, `/fwpetxp` toggles, `/fwpetxp reset` resets. Hidden without a pet. New file: **restart the game completely**. Not verified in game.
 - Since 0.67.4: Character view: the "Bags" title bar and the gold field now sit above the thin frame instead of behind it.
 - Since 0.67.3: Character view: new name plate (graphic by Lacustat, `Media/Character/NamePlate.tga` replaced), now in its own aspect ratio centred above the character instead of stretched. Changed graphic: **restart the game completely**.
 - Since 0.67.2: Character view: new "Bags" title bar (graphic by Lacustat, `Media/Character/BagTitle.tga` replaced, correct aspect ratio). Changed graphic: **restart the game completely**.
