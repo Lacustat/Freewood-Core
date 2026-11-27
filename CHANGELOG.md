@@ -2,7 +2,7 @@
 
 Die vollständige bisherige Beschreibung mit allen Versionseinträgen (vorher README.md). The complete previous description with all version entries (formerly README.md). Kurzfassung · Summary: [README.md](README.md).
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.68.2 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.69.0 · Interface 16001 (World of Warcraft: Forever).
 
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
@@ -16,6 +16,7 @@ Die vollständige bisherige Beschreibung mit allen Versionseinträgen (vorher RE
 Das Basis-Addon der Freewood-Familie für World of Warcraft: Forever. Es liefert das Hauptfenster mit den Reitern, die Einstellungen, den Datenspeicher, die Bausteine für die Oberfläche und den Austausch von Daten als Text-Code. Alle anderen Module bauen darauf auf.
 
 ### Funktionen
+- Ab 0.69.0: Weltweites Freewood-Netz: verborgener Kanal FreewoodNet nur für die Mitgliederliste (wer ist online, nur eigene Fraktion, Namen nur im Speicher), Einstellung „Daten mit anderen Freewood-Spielern tauschen (weltweit, unsichtbar)“ (Standard an), /fwnet. Admin-Liste (8 Charaktere, je Realm erweiterbar) als Empfänger der Entwickler-Daten; ist ein Admin online, gehen die Daten zuerst an ihn (Posteingang), nach 1 bis 10 Minuten. Es werden nur neue Datensätze gesendet (Delta), einmal je Woche alles.
 - Ab 0.68.2: Begleiter-Erfahrungsbalken: **Text wählbar** mit vier Haken (Name, Stufe, Erfahrung in Zahlen, Prozent; frei kombinierbar, alle aus = nur der Balken). Die **Schrift skaliert mit dem Balken** (70 % der Höhe, 6 bis 28) und wird kleiner, wenn der Text nicht in die Breite passt; Umriss für bessere Lesbarkeit. Einstellungen unter Klassen > Jäger > Pet-Regler.
 - Ab 0.68.1: Begleiter-Erfahrungsbalken: nur noch für **Jäger**, unsichtbar, wenn der Begleiter **deine Stufe** erreicht hat, **Breite** (120–600) und **Höhe** (10–40) einstellbar, Haken **„Im Kampf sichtbar“**. Die Einstellungen liegen jetzt im Reiter **Klassen > Jäger > Pet-Regler** (Freewood-Class 0.5.0); ohne Class-Modul weiter unter Einstellungen > Oberfläche.
 - Ab 0.68.0: Kleiner **Erfahrungsbalken für den Jäger-Begleiter** (`UI/PetXP.lua`): Name, Stufe, Erfahrung und Prozent, ohne das Begleiterfenster zu öffnen. Standardplatz Bildschirmmitte, verschieben mit **Shift + linker Maustaste** (ziehen), Position je Charakter. Ein/Aus und „Zurück in die Mitte“ unter Einstellungen > Oberfläche, `/fwpetxp` schaltet um, `/fwpetxp reset` setzt zurück. Ohne Begleiter unsichtbar. Neue Datei: **Spiel komplett neu starten**. Im Spiel ungeprüft.
@@ -86,6 +87,7 @@ GPL-3.0, siehe `LICENSE`.
 The base addon of the Freewood family for World of Warcraft: Forever. It provides the main window with its tabs, the settings, data storage, the UI building blocks and the exchange of data as text codes. All other modules build on it.
 
 ### Features
+- Since 0.69.0: Worldwide Freewood network: hidden channel FreewoodNet only for the member list (who is online, own faction only, names kept in memory only), setting "Exchange data with other Freewood players (worldwide, invisible)" (on by default), /fwnet. Admin list (8 characters, extendable per realm) as receivers of the developer data; when an admin is online the data goes to him first (inbox), after 1 to 10 minutes. Only new records are sent (delta), everything once a week.
 - Since 0.68.2: Pet experience bar: **text selectable** with four checkboxes (name, level, experience in numbers, percent; freely combinable, all off = bar only). The **font scales with the bar** (70 % of the height, 6 to 28) and shrinks when the text does not fit the width; outline for readability. Settings under Classes > Hunter > Pet controller.
 - Since 0.68.1: Pet experience bar: **hunters** only, hidden once the pet has reached **your level**, **width** (120–600) and **height** (10–40) adjustable, checkbox **"Visible in combat"**. The settings are now in the **Classes > Hunter > Pet controller** tab (Freewood-Class 0.5.0); without the Class module still under Settings > Interface.
 - Since 0.68.0: Small **experience bar for the hunter pet** (`UI/PetXP.lua`): name, level, experience and percent without opening the pet window. Default position centre of the screen, move with **Shift + left mouse button** (drag), position per character. On/off and "Back to the centre" under Settings > Interface, `/fwpetxp` toggles, `/fwpetxp reset` resets. Hidden without a pet. New file: **restart the game completely**. Not verified in game.

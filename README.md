@@ -1,6 +1,6 @@
 # Freewood Core
 
-**English · Deutsch** — Author: Lacustat · Version 0.68.2 · Interface 16001 (World of Warcraft: Forever)
+**English · Deutsch** — Author: Lacustat · Version 0.69.0 · Interface 16001 (World of Warcraft: Forever)
 
 ## Contents · Inhalt
 - [English](#english)
@@ -98,6 +98,7 @@ Rules that answer or react for you:
 - `/fwnotes` – notepad · `/fwwatch` – watch window · `/fwchat` – chat window · `/fwroll` – roll window
 - `/fwgear` – equipment by event, `/fwgear fish` toggles fishing
 - `/fwerfolge` – achievements · `/fwpetxp` – pet experience bar on/off (`/fwpetxp reset` = centre)
+- `/fwnet` – state of the Freewood network (hidden channel, who is online; switch: settings, "Exchange data with other Freewood players")
 - Key bindings (Key Bindings > Freewood): Freewood window, channels, overview, exchange, settings, notepad, character view, fishing on/off.
 
 ### Installation and notes
@@ -175,6 +176,7 @@ Regeln, die für dich antworten oder reagieren:
 - `/fwnotiz` oder `/fwnotes` – Notizblock · `/fwbeobachten` oder `/fwwatch` – Beobachten-Fenster · `/fwchat` – Chatfenster · `/fwroll` – Würfelfenster
 - `/fwgear` – Ausrüstung nach Ereignis, `/fwgear angeln` schaltet Angeln um
 - `/fwerfolge` – Erfolge · `/fwpetxp` – Begleiter-Erfahrungsbalken an/aus (`/fwpetxp reset` = Mitte)
+- `/fwnet` – Stand des Freewood-Netzes (verborgener Kanal, wer ist online; Schalter: Einstellungen, „Daten mit anderen Freewood-Spielern tauschen“)
 - Tastenbelegung (Tastaturbelegung > Freewood): Freewood-Fenster, Kanäle, Übersicht, Austausch, Einstellungen, Notizblock, Charakteransicht, Angeln an/aus.
 
 ### Installation und Hinweise

@@ -1,9 +1,12 @@
 -- Freewood-Core: Codex-Daten per Fluestern an den Entwickler senden (unsichtbar, Standard an, Einstellung "Daten an den Entwickler senden").
--- Auslastungstest: es wird der GANZE eigene Codex-Stand gesendet (alle teilbaren Datensaetze, nur was der Codex ohnehin teilt:
--- keine Gildendaten, kein Gold, keine Taschen, keine Post, kein Chat, keine Namen anderer Spieler), danach alle 24 Stunden wieder.
+-- Gesendet wird nur, was der Codex ohnehin teilt (keine Gildendaten, kein Gold, keine Taschen, keine Post, kein Chat, keine Namen
+-- anderer Spieler). Empfaenger sind die Admin-Charaktere (FW.Net.ADMINS); bei ihnen landet alles im Posteingang (FreewoodInboxDB).
+-- Seit Core 0.69.0: nur NEUE Datensaetze seit der letzten bestaetigten Sendung (Delta), einmal je Woche der ganze Stand.
+-- Vorrang: steht ein Admin in der Liste des verborgenen Kanals (Net.lua), geht die Sendung an ihn (erster in der Reihenfolge);
+-- kommt ein Admin neu online, startet nach 1 bis 10 Minuten ein Delta-Lauf. Ohne gueltige Liste: Hallo an einen nach dem anderen.
 -- Ablauf: Hallo (H) -> Antwort "bereit" (A) -> Datenstuecke (P) mit Quittung (K) je Stueck. Stopp (S) vom Empfaenger pausiert 24 Stunden.
 -- Ist ein Empfaenger offline, wird die Systemzeile ausgeblendet (siehe Whisper.lua) und der naechste Empfaenger versucht.
--- Zustand: FreewoodDB.whisperSend = { pos, nextRun, stopUntil, offline = { [name] = bis } }.
+-- Zustand: FreewoodDB.whisperSend = { pos, nextRun, stopUntil, sentUpd, runSince, lastFull, offline = { [name] = bis } }.
 
 local ADDON, FW = ...
 
@@ -21,7 +24,9 @@ local ACK_TIMEOUT = 30       -- Sekunden bis eine Quittung als verloren gilt
 local RETRIES = 3
 local OFFLINE_PAUSE = 600    -- Sekunden, so lange gilt ein Empfaenger als offline
 local STOP_PAUSE = 86400     -- Sekunden Pause nach "Stopp"
-local RERUN = 86400          -- Sekunden bis zum naechsten kompletten Lauf
+local RERUN = 86400          -- Sekunden bis zum naechsten Lauf (Delta)
+local FULL_EVERY = 7 * 86400 -- Sekunden bis zum naechsten kompletten Lauf
+local KICK_MIN, KICK_SPAN = 60, 540   -- Wartezeit, wenn ein Admin online kommt (1 bis 10 Minuten)
 local START_DELAY_MIN, START_DELAY_SPAN = 60, 120
 
 local function Now() return G.time and G.time() or 0 end
@@ -44,6 +49,14 @@ end
 
 local function PickTarget(st)
     local now = Now()
+    local Net = FW.Net
+    if Net and Net.Known and Net.Known() then
+        -- Liste vorhanden: nur Admins, die laut Liste online sind
+        for _, name in ipairs(Net.OnlineAdmins()) do
+            if not SelfIs(name) and (st.offline[name:lower()] or 0) <= now then return name end
+        end
+        return nil
+    end
     for _, name in ipairs(W.TARGETS) do
         if not SelfIs(name) and (st.offline[name:lower()] or 0) <= now then return name end
     end
@@ -52,17 +65,25 @@ end
 
 local function Codex() return FW.Codex end
 
-local function RecordKeys()
+-- Schluessel aller Datensaetze mit Stand > since (0 = alle), sortiert; dazu der hoechste Stand
+local function RecordKeys(since)
     local c = Codex()
     local share = c and c.Share
     if not (share and share.Scan and share.OwnRecord) then return nil end
     local ok, list = pcall(share.Scan, true)
     if not ok or type(list) ~= "table" then return nil end
-    local keys = {}
-    for _, e in ipairs(list) do if e.key then keys[#keys + 1] = e.key end end
+    local keys, maxUpd = {}, since or 0
+    for _, e in ipairs(list) do
+        local upd = tonumber(e.upd) or 0
+        if e.key and upd > (since or 0) then
+            keys[#keys + 1] = e.key
+            if upd > maxUpd then maxUpd = upd end
+        end
+    end
     table.sort(keys)
-    return keys
+    return keys, maxUpd
 end
+S.RecordKeys = RecordKeys
 
 local function BuildPacket(keys, from)
     local share = Codex().Share
@@ -145,6 +166,9 @@ local function SendNextPacket(r)
             st.pos = 0
             st.nextRun = Now() + RERUN
             st.lastDone = Now()
+            st.sentUpd = math.max(st.sentUpd or 0, r.maxUpd or 0)
+            st.runSince = nil
+            if r.full then st.lastFull = Now() end
             run = nil
             FW:Fire("WHISPER_SEND_DONE")
             return
@@ -175,9 +199,17 @@ function Step()
     local target = PickTarget(st)
     if not target then return Later(OFFLINE_PAUSE) end
     if not run then
-        local keys = RecordKeys()
-        if not keys or #keys == 0 then st.nextRun = now + 3600; return Later(3600) end
-        run = { keys = keys, i = math.min((st.pos or 0) + 1, #keys), id = 0 }
+        -- Delta seit der letzten bestaetigten Sendung; einmal je Woche alles. Ein unterbrochener Lauf setzt mit derselben Grenze fort.
+        local since = st.runSince
+        if since == nil then
+            since = st.sentUpd or 0
+            if now - (st.lastFull or 0) >= FULL_EVERY then since = 0 end
+            st.pos = 0
+        end
+        local keys, maxUpd = RecordKeys(since)
+        if not keys or #keys == 0 then st.nextRun = now + 3600; st.runSince = nil; st.pos = 0; return Later(3600) end
+        st.runSince = since
+        run = { keys = keys, i = math.min((st.pos or 0) + 1, #keys), id = 0, maxUpd = maxUpd, full = since == 0 }
     end
     if run.target ~= target then run.target = target; run.active = false end
     if not run.active then
@@ -198,6 +230,9 @@ function Step()
     SendNextPacket(run)
     Later(15)
 end
+
+-- Sofort pruefen (z. B. nach neuen Daten oder fuer Tests)
+function S.Kick() Step() end
 
 -- Antworten des Empfaengers
 FW:On("WHISPER_DATA", function(sender, kind, body)
@@ -236,10 +271,27 @@ FW:On("WHISPER_OFFLINE", function(nameLower)
     if G.C_Timer then G.C_Timer.After(1, Step) end
 end)
 
+-- Ein Admin ist online gekommen (Liste des verborgenen Kanals): Offline-Pause vergessen, nach 1 bis 10 Minuten Delta senden
+local kickGen = 0
+FW:On("NET_ADMIN_ONLINE", function(name)
+    local st = St()
+    if not st or type(name) ~= "string" or SelfIs(name) then return end
+    st.offline[name:lower()] = nil
+    if not W.Enabled() or not (G.C_Timer and G.C_Timer.After) then return end
+    kickGen = kickGen + 1
+    local my = kickGen
+    G.C_Timer.After(KICK_MIN + math.random() * KICK_SPAN, function()
+        if my ~= kickGen then return end
+        if not run and (st.nextRun or 0) > Now() then st.nextRun = 0 end
+        Step()
+    end)
+end)
+
 function S.Status()
     local st = St() or {}
     return { pos = st.pos or 0, total = run and #run.keys or 0, stopUntil = st.stopUntil or 0, nextRun = st.nextRun or 0,
-        lastDone = st.lastDone or 0, target = run and run.target, running = run ~= nil }
+        lastDone = st.lastDone or 0, target = run and run.target, running = run ~= nil, sentUpd = st.sentUpd or 0,
+        lastFull = st.lastFull or 0, full = run and run.full or false }
 end
 
 -- nach dem Anmelden mit Verzoegerung starten

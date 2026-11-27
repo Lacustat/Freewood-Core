@@ -19,7 +19,7 @@ local MAX_LOG = 100
 local MAX_LEN = 240
 
 W.PREFIX = PREFIX
-W.TARGETS = { "Pinky Freewood", "Dr Freewood" }   -- Empfaenger in dieser Reihenfolge
+W.TARGETS = { "Pinky Freewood", "Dr Freewood" }   -- Empfaenger in dieser Reihenfolge (Net.lua ersetzt sie durch die Admin-Liste)
 W.TEST_TARGET = "Dr Freewood"
 W.last = nil   -- letzte Sendung { name = klein, t = GetTime }
 

@@ -85,11 +85,25 @@ local firstPackets = st.packets
 FW.db.whisperSend.nextRun = 0
 Run(400)
 eq(Inbox.Stats().packets, firstPackets, "Wiederholung speichert nichts doppelt")
+eq(FW.db.whisperSend.sentUpd, 15, "bestaetigter Stand gemerkt")
+eq(FW.db.whisperSend.lastFull > 1000000, true, "erster Lauf war komplett")
+-- Delta: nur der neue Datensatz geht raus
+keys[#keys + 1] = { key = "r16", upd = 16 }
+local k1, m1 = FW.WhisperSend.RecordKeys(15)
+eq(#k1, 1, "Delta enthaelt nur den neuen Datensatz")
+eq(m1, 16, "hoechster Stand im Delta")
+FW.db.whisperSend.nextRun = 0
+FW.WhisperSend.Kick()
+Run(400)
+eq(Inbox.Stats().packets, firstPackets + 1, "Delta: genau ein neues Paket")
+eq(FW.db.whisperSend.sentUpd, 16, "Stand nach Delta")
 
 -- Stopp: Senke antwortet S, Sender pausiert
 Inbox.SetStopped(true)
 FW.db.whisperSend.nextRun = 0
 FW.db.whisperSend.pos = 0
+FW.db.whisperSend.sentUpd = nil
+FW.db.whisperSend.lastFull = nil
 local before = Inbox.Stats().packets
 Run(3700)
 eq(Inbox.Stats().packets, before, "waehrend Stopp nichts gespeichert")
